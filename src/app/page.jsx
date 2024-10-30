@@ -1,5 +1,5 @@
-// src/app/page.js
-import Layout from "../components/Layout";
+import React from 'react'; // Add this line
+import Layout from "../components/Layout.jsx";
 
 export default function HomePage() {
   return (
