@@ -1,6 +1,10 @@
-// src/pages/leaderBoards.js
-const leaderboard = () => {
-  return <h1>leaderboard</h1>;
-};
+import React from "react";
+import Layout from "/src/components/Layout.jsx";
 
-export default leaderboard;
+export default function leaderBoard() {
+  return (
+    <Layout>
+      <p className="mt-4">This is the about leaderBoard awooga</p>
+    </Layout>
+  );
+}

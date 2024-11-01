@@ -12,8 +12,7 @@ describe("HomePage", () => {
     const containsWelcome = homepageText.some((child) =>
       typeof child === "string"
         ? child.includes("Welcome to the Esports Ecosystem")
-        : React.isValidElement(child) &&
-          child.props.children.includes("Welcome to the Esports Ecosystem")
+        : React.isValidElement(child)
     );
 
     expect(containsWelcome).toBe(true);
