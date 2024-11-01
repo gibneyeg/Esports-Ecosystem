@@ -7,7 +7,7 @@ export default function Header() {
     <header className="bg-black">
       <nav className="flex justify-between items-center px-4 lg:px-6 py-2.5">
         <Link href="/" className={`flex items-center ${styles.logo}`}>
-          <img src={logo.src} className="h-6 sm:h-9" alt="Flowbite Logo" />
+          <img src={logo.src} className="h-6 sm:h-9" alt="Fake Logo" />
         </Link>
 
         <div className="flex-grow flex justify-center">
@@ -22,7 +22,7 @@ export default function Header() {
             </li>
             <li>
               <Link
-                href="/about"
+                href="/About"
                 className="block py-2 text-gray-400 hover:text-white"
               >
                 Company
@@ -33,7 +33,7 @@ export default function Header() {
                 href="/leaderBoard"
                 className="block py-2 text-gray-400 hover:text-white"
               >
-                leaderBoard
+                LeaderBoard
               </Link>
             </li>
 
@@ -47,7 +47,7 @@ export default function Header() {
             </li>
             <li>
               <Link
-                href="/contactUs"
+                href="/Contact"
                 className="block py-2 text-gray-400 hover:text-white"
               >
                 Contact Us
