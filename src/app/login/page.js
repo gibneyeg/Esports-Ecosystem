@@ -2,14 +2,33 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
-export default function LoginPage() {
+const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  // Expanded fake user database with usernames
+  const USERS = [
+    {
+      email: "user@example.com",
+      password: "password123",
+      username: "WarriorGamer",
+      avatar: "/fakeAvatar.png",
+      rank: "Gold",
+      points: 1250,
+    },
+    {
+      email: "test@test.com",
+      password: "test123",
+      username: "ProPlayer123",
+      avatar: "/fakeAvatar.png",
+      rank: "Silver",
+      points: 850,
+    },
+  ];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,39 +36,40 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
-      });
+      // Simulate API call delay
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const data = await response.json();
+      // Check credentials against fake database
+      const user = USERS.find((u) => u.email === email);
 
-      if (!response.ok) {
-        throw new Error(data.error || "Login failed");
+      if (!user) {
+        setError("No account found with this email");
+        setLoading(false);
+        return;
       }
 
-      // Store user data in localStorage
+      if (user.password !== password) {
+        setError("Incorrect password");
+        setLoading(false);
+        return;
+      }
+
+      // Store more user information
       localStorage.setItem(
         "user",
         JSON.stringify({
-          username: data.username,
-          email: data.email,
-          rank: data.rank,
-          points: data.points,
+          email: user.email,
+          username: user.username,
+          rank: user.rank,
+          points: user.points,
+          avatar: user.avatar,
         })
       );
 
-      // Redirect to home page
       router.push("/");
-      window.location.reload(); // Refresh to update header state
+      window.location.reload();
     } catch (err) {
-      setError(err.message);
+      setError("An error occurred. Please try again.");
     }
 
     setLoading(false);
@@ -97,32 +117,6 @@ export default function LoginPage() {
             />
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                name="remember-me"
-                type="checkbox"
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label
-                htmlFor="remember-me"
-                className="ml-2 block text-sm text-gray-700"
-              >
-                Remember me
-              </label>
-            </div>
-
-            <div className="text-sm">
-              <Link
-                href="/forgot-password"
-                className="text-blue-600 hover:underline"
-              >
-                Forgot password?
-              </Link>
-            </div>
-          </div>
-
           <button
             type="submit"
             disabled={loading}
@@ -131,14 +125,9 @@ export default function LoginPage() {
             {loading ? "Logging in..." : "Log In"}
           </button>
         </form>
-
-        <p className="mt-4 text-center text-sm text-gray-600">
-          Don't have an account?{" "}
-          <Link href="/signup" className="text-blue-500 hover:underline">
-            Sign up
-          </Link>
-        </p>
       </div>
     </main>
   );
-}
+};
+
+export default LoginPage;
