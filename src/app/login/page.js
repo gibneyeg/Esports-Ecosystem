@@ -2,50 +2,21 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-<<<<<<< HEAD
 import Link from "next/link";
 
 export default function LoginPage() {
-=======
-
-const LoginPage = () => {
->>>>>>> d2414ec (Login page with fake users to log in as)
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-<<<<<<< HEAD
-=======
-  // Expanded fake user database with usernames
-  const USERS = [
-    {
-      email: "user@example.com",
-      password: "password123",
-      username: "WarriorGamer",
-      avatar: "/fakeAvatar.png",
-      rank: "Gold",
-      points: 1250,
-    },
-    {
-      email: "test@test.com",
-      password: "test123",
-      username: "ProPlayer123",
-      avatar: "/fakeAvatar.png",
-      rank: "Silver",
-      points: 850,
-    },
-  ];
-
->>>>>>> d2414ec (Login page with fake users to log in as)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-<<<<<<< HEAD
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -79,42 +50,6 @@ const LoginPage = () => {
       window.location.reload(); // Refresh to update header state
     } catch (err) {
       setError(err.message);
-=======
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Check credentials against fake database
-      const user = USERS.find((u) => u.email === email);
-
-      if (!user) {
-        setError("No account found with this email");
-        setLoading(false);
-        return;
-      }
-
-      if (user.password !== password) {
-        setError("Incorrect password");
-        setLoading(false);
-        return;
-      }
-
-      // Store more user information
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          email: user.email,
-          username: user.username,
-          rank: user.rank,
-          points: user.points,
-          avatar: user.avatar,
-        })
-      );
-
-      router.push("/");
-      window.location.reload();
-    } catch (err) {
-      setError("An error occurred. Please try again.");
->>>>>>> d2414ec (Login page with fake users to log in as)
     }
 
     setLoading(false);
@@ -162,7 +97,6 @@ const LoginPage = () => {
             />
           </div>
 
-<<<<<<< HEAD
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <input
@@ -189,8 +123,6 @@ const LoginPage = () => {
             </div>
           </div>
 
-=======
->>>>>>> d2414ec (Login page with fake users to log in as)
           <button
             type="submit"
             disabled={loading}
@@ -199,7 +131,6 @@ const LoginPage = () => {
             {loading ? "Logging in..." : "Log In"}
           </button>
         </form>
-<<<<<<< HEAD
 
         <p className="mt-4 text-center text-sm text-gray-600">
           Don't have an account?{" "}
@@ -211,11 +142,3 @@ const LoginPage = () => {
     </main>
   );
 }
-=======
-      </div>
-    </main>
-  );
-};
-
-export default LoginPage;
->>>>>>> d2414ec (Login page with fake users to log in as)
