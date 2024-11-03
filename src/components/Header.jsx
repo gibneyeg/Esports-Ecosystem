@@ -1,9 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-'use client';
-
-import { useState, useEffect } from 'react';
 import Link from "next/link";
 import logo from "../Img/fakeLogo1.jpeg";
 import styles from "./styles/Header.module.css";
@@ -54,7 +51,6 @@ export default function Header() {
         <Link href="/" className={`flex items-center ${styles.logo}`}>
           <img src={logo.src} className="h-6 sm:h-9" alt="Fake Logo" />
         </Link>
-        
         
         <div className="flex-grow flex justify-center">
           <ul className="flex space-x-8">
