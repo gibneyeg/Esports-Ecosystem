@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -22,10 +24,7 @@ export default function LoginPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
+        body: JSON.stringify(formData),
       });
 
       const data = await response.json();
@@ -34,7 +33,7 @@ export default function LoginPage() {
         throw new Error(data.error || "Login failed");
       }
 
-      // Store user data in localStorage
+      // Only store user data and redirect if login was successful
       localStorage.setItem(
         "user",
         JSON.stringify({
@@ -45,14 +44,21 @@ export default function LoginPage() {
         })
       );
 
-      // Redirect to home page
+      // Use router.push instead of window.location.reload
       router.push("/");
-      window.location.reload(); // Refresh to update header state
     } catch (err) {
       setError(err.message);
+      setLoading(false); // Only set loading false if there's an error
+      return; // Return early if there's an error
     }
+  };
 
-    setLoading(false);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   return (
@@ -75,11 +81,13 @@ export default function LoginPage() {
             </label>
             <input
               type="email"
+              name="email"
               required
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={formData.email}
+              onChange={handleChange}
               placeholder="Enter your email"
+              disabled={loading}
             />
           </div>
 
@@ -89,11 +97,13 @@ export default function LoginPage() {
             </label>
             <input
               type="password"
+              name="password"
               required
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={formData.password}
+              onChange={handleChange}
               placeholder="Enter your password"
+              disabled={loading}
             />
           </div>
 
@@ -104,6 +114,7 @@ export default function LoginPage() {
                 name="remember-me"
                 type="checkbox"
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                disabled={loading}
               />
               <label
                 htmlFor="remember-me"
@@ -113,14 +124,12 @@ export default function LoginPage() {
               </label>
             </div>
 
-            <div className="text-sm">
-              <Link
-                href="/forgot-password"
-                className="text-blue-600 hover:underline"
-              >
-                Forgot password?
-              </Link>
-            </div>
+            <Link
+              href="/forgot-password"
+              className="text-sm text-blue-600 hover:underline"
+            >
+              Forgot password?
+            </Link>
           </div>
 
           <button
@@ -128,7 +137,14 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? "Logging in..." : "Log In"}
+            {loading ? (
+              <div className="flex items-center justify-center">
+                <div className="w-5 h-5 border-t-2 border-b-2 border-white rounded-full animate-spin mr-2"></div>
+                Logging in...
+              </div>
+            ) : (
+              "Log In"
+            )}
           </button>
         </form>
 
