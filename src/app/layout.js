@@ -1,17 +1,12 @@
-import "./globals.css";
-
-export const metadata = {
-  title: "WarriorTournaments",
-  description: "A brief description of your website.",
-};
+import { AuthProvider } from '../components/providers/auth-provider'
+import './globals.css'
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <head>
-        <link rel="icon" href="/favicon.ico" />
-      </head>
-      <body>{children}</body>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
-  );
+  )
 }

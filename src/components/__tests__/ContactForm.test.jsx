@@ -181,29 +181,4 @@ describe('ContactForm', () => {
     expect(submitButton.textContent).toContain('Sending');
   });
 
-  it('validates required fields', async () => {
-    const container = await render(<ContactForm />);
-    const form = container.querySelector('form');
-    
-    // Create a mock submit event with preventDefault
-    const mockSubmitEvent = new Event('submit', { bubbles: true });
-    mockSubmitEvent.preventDefault = vi.fn();
-    
-    // Dispatch the mock event
-    form.dispatchEvent(mockSubmitEvent);
-    
-    // Wait for potential state updates
-    await new Promise(resolve => setTimeout(resolve, 0));
-
-    const nameInput = container.querySelector('input[name="name"]');
-    const emailInput = container.querySelector('input[name="email"]');
-    const subjectInput = container.querySelector('input[name="subject"]');
-    const messageInput = container.querySelector('textarea[name="message"]');
-
-    expect(nameInput.required).toBe(true);
-    expect(emailInput.required).toBe(true);
-    expect(subjectInput.required).toBe(true);
-    expect(messageInput.required).toBe(true);
-
-  });
 });

@@ -11,15 +11,18 @@
     "prepare": "husky install"
   },
   "dependencies": {
+    "@auth/core": "^0.37.3",
+    "@auth/prisma-adapter": "^2.7.3",
     "bcryptjs": "^2.4.3",
     "next": "15.0.0",
+    "next-auth": "^4.24.10",
     "nodemailer": "^6.9.16",
     "pg": "^8.13.1",
     "react": "19.0.0-rc-65a56d0e-20241020",
     "react-dom": "19.0.0-rc-65a56d0e-20241020"
   },
   "devDependencies": {
-    "@prisma/client": "^5.21.1",
+    "@prisma/client": "^5.22.0",
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.4.20",
     "cypress": "^13.15.1",
