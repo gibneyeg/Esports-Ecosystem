@@ -27,8 +27,6 @@ export default function Header() {
 
   const isLoading = status === "loading";
 
-  console.log("Session:", session); // Add this to debug session data
-
   return (
     <header className="bg-black">
       <nav className="flex justify-between items-center px-4 lg:px-6 py-2.5 h-16">

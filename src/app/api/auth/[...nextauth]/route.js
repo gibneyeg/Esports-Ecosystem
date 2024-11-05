@@ -1,9 +1,9 @@
-import NextAuth from "next-auth"
-import GoogleProvider from "next-auth/providers/google"
-import CredentialsProvider from "next-auth/providers/credentials"
-import { PrismaAdapter } from "@auth/prisma-adapter"
-import prisma from "../../../../lib/prisma"
-import bcrypt from "bcryptjs"
+import NextAuth from "next-auth";
+import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import prisma from "../../../../lib/prisma";
+import bcrypt from "bcryptjs";
 
 const handler = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -13,15 +13,15 @@ const handler = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       authorization: {
         params: {
-          prompt: "select_account"
-        }
-      }
+          prompt: "select_account",
+        },
+      },
     }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         try {
@@ -31,8 +31,8 @@ const handler = NextAuth({
 
           const user = await prisma.user.findUnique({
             where: {
-              email: credentials.email
-            }
+              email: credentials.email,
+            },
           });
 
           if (!user || !user.password) {
@@ -56,20 +56,20 @@ const handler = NextAuth({
         } catch (error) {
           throw new Error(error.message);
         }
-      }
-    })
+      },
+    }),
   ],
   pages: {
-    signIn: '/login',
-    error: '/login',
+    signIn: "/login",
+    error: "/login",
   },
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ account, profile }) {
       if (account.provider === "google") {
         try {
           // Check if user exists
           const existingUser = await prisma.user.findUnique({
-            where: { email: profile.email }
+            where: { email: profile.email },
           });
 
           if (!existingUser) {
@@ -80,8 +80,8 @@ const handler = NextAuth({
                 name: profile.name,
                 username: profile.name,
                 rank: "Bronze",
-                points: 0
-              }
+                points: 0,
+              },
             });
           }
         } catch (error) {
@@ -91,7 +91,7 @@ const handler = NextAuth({
       }
       return true;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.name = user.name || user.username;
@@ -104,14 +104,14 @@ const handler = NextAuth({
         session.user.id = token.id;
         session.user.name = token.name;
         session.user.email = token.email;
-        
+
         // Fetch additional user data from database
         try {
           const dbUser = await prisma.user.findUnique({
             where: { email: session.user.email },
-            select: { rank: true, points: true, username: true }
+            select: { rank: true, points: true, username: true },
           });
-          
+
           if (dbUser) {
             session.user.rank = dbUser.rank;
             session.user.points = dbUser.points;
@@ -123,16 +123,16 @@ const handler = NextAuth({
       }
       return session;
     },
-    async redirect({ url, baseUrl }) {
+    async redirect({ baseUrl }) {
       // Always redirect to home page after sign in
       return baseUrl;
-    }
+    },
   },
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  debug: process.env.NODE_ENV === 'development',
-})
+  debug: process.env.NODE_ENV === "development",
+});
 
-export { handler as GET, handler as POST }
+export { handler as GET, handler as POST };
