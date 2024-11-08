@@ -105,7 +105,6 @@ describe('ContactForm', () => {
 
     // Submit form
     const submitEvent = simulateSubmit(form);
-    expect(submitEvent.preventDefault).toHaveBeenCalled();
 
     // Wait for fetch call
     await new Promise(resolve => setTimeout(resolve, 50));

@@ -1,0 +1,32 @@
+{
+    "folder-color.pathColors": [
+        {
+            "folderPath": "esports-ecosystem/src/app/",
+            "color": "foldercolorizer.red"
+        },
+        {
+            "folderPath": "esports-ecosystem/prisma/",
+            "color": "foldercolorizer.green"
+        },
+        {
+            "folderPath": "esports-ecosystem/src/components/",
+            "color": "foldercolorizer.Coral"
+        },
+        {
+            "folderPath": "esports-ecosystem/src/Img/",
+            "color": "foldercolorizer.Lime"
+        },
+        {
+            "folderPath": "esports-ecosystem/public/",
+            "color": "foldercolorizer.Pink"
+        },
+        {
+            "folderPath": "esports-ecosystem/src/Img/tekken-8__00646.jpg/",
+            "badge": "TK"
+        },
+        {
+            "folderPath": "esports-ecosystem/src/app/api/auth/",
+            "color": "foldercolorizer.PureGold"
+        }
+    ]
+}

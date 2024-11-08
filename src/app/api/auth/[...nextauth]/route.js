@@ -132,7 +132,6 @@ const handler = NextAuth({
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  debug: process.env.NODE_ENV === "development",
 });
 
 export { handler as GET, handler as POST };
