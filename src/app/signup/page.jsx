@@ -27,7 +27,7 @@ export default function SignUpPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-
+  
     try {
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
@@ -40,30 +40,20 @@ export default function SignUpPage() {
           password: formData.password,
         }),
       });
-
+  
       const data = await response.json();
-
+  
       if (!response.ok) {
         throw new Error(data.error || 'Error creating account');
       }
-
-      // Auto login after signup
-      localStorage.setItem('user', JSON.stringify({
-        username: data.username,
-        email: data.email,
-        rank: data.rank,
-        points: data.points
-      }));
-
-      router.push('/');
-      window.location.reload();
+  
+      router.push('/login'); // Redirect to login page after sign-up
     } catch (err) {
       setError(err.message);
     }
-
+  
     setLoading(false);
   };
-
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-gray-50">
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-6">
