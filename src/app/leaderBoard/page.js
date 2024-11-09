@@ -8,45 +8,55 @@ export default function LeaderBoard() {
 
   const players = [
     {
-      rank: 1,
       username: "NightHawk",
-      points: 2850,
+      points: {
+        CS2: 1450,
+        Valorant: 1400,
+      },
       totalWinnings: "458,000",
       games: ["CS2", "Valorant"],
       tournaments: 24,
       recentPlacement: "1st - Global Masters",
     },
     {
-      rank: 2,
       username: "QuantumAce",
-      points: 2720,
+      points: {
+        Valorant: 1620,
+        CS2: 1100,
+      },
       totalWinnings: "389,000",
       games: ["Valorant", "CS2"],
       tournaments: 28,
       recentPlacement: "2nd - Tactical Ops Finals",
     },
     {
-      rank: 3,
       username: "PhantomKing",
-      points: 2690,
+      points: {
+        "DOTA 2": 1580,
+        "League of Legends": 1110,
+      },
       totalWinnings: "352,000",
       games: ["DOTA 2", "League of Legends"],
       tournaments: 22,
       recentPlacement: "1st - Battle of Ancients",
     },
     {
-      rank: 4,
       username: "StormRider",
-      points: 2540,
+      points: {
+        "League of Legends": 1480,
+        "DOTA 2": 1060,
+      },
       totalWinnings: "298,000",
       games: ["League of Legends", "DOTA 2"],
       tournaments: 26,
       recentPlacement: "3rd - Champions Arena",
     },
     {
-      rank: 5,
       username: "EliteSniper",
-      points: 2480,
+      points: {
+        CS2: 1280,
+        Valorant: 1200,
+      },
       totalWinnings: "275,000",
       games: ["CS2", "Valorant"],
       tournaments: 20,
@@ -56,10 +66,34 @@ export default function LeaderBoard() {
 
   const gameTypes = ["All", "CS2", "Valorant", "DOTA 2", "League of Legends"];
 
-  const filteredPlayers =
-    selectedGame === "All"
-      ? players
-      : players.filter((player) => player.games.includes(selectedGame));
+  const getFilteredAndRankedPlayers = () => {
+    let filteredPlayers =
+      selectedGame === "All"
+        ? players.map((player) => ({
+            ...player,
+            totalPoints: Object.values(player.points).reduce(
+              (a, b) => a + b,
+              0
+            ),
+          }))
+        : players
+            .filter((player) => player.games.includes(selectedGame))
+            .map((player) => ({
+              ...player,
+              totalPoints: player.points[selectedGame] || 0,
+            }));
+
+    // Sort players by points
+    filteredPlayers.sort((a, b) => b.totalPoints - a.totalPoints);
+
+    // Add ranks
+    return filteredPlayers.map((player, index) => ({
+      ...player,
+      rank: index + 1,
+    }));
+  };
+
+  const rankedPlayers = getFilteredAndRankedPlayers();
 
   return (
     <Layout>
@@ -68,7 +102,9 @@ export default function LeaderBoard() {
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold mb-4">Player Rankings</h1>
             <p className="text-gray-600">
-              Top performers ranked by tournament points
+              {selectedGame === "All"
+                ? "Top performers ranked by total tournament points"
+                : `Top performers ranked by ${selectedGame} points`}
             </p>
           </div>
 
@@ -118,9 +154,9 @@ export default function LeaderBoard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredPlayers.map((player) => (
+                  {rankedPlayers.map((player) => (
                     <tr
-                      key={player.rank}
+                      key={player.username}
                       className={`
                         hover:bg-gray-50 transition-colors duration-200
                         ${player.rank === 1 ? "bg-yellow-50" : ""}
@@ -149,14 +185,20 @@ export default function LeaderBoard() {
                         </div>
                       </td>
                       <td className="px-6 py-4 font-medium">
-                        {player.points.toLocaleString()}
+                        {player.totalPoints.toLocaleString()}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex gap-2">
                           {player.games.map((game, index) => (
                             <span
                               key={index}
-                              className="px-2 py-1 bg-gray-100 rounded text-sm"
+                              className={`px-2 py-1 rounded text-sm
+                                ${
+                                  game === selectedGame
+                                    ? "bg-black text-white"
+                                    : "bg-gray-100 text-gray-700"
+                                }
+                              `}
                             >
                               {game}
                             </span>
