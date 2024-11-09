@@ -77,6 +77,10 @@
     {
       "folderPath": "esports-ecosystem/src/app/tournament/",
       "color": "foldercolorizer.LightBlue"
+    },
+    {
+      "folderPath": "esports-ecosystem/src/app/Contact/",
+      "color": "foldercolorizer.LightBlue"
     }
   ]
 }
