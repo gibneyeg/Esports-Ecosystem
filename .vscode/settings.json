@@ -27,6 +27,34 @@
         {
             "folderPath": "esports-ecosystem/src/app/api/auth/",
             "color": "foldercolorizer.PureGold"
+        },
+        {
+            "folderPath": "esports-ecosystem/src/app/api/contact/",
+            "color": "foldercolorizer.PureGold"
+        },
+        {
+            "folderPath": "esports-ecosystem/src/app/About/",
+            "color": "foldercolorizer.LightBlue"
+        },
+        {
+            "folderPath": "esports-ecosystem/src/app/leaderBoard/",
+            "color": "foldercolorizer.LightBlue"
+        },
+        {
+            "folderPath": "esports-ecosystem/src/app/login/",
+            "color": "foldercolorizer.LightBlue"
+        },
+        {
+            "folderPath": "esports-ecosystem/src/app/profile/",
+            "color": "foldercolorizer.LightBlue"
+        },
+        {
+            "folderPath": "esports-ecosystem/src/app/signup/",
+            "color": "foldercolorizer.LightBlue"
+        },
+        {
+            "folderPath": "esports-ecosystem/src/app/tournament/",
+            "color": "foldercolorizer.LightBlue"
         }
     ]
 }

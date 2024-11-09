@@ -1,6 +1,6 @@
 import React from 'react';
 import Layout from "../components/Layout.jsx";
-import logo from "../Img/gamers.jpeg"; // Adjust path as needed
+import logo from "/img/gamers.jpeg"; 
 
 export default function HomePage() {
   return (
@@ -9,7 +9,7 @@ export default function HomePage() {
         className="h-[80vh] w-screen bg-fixed bg-cover bg-center"
         style={{
           backgroundImage: `url(${logo.src})`,
-          margin: 0, // Ensure no margins
+          margin: 0, 
         }}
       >
         <div className="bg-black bg-opacity-50 flex items-center justify-center h-full">
@@ -20,7 +20,6 @@ export default function HomePage() {
         </div>
       </div>
       <div className="py-10">
-        {/* Additional content below the image */}
         <p className="text-center text-lg">Here is some additional content below the image.</p>
       </div>
     </Layout>
