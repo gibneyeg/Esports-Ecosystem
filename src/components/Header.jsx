@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import logo from "../Img/fakeLogo1.jpeg";
@@ -12,17 +12,17 @@ export default function Header() {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (showProfileMenu && !event.target.closest('.profile-menu-container')) {
+      if (showProfileMenu && !event.target.closest(".profile-menu-container")) {
         setShowProfileMenu(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showProfileMenu]);
 
   const handleLogout = async () => {
-    await signOut({ redirect: true, callbackUrl: '/' });
+    await signOut({ redirect: true, callbackUrl: "/" });
   };
 
   const isLoading = status === "loading";
@@ -33,32 +33,39 @@ export default function Header() {
         <Link href="/" className={`flex items-center ${styles.logo}`}>
           <img src={logo.src} className="h-6 sm:h-9" alt="Fake Logo" />
         </Link>
-        
-        <div className="flex-grow flex justify-center">
+
+        <div className="flex-grow flex justify-center pl-20">
           <ul className="flex space-x-8">
             <li>
-              <Link href="/" className="block py-2 text-gray-400 hover:text-white text-base">
+              <Link
+                href="/"
+                className="block py-2 text-gray-400 hover:text-white text-base"
+              >
                 Home
               </Link>
             </li>
             <li>
-              <Link href="/About" className="block py-2 text-gray-400 hover:text-white text-base">
+              <Link
+                href="/About"
+                className="block py-2 text-gray-400 hover:text-white text-base"
+              >
                 Company
               </Link>
             </li>
             <li>
-              <Link href="/leaderBoard" className="block py-2 text-gray-400 hover:text-white text-base">
+              <Link
+                href="/leaderBoard"
+                className="block py-2 text-gray-400 hover:text-white text-base"
+              >
                 LeaderBoard
               </Link>
             </li>
             <li>
-              <Link href="/tournament" className="block py-2 text-gray-400 hover:text-white text-base">
-                tournaments
-              </Link>
-            </li>
-            <li>
-              <Link href="/Contact" className="block py-2 text-gray-400 hover:text-white text-base">
-                Contact Us
+              <Link
+                href="/tournament"
+                className="block py-2 text-gray-400 hover:text-white text-base"
+              >
+                Tournaments
               </Link>
             </li>
           </ul>
@@ -79,14 +86,15 @@ export default function Header() {
                     className="flex items-center gap-2 text-white hover:bg-gray-800 px-3 py-2 rounded-lg transition-colors h-10"
                   >
                     <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-white">
-                      {session.user.name?.charAt(0).toUpperCase() || session.user.email?.charAt(0).toUpperCase()}
+                      {session.user.name?.charAt(0).toUpperCase() ||
+                        session.user.email?.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex flex-col items-start">
                       <span className="text-sm font-medium text-white">
                         {session.user.name || session.user.email}
                       </span>
                       <span className="text-xs text-gray-400">
-                        {session.user.rank || 'Bronze'}
+                        {session.user.rank || "Bronze"}
                       </span>
                     </div>
                   </button>
@@ -97,11 +105,17 @@ export default function Header() {
                         <p className="text-sm font-medium text-gray-900">
                           {session.user.name || session.user.email}
                         </p>
-                        <p className="text-xs text-gray-500">{session.user.email}</p>
+                        <p className="text-xs text-gray-500">
+                          {session.user.email}
+                        </p>
                       </div>
                       <div className="px-4 py-2 border-b">
-                        <p className="text-xs text-gray-500">Rank: {session.user.rank || 'Bronze'}</p>
-                        <p className="text-xs text-gray-500">Points: {session.user.points || 0}</p>
+                        <p className="text-xs text-gray-500">
+                          Rank: {session.user.rank || "Bronze"}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Points: {session.user.points || 0}
+                        </p>
                       </div>
                       <button
                         onClick={handleLogout}
@@ -116,13 +130,13 @@ export default function Header() {
                 <>
                   <Link
                     href="/login"
-                    className="text-white hover:bg-gray-50 focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 h-10 flex items-center"
+                    className="text-white hover:text-gray-900 hover:bg-white focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 h-10 flex items-center transition-colors duration-200"
                   >
                     Log in
                   </Link>
                   <Link
                     href="/signup"
-                    className="text-white bg-primary-700 hover:bg-primary-800 focus:ring-4 focus:ring-primary-300 font-medium rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 h-10 flex items-center"
+                    className="text-white hover:text-gray-900 hover:bg-white focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 h-10 flex items-center transition-colors duration-200"
                   >
                     Get started
                   </Link>
