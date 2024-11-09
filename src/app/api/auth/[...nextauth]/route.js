@@ -28,26 +28,21 @@ const handler = NextAuth({
           if (!credentials?.email || !credentials?.password) {
             throw new Error("Missing credentials");
           }
-
           const user = await prisma.user.findUnique({
             where: {
               email: credentials.email,
             },
           });
-
           if (!user || !user.password) {
             throw new Error("Invalid credentials");
           }
-
           const isPasswordValid = await bcrypt.compare(
             credentials.password,
             user.password
           );
-
           if (!isPasswordValid) {
             throw new Error("Invalid credentials");
           }
-
           return {
             id: user.id,
             email: user.email,
@@ -65,15 +60,33 @@ const handler = NextAuth({
   },
   callbacks: {
     async signIn({ account, profile }) {
-      if (account.provider === "google") {
-        try {
-          // Check if user exists
+      try {
+        if (account.provider === "google") {
           const existingUser = await prisma.user.findUnique({
             where: { email: profile.email },
+            include: { accounts: true },
           });
 
-          if (!existingUser) {
-            // Create new user if doesn't exist
+          if (existingUser) {
+            if (
+              !existingUser.accounts?.some((acc) => acc.provider === "google")
+            ) {
+              await prisma.account.create({
+                data: {
+                  userId: existingUser.id,
+                  type: account.type,
+                  provider: account.provider,
+                  providerAccountId: account.providerAccountId,
+                  access_token: account.access_token,
+                  expires_at: account.expires_at,
+                  token_type: account.token_type,
+                  scope: account.scope,
+                  id_token: account.id_token,
+                },
+              });
+            }
+            return true;
+          } else {
             await prisma.user.create({
               data: {
                 email: profile.email,
@@ -81,15 +94,29 @@ const handler = NextAuth({
                 username: profile.name,
                 rank: "Bronze",
                 points: 0,
+                emailVerified: new Date(),
+                accounts: {
+                  create: {
+                    type: account.type,
+                    provider: account.provider,
+                    providerAccountId: account.providerAccountId,
+                    access_token: account.access_token,
+                    expires_at: account.expires_at,
+                    token_type: account.token_type,
+                    scope: account.scope,
+                    id_token: account.id_token,
+                  },
+                },
               },
             });
+            return true;
           }
-        } catch (error) {
-          console.error("Error during Google sign in:", error);
-          return false;
         }
+        return true;
+      } catch (error) {
+        console.error("Error in signIn callback:", error);
+        return false;
       }
-      return true;
     },
     async jwt({ token, user }) {
       if (user) {
@@ -104,14 +131,11 @@ const handler = NextAuth({
         session.user.id = token.id;
         session.user.name = token.name;
         session.user.email = token.email;
-
-        // Fetch additional user data from database
         try {
           const dbUser = await prisma.user.findUnique({
             where: { email: session.user.email },
             select: { rank: true, points: true, username: true },
           });
-
           if (dbUser) {
             session.user.rank = dbUser.rank;
             session.user.points = dbUser.points;
@@ -124,7 +148,6 @@ const handler = NextAuth({
       return session;
     },
     async redirect({ baseUrl }) {
-      // Always redirect to home page after sign in
       return baseUrl;
     },
   },

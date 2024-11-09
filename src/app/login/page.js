@@ -38,12 +38,21 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
-      await signIn("google", { 
+      const result = await signIn("google", {
+        redirect: false,
         callbackUrl: "/",
-        redirect: true
       });
+
+      if (result?.error) {
+        console.error("Sign in error:", result.error);
+        setError("Error signing in with Google");
+      } else {
+        router.push("/");
+      }
     } catch (error) {
+      console.error("Error signing in with Google:", error);
       setError("Error signing in with Google");
+    } finally {
       setLoading(false);
     }
   };
@@ -52,7 +61,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center p-24">
       <div className="w-full max-w-xs space-y-4">
         <h1 className="text-2xl font-bold text-center mb-8">Login</h1>
-        
+
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
             {error}
@@ -100,7 +109,9 @@ export default function LoginPage() {
             <div className="w-full border-t border-gray-300" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Or continue with</span>
+            <span className="px-2 bg-white text-gray-500">
+              Or continue with
+            </span>
           </div>
         </div>
 

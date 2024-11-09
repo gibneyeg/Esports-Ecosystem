@@ -1,6 +1,6 @@
 import React from 'react';
 import Layout from "../components/Layout.jsx";
-import logo from "/img/gamers.jpeg"; 
+import logo from "../Img/gamers.jpeg"; 
 
 export default function HomePage() {
   return (
