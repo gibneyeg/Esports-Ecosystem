@@ -5,13 +5,9 @@ import { authOptions } from "../auth/[...nextauth]/route";
 
 export async function POST(req) {
   try {
-    console.log("Starting tournament creation...");
-
     const session = await getServerSession(authOptions);
-    console.log("Full session data:", session);
 
     if (!session?.user?.id) {
-      console.log("No user ID in session:", session);
       // Try to find user by email as fallback
       const user = await prisma.user.findUnique({
         where: { email: session?.user?.email },
@@ -28,7 +24,6 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-    console.log("Request body:", body);
 
     const {
       name,
@@ -72,7 +67,6 @@ export async function POST(req) {
       },
     });
 
-    console.log("Tournament created successfully:", tournament);
     return NextResponse.json(tournament);
   } catch (error) {
     console.error("Tournament creation error details:", {

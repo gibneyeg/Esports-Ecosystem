@@ -1,3 +1,4 @@
+// src/app/api/auth/[...nextauth]/route.js
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -62,14 +63,12 @@ const handler = NextAuth({
     async signIn({ account, profile }) {
       try {
         if (account.provider === "google") {
-          // First try to find an existing user
           const existingUser = await prisma.user.findUnique({
             where: { email: profile.email },
             include: { accounts: true },
           });
 
           if (existingUser) {
-            // Check if Google account needs to be linked
             if (
               !existingUser.accounts?.some((acc) => acc.provider === "google")
             ) {
@@ -88,7 +87,7 @@ const handler = NextAuth({
               });
             }
 
-            // Update user information if needed
+            // Update user information
             await prisma.user.update({
               where: { id: existingUser.id },
               data: {
@@ -100,7 +99,7 @@ const handler = NextAuth({
 
             return true;
           } else {
-            // Create new user with Google account
+            // Create new user
             const newUser = await prisma.user.create({
               data: {
                 email: profile.email,
@@ -125,19 +124,17 @@ const handler = NextAuth({
               },
             });
 
-            console.log("Created new user:", newUser);
             return true;
           }
         }
         return true;
       } catch (error) {
-        console.error("Error in signIn callback:", error);
         return false;
       }
     },
     async jwt({ token, user, account, profile, trigger }) {
-      // Initial sign in
-      if (account && user) {
+      if (trigger === "signIn" && user) {
+        // Get complete user data on sign in
         const dbUser = await prisma.user.findUnique({
           where: { email: user.email },
           select: {
@@ -150,21 +147,37 @@ const handler = NextAuth({
           },
         });
 
-        return {
-          ...token,
-          id: dbUser.id,
-          username: dbUser.username,
-          rank: dbUser.rank,
-          points: dbUser.points,
-        };
+        token.id = dbUser.id;
+        token.username = dbUser.username;
+        token.rank = dbUser.rank;
+        token.points = dbUser.points;
       }
 
-      // Return previous token if the user data hasn't been fetched recently
+      // Handle session update
+      if (trigger === "update") {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email },
+          select: {
+            id: true,
+            rank: true,
+            points: true,
+            username: true,
+          },
+        });
+
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.username = dbUser.username;
+          token.rank = dbUser.rank;
+          token.points = dbUser.points;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
-      if (session?.user && token) {
-        // Get fresh user data
+      if (session?.user) {
+        // Get fresh user data including tournament information
         const dbUser = await prisma.user.findUnique({
           where: { email: session.user.email },
           select: {
@@ -178,11 +191,35 @@ const handler = NextAuth({
                 name: true,
                 game: true,
                 status: true,
+                startDate: true,
+                endDate: true,
+                maxPlayers: true,
+                participants: {
+                  select: {
+                    id: true,
+                    userId: true,
+                  },
+                },
+              },
+              orderBy: {
+                createdAt: "desc",
               },
             },
             tournaments: {
               select: {
-                tournamentId: true,
+                tournament: {
+                  select: {
+                    id: true,
+                    name: true,
+                    game: true,
+                    status: true,
+                    startDate: true,
+                    endDate: true,
+                  },
+                },
+              },
+              orderBy: {
+                joinedAt: "desc",
               },
             },
           },
@@ -190,12 +227,27 @@ const handler = NextAuth({
 
         if (dbUser) {
           session.user.id = dbUser.id;
+          session.user.username = dbUser.username;
           session.user.rank = dbUser.rank;
           session.user.points = dbUser.points;
-          session.user.username = dbUser.username;
-          session.user.createdTournaments = dbUser.createdTournaments;
-          session.user.participatingTournaments = dbUser.tournaments;
+
+          // Add tournament data
+          session.user.createdTournaments = dbUser.createdTournaments.map(
+            (t) => ({
+              ...t,
+              participantCount: t.participants.length,
+            })
+          );
+
+          session.user.participatingTournaments = dbUser.tournaments.map(
+            (t) => t.tournament
+          );
         }
+
+        // Add token data
+        session.user.email = token.email;
+        session.user.name = token.name;
+        session.user.image = token.picture;
       }
       return session;
     },
@@ -203,19 +255,12 @@ const handler = NextAuth({
       return baseUrl;
     },
   },
-  events: {
-    async signIn({ user, account, profile }) {
-      console.log("SignIn event:", { user, account, profile });
-    },
-    async createUser({ user }) {
-      console.log("CreateUser event:", user);
-    },
-  },
+
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  debug: process.env.NODE_ENV === "development",
+  // debug: process.env.NODE_ENV === "development",
 });
 
 export { handler as GET, handler as POST };

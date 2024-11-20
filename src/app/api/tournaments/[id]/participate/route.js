@@ -3,32 +3,32 @@ import { getServerSession } from "next-auth";
 import prisma from "../../../../../lib/prisma";
 import { authOptions } from "../../../auth/[...nextauth]/route";
 
-export async function POST(request, { params }) {
-  const id = params?.id;
-  if (!id) {
-    return NextResponse.json(
-      { message: "Tournament ID is required" },
-      { status: 400 }
-    );
-  }
-
+export async function POST(request, context) {
   try {
+    const resolvedParams = await Promise.resolve(context.params);
+    const tournamentId = resolvedParams.id;
+
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    if (!session?.user?.email) {
       return NextResponse.json(
         { message: "Authentication required" },
         { status: 401 }
       );
     }
 
-    // Check if tournament exists and get participant count
+    // Get user from database
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!user) {
+      return NextResponse.json({ message: "User not found" }, { status: 401 });
+    }
+
+    // Check if tournament exists
     const tournament = await prisma.tournament.findUnique({
-      where: { id },
-      include: {
-        _count: {
-          select: { participants: true },
-        },
-      },
+      where: { id: tournamentId },
+      include: { participants: true },
     });
 
     if (!tournament) {
@@ -38,37 +38,34 @@ export async function POST(request, { params }) {
       );
     }
 
-    // Check if tournament is full
-    if (tournament._count.participants >= tournament.maxPlayers) {
-      return NextResponse.json(
-        { message: "Tournament is full" },
-        { status: 400 }
-      );
-    }
-
     // Check if already participating
-    const existingParticipation = await prisma.tournamentParticipant.findFirst({
+    const existingParticipant = await prisma.tournamentParticipant.findFirst({
       where: {
-        tournamentId: id,
-        userId: session.user.id,
+        tournamentId,
+        userId: user.id,
       },
     });
 
-    if (existingParticipation) {
+    if (existingParticipant) {
       return NextResponse.json(
-        { message: "Already participating in this tournament" },
+        { message: "Already participating in tournament" },
         { status: 400 }
       );
     }
 
-    // Create participation
-    const participant = await prisma.tournamentParticipant.create({
+    // Join tournament
+    await prisma.tournamentParticipant.create({
       data: {
-        tournamentId: id,
-        userId: session.user.id,
+        tournamentId,
+        userId: user.id,
       },
+    });
+
+    // Return updated tournament data
+    const updatedTournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
       include: {
-        user: {
+        createdBy: {
           select: {
             id: true,
             name: true,
@@ -76,62 +73,29 @@ export async function POST(request, { params }) {
             username: true,
           },
         },
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                username: true,
+              },
+            },
+          },
+          orderBy: {
+            joinedAt: "desc",
+          },
+        },
       },
     });
 
-    return NextResponse.json(participant);
+    return NextResponse.json(updatedTournament);
   } catch (error) {
-    console.error("Tournament participation error:", error);
+    console.error("Tournament join error:", error);
     return NextResponse.json(
-      { message: `Failed to join tournament: ${error.message}` },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(request, { params }) {
-  const id = params?.id;
-  if (!id) {
-    return NextResponse.json(
-      { message: "Tournament ID is required" },
-      { status: 400 }
-    );
-  }
-
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { message: "Authentication required" },
-        { status: 401 }
-      );
-    }
-
-    const participant = await prisma.tournamentParticipant.findFirst({
-      where: {
-        tournamentId: id,
-        userId: session.user.id,
-      },
-    });
-
-    if (!participant) {
-      return NextResponse.json(
-        { message: "Not participating in this tournament" },
-        { status: 404 }
-      );
-    }
-
-    await prisma.tournamentParticipant.delete({
-      where: {
-        id: participant.id,
-      },
-    });
-
-    return NextResponse.json({ message: "Successfully left tournament" });
-  } catch (error) {
-    console.error("Tournament leave error:", error);
-    return NextResponse.json(
-      { message: `Failed to leave tournament: ${error.message}` },
+      { message: "Failed to join tournament", error: error.message },
       { status: 500 }
     );
   }
