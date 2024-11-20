@@ -62,12 +62,14 @@ const handler = NextAuth({
     async signIn({ account, profile }) {
       try {
         if (account.provider === "google") {
+          // First try to find an existing user
           const existingUser = await prisma.user.findUnique({
             where: { email: profile.email },
             include: { accounts: true },
           });
 
           if (existingUser) {
+            // Check if Google account needs to be linked
             if (
               !existingUser.accounts?.some((acc) => acc.provider === "google")
             ) {
@@ -85,13 +87,26 @@ const handler = NextAuth({
                 },
               });
             }
+
+            // Update user information if needed
+            await prisma.user.update({
+              where: { id: existingUser.id },
+              data: {
+                name: profile.name,
+                image: profile.picture,
+                emailVerified: new Date(),
+              },
+            });
+
             return true;
           } else {
-            await prisma.user.create({
+            // Create new user with Google account
+            const newUser = await prisma.user.create({
               data: {
                 email: profile.email,
                 name: profile.name,
                 username: profile.name,
+                image: profile.picture,
                 rank: "Bronze",
                 points: 0,
                 emailVerified: new Date(),
@@ -109,6 +124,8 @@ const handler = NextAuth({
                 },
               },
             });
+
+            console.log("Created new user:", newUser);
             return true;
           }
         }
@@ -118,43 +135,91 @@ const handler = NextAuth({
         return false;
       }
     },
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.name = user.name || user.username;
-        token.email = user.email;
+    async jwt({ token, user, account, profile, trigger }) {
+      // Initial sign in
+      if (account && user) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: user.email },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            username: true,
+            rank: true,
+            points: true,
+          },
+        });
+
+        return {
+          ...token,
+          id: dbUser.id,
+          username: dbUser.username,
+          rank: dbUser.rank,
+          points: dbUser.points,
+        };
       }
+
+      // Return previous token if the user data hasn't been fetched recently
       return token;
     },
     async session({ session, token }) {
-      if (session?.user) {
-        session.user.id = token.id;
-        session.user.name = token.name;
-        session.user.email = token.email;
-        try {
-          const dbUser = await prisma.user.findUnique({
-            where: { email: session.user.email },
-            select: { rank: true, points: true, username: true },
-          });
-          if (dbUser) {
-            session.user.rank = dbUser.rank;
-            session.user.points = dbUser.points;
-            session.user.username = dbUser.username;
-          }
-        } catch (error) {
-          console.error("Error fetching user data:", error);
+      if (session?.user && token) {
+        // Get fresh user data
+        const dbUser = await prisma.user.findUnique({
+          where: { email: session.user.email },
+          select: {
+            id: true,
+            rank: true,
+            points: true,
+            username: true,
+            createdTournaments: {
+              select: {
+                id: true,
+                name: true,
+                game: true,
+                status: true,
+              },
+            },
+            tournaments: {
+              select: {
+                tournamentId: true,
+              },
+            },
+          },
+        });
+
+        if (dbUser) {
+          session.user.id = dbUser.id;
+          session.user.rank = dbUser.rank;
+          session.user.points = dbUser.points;
+          session.user.username = dbUser.username;
+          session.user.createdTournaments = dbUser.createdTournaments;
+          session.user.participatingTournaments = dbUser.tournaments;
         }
+
+        // Log session data for debugging
+        console.log("Updated session:", session);
       }
       return session;
     },
-    async redirect({ baseUrl }) {
+    async redirect({ url, baseUrl }) {
       return baseUrl;
+    },
+  },
+  events: {
+    async signIn({ user, account, profile }) {
+      console.log("SignIn event:", { user, account, profile });
+    },
+    async createUser({ user }) {
+      console.log("CreateUser event:", user);
     },
   },
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
+  debug: process.env.NODE_ENV === "development",
 });
 
 export { handler as GET, handler as POST };
+export const authOptions = handler;

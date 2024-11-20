@@ -68,6 +68,16 @@ export default function Header() {
                 Tournaments
               </Link>
             </li>
+            {session?.user && (
+              <li>
+                <Link
+                  href="/tournament/create"
+                  className="block py-2 text-gray-400 hover:text-white text-base"
+                >
+                  Create Tournament
+                </Link>
+              </li>
+            )}
           </ul>
         </div>
 

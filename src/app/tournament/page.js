@@ -1,7 +1,33 @@
-import React from "react";
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import Link from "next/link";
 import Layout from "/src/components/Layout.jsx";
 
 export default function Tournaments() {
+  const { data: session } = useSession();
+  const [createdTournaments, setCreatedTournaments] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTournaments = async () => {
+      try {
+        const response = await fetch("/api/tournaments");
+        if (response.ok) {
+          const data = await response.json();
+          setCreatedTournaments(data);
+        }
+      } catch (error) {
+        console.error("Error fetching tournaments:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTournaments();
+  }, []);
+
   const featuredTournaments = [
     {
       name: "Sparking Zero",
@@ -50,6 +76,13 @@ export default function Tournaments() {
       closingDate: "November 25, 2024",
     },
   ];
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   return (
     <Layout>
@@ -62,8 +95,64 @@ export default function Tournaments() {
           Check out the featured tournaments and those with registration closing
           soon.
         </p>
+        {session?.user && (
+          <Link
+            href="/tournament/create"
+            className="inline-block mt-4 px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+          >
+            Create New Tournament
+          </Link>
+        )}
       </div>
 
+      {/* Active Tournaments Section */}
+      {createdTournaments.length > 0 && (
+        <section className="mt-8 px-4">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+            Active Tournaments
+          </h2>
+          <div className="flex overflow-x-auto space-x-4 py-4">
+            {createdTournaments.map((tournament) => (
+              <div
+                key={tournament.id}
+                className="flex-none bg-white p-4 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 w-64"
+              >
+                <div className="w-full h-40 bg-gray-100 rounded-md mb-4 flex items-center justify-center">
+                  <span className="text-4xl text-gray-400">
+                    {tournament.game[0]}
+                  </span>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800">
+                  {tournament.name}
+                </h3>
+                <p className="text-gray-500 text-sm mt-2">
+                  Starts: {formatDate(tournament.startDate)}
+                </p>
+                <p className="text-gray-600 mt-2 text-sm line-clamp-2">
+                  {tournament.description}
+                </p>
+                <div className="mt-2 text-sm">
+                  <p className="text-gray-500">
+                    Prize Pool: ${tournament.prizePool}
+                  </p>
+                  <p className="text-gray-500">
+                    Players: {tournament.participants?.length || 0}/
+                    {tournament.maxPlayers}
+                  </p>
+                </div>
+                <Link
+                  href={`/tournament/${tournament.id}`}
+                  className="mt-4 px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 text-xs inline-block"
+                >
+                  View Details
+                </Link>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Featured Tournaments Section */}
       <section className="mt-8 px-4">
         <h2 className="text-2xl font-semibold text-gray-800 mb-4">
           Featured Tournaments
@@ -94,7 +183,8 @@ export default function Tournaments() {
         </div>
       </section>
 
-      <section className="mt-8 px-4">
+      {/* Registration Closing Soon Section */}
+      <section className="mt-8 px-4 mb-8">
         <h2 className="text-2xl font-semibold text-gray-800 mb-4">
           Registration Closing Soon
         </h2>

@@ -23,6 +23,8 @@ model User {
   image         String?   // For OAuth provider avatar
   accounts      Account[]
   sessions      Session[]
+    createdTournaments Tournament[] @relation("TournamentCreator")
+  tournaments        TournamentParticipant[]
 }
 
 model Account {
@@ -58,4 +60,39 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model Tournament {
+  id          String      @id @default(uuid())
+  name        String
+  description String
+  startDate   DateTime
+  endDate     DateTime
+  prizePool   Float
+  maxPlayers  Int
+  game        String
+  status      TournamentStatus @default(UPCOMING)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  createdBy   User       @relation("TournamentCreator", fields: [userId], references: [id])
+  userId      String
+  participants TournamentParticipant[]
+}
+
+model TournamentParticipant {
+  id           String     @id @default(uuid())
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId String
+  user         User       @relation(fields: [userId], references: [id])
+  userId       String
+  joinedAt     DateTime   @default(now())
+
+  @@unique([tournamentId, userId])
+}
+
+enum TournamentStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
 }
