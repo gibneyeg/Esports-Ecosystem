@@ -95,14 +95,12 @@ export default function Tournaments() {
           Check out the featured tournaments and those with registration closing
           soon.
         </p>
-        {session?.user && (
-          <Link
-            href="/tournament/create"
-            className="inline-block mt-4 px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-          >
-            Create New Tournament
-          </Link>
-        )}
+        <Link
+          href="/tournament/create"
+          className="inline-block mt-4 px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+        >
+          Create New Tournament
+        </Link>
       </div>
 
       {/* Active Tournaments Section */}

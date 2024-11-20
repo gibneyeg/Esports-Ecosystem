@@ -1,30 +1,31 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import prisma from "/home/catheater/esports-ecosystem/src/lib/prisma.js";
+import prisma from "../../../lib/prisma";
 import { authOptions } from "../auth/[...nextauth]/route";
+
+async function validateSession() {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user?.id) {
+    const user = await prisma.user.findUnique({
+      where: { email: session?.user?.email },
+    });
+
+    if (!user) {
+      throw new Error("Authentication required");
+    }
+    return { ...session, user: { ...session.user, id: user.id } };
+  }
+  return session;
+}
 
 export async function POST(req) {
   try {
-    const session = await getServerSession(authOptions);
+    // Validate session
+    const session = await validateSession();
 
-    if (!session?.user?.id) {
-      // Try to find user by email as fallback
-      const user = await prisma.user.findUnique({
-        where: { email: session?.user?.email },
-      });
-
-      if (!user) {
-        return NextResponse.json(
-          { message: "Authentication required" },
-          { status: 401 }
-        );
-      }
-      // Add user ID to session
-      session.user.id = user.id;
-    }
-
+    // Parse request body
     const body = await req.json();
-
     const {
       name,
       description,
@@ -43,12 +44,23 @@ export async function POST(req) {
       );
     }
 
+    // Validate dates
+    const startDateTime = new Date(startDate);
+    const endDateTime = new Date(endDate);
+    if (startDateTime >= endDateTime) {
+      return NextResponse.json(
+        { message: "End date must be after start date" },
+        { status: 400 }
+      );
+    }
+
+    // Create tournament
     const tournament = await prisma.tournament.create({
       data: {
         name,
         description,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
+        startDate: startDateTime,
+        endDate: endDateTime,
         prizePool: parseFloat(prizePool || 0),
         maxPlayers: parseInt(maxPlayers || 10),
         game,
@@ -69,11 +81,16 @@ export async function POST(req) {
 
     return NextResponse.json(tournament);
   } catch (error) {
-    console.error("Tournament creation error details:", {
+    console.error("Tournament creation error:", {
       name: error.name,
       message: error.message,
       stack: error.stack,
     });
+
+    if (error.message === "Authentication required") {
+      return NextResponse.json({ message: error.message }, { status: 401 });
+    }
+
     return NextResponse.json(
       { message: `Failed to create tournament: ${error.message}` },
       { status: 500 }
@@ -83,16 +100,19 @@ export async function POST(req) {
 
 export async function GET(req) {
   try {
+    // Parse query parameters
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status");
-    const game = searchParams.get("game");
-    const createdBy = searchParams.get("createdBy");
 
-    const where = {};
-    if (status) where.status = status;
-    if (game) where.game = game;
-    if (createdBy) where.userId = createdBy;
+    // Build query filters
+    const where = {
+      ...(searchParams.get("status") && { status: searchParams.get("status") }),
+      ...(searchParams.get("game") && { game: searchParams.get("game") }),
+      ...(searchParams.get("createdBy") && {
+        userId: searchParams.get("createdBy"),
+      }),
+    };
 
+    // Fetch tournaments
     const tournaments = await prisma.tournament.findMany({
       where,
       include: {
@@ -122,20 +142,31 @@ export async function GET(req) {
       },
     });
 
-    const enhancedTournaments = tournaments.map((tournament) => ({
-      ...tournament,
-      participantCount: tournament.participants.length,
-      isRegistrationOpen:
-        tournament.participants.length < tournament.maxPlayers &&
-        tournament.status === "UPCOMING" &&
-        new Date() < tournament.startDate,
-    }));
+    // Enhance tournament data
+    const enhancedTournaments = tournaments.map((tournament) => {
+      const now = new Date();
+      const startDate = new Date(tournament.startDate);
+      const isUpcoming = tournament.status === "UPCOMING" && startDate > now;
+
+      return {
+        ...tournament,
+        participantCount: tournament.participants.length,
+        isRegistrationOpen:
+          isUpcoming && tournament.participants.length < tournament.maxPlayers,
+        formattedStartDate: startDate.toLocaleString(),
+        formattedEndDate: new Date(tournament.endDate).toLocaleString(),
+      };
+    });
 
     return NextResponse.json(enhancedTournaments);
   } catch (error) {
     console.error("Tournament fetch error:", error);
     return NextResponse.json(
-      { message: "Failed to fetch tournaments" },
+      {
+        message: "Failed to fetch tournaments",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      },
       { status: 500 }
     );
   }

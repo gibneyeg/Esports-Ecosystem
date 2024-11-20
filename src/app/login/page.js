@@ -1,14 +1,24 @@
 "use client";
 import { signIn } from "next-auth/react";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { data: session, status } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      const callbackUrl = searchParams.get("callbackUrl") || "/";
+      router.push(callbackUrl);
+    }
+  }, [status, router, searchParams]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,16 +26,19 @@ export default function LoginPage() {
       setLoading(true);
       setError("");
 
+      const callbackUrl = searchParams.get("callbackUrl") || "/";
+
       const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
+        callbackUrl,
       });
 
       if (result?.error) {
         setError(result.error);
       } else if (result?.ok) {
-        router.push("/");
+        router.push(callbackUrl);
       }
     } catch (error) {
       setError("Something went wrong!");
@@ -37,21 +50,14 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
-      const result = await signIn("google", {
-        redirect: false,
-        callbackUrl: "/",
-      });
+      const callbackUrl = searchParams.get("callbackUrl") || "/";
 
-      if (result?.error) {
-        console.error("Sign in error:", result.error);
-        setError("Error signing in with Google");
-      } else {
-        router.push("/");
-      }
+      await signIn("google", {
+        callbackUrl,
+      });
     } catch (error) {
       console.error("Error signing in with Google:", error);
       setError("Error signing in with Google");
-    } finally {
       setLoading(false);
     }
   };

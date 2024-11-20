@@ -1,4 +1,3 @@
-// src/app/api/auth/[...nextauth]/route.js
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -252,6 +251,10 @@ const handler = NextAuth({
       return session;
     },
     async redirect({ url, baseUrl }) {
+      // Handle relative URLs
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      // Handle absolute URLs in our domain
+      if (new URL(url).origin === baseUrl) return url;
       return baseUrl;
     },
   },
