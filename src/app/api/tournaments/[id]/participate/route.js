@@ -3,7 +3,15 @@ import { getServerSession } from "next-auth";
 import prisma from "../../../../../lib/prisma";
 import { authOptions } from "../../../auth/[...nextauth]/route";
 
-export async function POST(req, { params }) {
+export async function POST(request, { params }) {
+  const id = params?.id;
+  if (!id) {
+    return NextResponse.json(
+      { message: "Tournament ID is required" },
+      { status: 400 }
+    );
+  }
+
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -13,9 +21,14 @@ export async function POST(req, { params }) {
       );
     }
 
+    // Check if tournament exists and get participant count
     const tournament = await prisma.tournament.findUnique({
-      where: { id: params.id },
-      include: { participants: true },
+      where: { id },
+      include: {
+        _count: {
+          select: { participants: true },
+        },
+      },
     });
 
     if (!tournament) {
@@ -25,47 +38,36 @@ export async function POST(req, { params }) {
       );
     }
 
-    // Check if registration is open
-    if (tournament.status !== "UPCOMING") {
-      return NextResponse.json(
-        { message: "Tournament is not open for registration" },
-        { status: 400 }
-      );
-    }
-
     // Check if tournament is full
-    if (tournament.participants.length >= tournament.maxPlayers) {
+    if (tournament._count.participants >= tournament.maxPlayers) {
       return NextResponse.json(
         { message: "Tournament is full" },
         { status: 400 }
       );
     }
 
-    // Check if user is already registered
-    const existingParticipant = await prisma.tournamentParticipant.findUnique({
+    // Check if already participating
+    const existingParticipation = await prisma.tournamentParticipant.findFirst({
       where: {
-        tournamentId_userId: {
-          tournamentId: params.id,
-          userId: session.user.id,
-        },
+        tournamentId: id,
+        userId: session.user.id,
       },
     });
 
-    if (existingParticipant) {
+    if (existingParticipation) {
       return NextResponse.json(
-        { message: "Already registered for this tournament" },
+        { message: "Already participating in this tournament" },
         { status: 400 }
       );
     }
 
-    // Register user for tournament
+    // Create participation
     const participant = await prisma.tournamentParticipant.create({
       data: {
-        tournamentId: params.id,
+        tournamentId: id,
         userId: session.user.id,
       },
       include: {
-        tournament: true,
         user: {
           select: {
             id: true,
@@ -81,13 +83,21 @@ export async function POST(req, { params }) {
   } catch (error) {
     console.error("Tournament participation error:", error);
     return NextResponse.json(
-      { message: "Failed to register for tournament" },
+      { message: `Failed to join tournament: ${error.message}` },
       { status: 500 }
     );
   }
 }
 
-export async function DELETE(req, { params }) {
+export async function DELETE(request, { params }) {
+  const id = params?.id;
+  if (!id) {
+    return NextResponse.json(
+      { message: "Tournament ID is required" },
+      { status: 400 }
+    );
+  }
+
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -97,12 +107,23 @@ export async function DELETE(req, { params }) {
       );
     }
 
+    const participant = await prisma.tournamentParticipant.findFirst({
+      where: {
+        tournamentId: id,
+        userId: session.user.id,
+      },
+    });
+
+    if (!participant) {
+      return NextResponse.json(
+        { message: "Not participating in this tournament" },
+        { status: 404 }
+      );
+    }
+
     await prisma.tournamentParticipant.delete({
       where: {
-        tournamentId_userId: {
-          tournamentId: params.id,
-          userId: session.user.id,
-        },
+        id: participant.id,
       },
     });
 
@@ -110,7 +131,7 @@ export async function DELETE(req, { params }) {
   } catch (error) {
     console.error("Tournament leave error:", error);
     return NextResponse.json(
-      { message: "Failed to leave tournament" },
+      { message: `Failed to leave tournament: ${error.message}` },
       { status: 500 }
     );
   }

@@ -3,10 +3,18 @@ import { getServerSession } from "next-auth";
 import prisma from "../../../../lib/prisma";
 import { authOptions } from "../../auth/[...nextauth]/route";
 
-export async function GET(req, { params }) {
+export async function GET(request, { params }) {
+  const id = params?.id; // No need to await params.id in Next.js 14
+  if (!id) {
+    return NextResponse.json(
+      { message: "Tournament ID is required" },
+      { status: 400 }
+    );
+  }
+
   try {
     const tournament = await prisma.tournament.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         createdBy: {
           select: {
@@ -38,16 +46,7 @@ export async function GET(req, { params }) {
       );
     }
 
-    const enhancedTournament = {
-      ...tournament,
-      participantCount: tournament.participants.length,
-      isRegistrationOpen:
-        tournament.participants.length < tournament.maxPlayers &&
-        tournament.status === "UPCOMING" &&
-        new Date() < tournament.startDate,
-    };
-
-    return NextResponse.json(enhancedTournament);
+    return NextResponse.json(tournament);
   } catch (error) {
     console.error("Tournament fetch error:", error);
     return NextResponse.json(
@@ -57,8 +56,15 @@ export async function GET(req, { params }) {
   }
 }
 
-// Add update tournament functionality
-export async function PUT(req, { params }) {
+export async function PUT(request, { params }) {
+  const id = params?.id;
+  if (!id) {
+    return NextResponse.json(
+      { message: "Tournament ID is required" },
+      { status: 400 }
+    );
+  }
+
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -68,9 +74,10 @@ export async function PUT(req, { params }) {
       );
     }
 
-    const body = await req.json();
+    const body = await request.json();
     const tournament = await prisma.tournament.findUnique({
-      where: { id: params.id },
+      where: { id },
+      select: { userId: true },
     });
 
     if (!tournament) {
@@ -88,7 +95,7 @@ export async function PUT(req, { params }) {
     }
 
     const updatedTournament = await prisma.tournament.update({
-      where: { id: params.id },
+      where: { id },
       data: body,
       include: {
         createdBy: {
@@ -106,14 +113,21 @@ export async function PUT(req, { params }) {
   } catch (error) {
     console.error("Tournament update error:", error);
     return NextResponse.json(
-      { message: "Failed to update tournament" },
+      { message: `Failed to update tournament: ${error.message}` },
       { status: 500 }
     );
   }
 }
 
-// Add delete tournament functionality
-export async function DELETE(req, { params }) {
+export async function DELETE(request, { params }) {
+  const id = params?.id;
+  if (!id) {
+    return NextResponse.json(
+      { message: "Tournament ID is required" },
+      { status: 400 }
+    );
+  }
+
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -124,7 +138,8 @@ export async function DELETE(req, { params }) {
     }
 
     const tournament = await prisma.tournament.findUnique({
-      where: { id: params.id },
+      where: { id },
+      select: { userId: true },
     });
 
     if (!tournament) {
@@ -142,14 +157,14 @@ export async function DELETE(req, { params }) {
     }
 
     await prisma.tournament.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ message: "Tournament deleted successfully" });
   } catch (error) {
     console.error("Tournament deletion error:", error);
     return NextResponse.json(
-      { message: "Failed to delete tournament" },
+      { message: `Failed to delete tournament: ${error.message}` },
       { status: 500 }
     );
   }

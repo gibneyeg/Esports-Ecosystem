@@ -196,9 +196,6 @@ const handler = NextAuth({
           session.user.createdTournaments = dbUser.createdTournaments;
           session.user.participatingTournaments = dbUser.tournaments;
         }
-
-        // Log session data for debugging
-        console.log("Updated session:", session);
       }
       return session;
     },
