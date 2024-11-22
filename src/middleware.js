@@ -32,7 +32,9 @@ export const config = {
     "/tournament/create",
     "/tournament/:path*/edit",
     "/tournament/:path*/participate",
-    "/api/tournaments/:path*",
+    "/api/tournaments/create",
+    "/api/tournaments/:id/participate",
+    "/api/tournaments/:id/edit",
     "/protected/:path*",
   ],
 };
