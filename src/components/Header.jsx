@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
-import logo from "../Img/fakeLogo1.jpeg";
+import logo from "../Img/logo-removebg-preview.png";
 import styles from "./styles/Header.module.css";
 
 export default function Header() {

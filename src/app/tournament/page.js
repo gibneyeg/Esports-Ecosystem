@@ -102,13 +102,31 @@ export default function Tournaments() {
           Create New Tournament
         </Link>
       </div>
-
       {/* Active Tournaments Section */}
-      {createdTournaments.length > 0 && (
-        <section className="mt-8 px-4">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-            Active Tournaments
-          </h2>
+      <section className="mt-8 px-4">
+        <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+          Active Tournaments
+        </h2>
+        {isLoading ? (
+          <div className="flex overflow-x-auto space-x-4 py-4">
+            {[1, 2, 3].map((index) => (
+              <div
+                key={index}
+                className="flex-none bg-white p-4 rounded-lg shadow-lg w-64 animate-pulse"
+              >
+                <div className="w-full h-40 bg-gray-200 rounded-md mb-4" />
+                <div className="h-6 bg-gray-200 rounded w-3/4 mb-2" />
+                <div className="h-4 bg-gray-200 rounded w-1/2 mb-4" />
+                <div className="h-16 bg-gray-200 rounded mb-4" />
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-2/3" />
+                  <div className="h-4 bg-gray-200 rounded w-1/2" />
+                </div>
+                <div className="mt-4 h-8 bg-gray-200 rounded w-24" />
+              </div>
+            ))}
+          </div>
+        ) : createdTournaments.length > 0 ? (
           <div className="flex overflow-x-auto space-x-4 py-4">
             {createdTournaments.map((tournament) => (
               <div
@@ -147,8 +165,10 @@ export default function Tournaments() {
               </div>
             ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <p className="text-gray-600">No active tournaments available.</p>
+        )}
+      </section>
 
       {/* Featured Tournaments Section */}
       <section className="mt-8 px-4">
