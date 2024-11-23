@@ -34,7 +34,7 @@ export default function Header() {
           <img src={logo.src} className="h-6 sm:h-9" alt="Fake Logo" />
         </Link>
 
-        <div className="flex-grow flex justify-center pl-20">
+        <div className="flex-grow flex justify-center -ml-32">
           <ul className="flex space-x-8">
             <li>
               <Link
