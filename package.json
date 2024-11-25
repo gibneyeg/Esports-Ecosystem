@@ -14,6 +14,7 @@
     "@auth/core": "^0.37.3",
     "@auth/prisma-adapter": "^2.7.3",
     "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.5.1",
     "next": "15.0.0",
     "next-auth": "^4.24.10",
     "nodemailer": "^6.9.16",

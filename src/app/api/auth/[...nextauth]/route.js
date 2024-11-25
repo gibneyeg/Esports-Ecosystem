@@ -47,6 +47,7 @@ const handler = NextAuth({
             id: user.id,
             email: user.email,
             name: user.username,
+            image: user.image,
           };
         } catch (error) {
           throw new Error(error.message);
@@ -128,12 +129,12 @@ const handler = NextAuth({
         }
         return true;
       } catch (error) {
+        console.error("SignIn error:", error);
         return false;
       }
     },
-    async jwt({ token, user, account, profile, trigger }) {
+    async jwt({ token, user, trigger, session }) {
       if (trigger === "signIn" && user) {
-        // Get complete user data on sign in
         const dbUser = await prisma.user.findUnique({
           where: { email: user.email },
           select: {
@@ -143,24 +144,7 @@ const handler = NextAuth({
             username: true,
             rank: true,
             points: true,
-          },
-        });
-
-        token.id = dbUser.id;
-        token.username = dbUser.username;
-        token.rank = dbUser.rank;
-        token.points = dbUser.points;
-      }
-
-      // Handle session update
-      if (trigger === "update") {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: token.email },
-          select: {
-            id: true,
-            rank: true,
-            points: true,
-            username: true,
+            image: true,
           },
         });
 
@@ -169,6 +153,29 @@ const handler = NextAuth({
           token.username = dbUser.username;
           token.rank = dbUser.rank;
           token.points = dbUser.points;
+          token.image = dbUser.image;
+        }
+      }
+
+      // Handle session update
+      if (trigger === "update" && session?.user) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email },
+          select: {
+            id: true,
+            rank: true,
+            points: true,
+            username: true,
+            image: true,
+          },
+        });
+
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.username = dbUser.username;
+          token.rank = dbUser.rank;
+          token.points = dbUser.points;
+          token.image = dbUser.image;
         }
       }
 
@@ -176,7 +183,7 @@ const handler = NextAuth({
     },
     async session({ session, token }) {
       if (session?.user) {
-        // Get fresh user data including tournament information
+        //  user data including tournament information
         const dbUser = await prisma.user.findUnique({
           where: { email: session.user.email },
           select: {
@@ -184,6 +191,7 @@ const handler = NextAuth({
             rank: true,
             points: true,
             username: true,
+            image: true,
             createdTournaments: {
               select: {
                 id: true,
@@ -229,6 +237,7 @@ const handler = NextAuth({
           session.user.username = dbUser.username;
           session.user.rank = dbUser.rank;
           session.user.points = dbUser.points;
+          session.user.image = dbUser.image;
 
           // Add tournament data
           session.user.createdTournaments = dbUser.createdTournaments.map(
@@ -243,17 +252,15 @@ const handler = NextAuth({
           );
         }
 
-        // Add token data
         session.user.email = token.email;
         session.user.name = token.name;
-        session.user.image = token.picture;
+        session.user.image = token.image || dbUser?.image; // Use token image or fallback to dbUser image
       }
       return session;
     },
     async redirect({ url, baseUrl }) {
       // Handle relative URLs
       if (url.startsWith("/")) return `${baseUrl}${url}`;
-      // Handle absolute URLs in our domain
       if (new URL(url).origin === baseUrl) return url;
       return baseUrl;
     },
