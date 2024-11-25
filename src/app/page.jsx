@@ -1,21 +1,59 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Layout from "../components/Layout.jsx";
 import logo from "../Img/gamers.jpeg";
 import { useRouter } from "next/navigation";
 
+async function fetchStats() {
+  try {
+    const response = await fetch("/api/stats");
+    if (!response.ok) {
+      throw new Error("Failed to fetch stats");
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching stats:", error);
+    return null;
+  }
+}
+
 export default function HomePage() {
   const router = useRouter();
+  const [stats, setStats] = useState([
+    { icon: "🏆", value: "...", label: "Tournament Prize Pool" },
+    { icon: "👥", value: "...", label: "Active Players" },
+    { icon: "🎮", value: "...", label: "Tournaments" },
+  ]);
+
+  useEffect(() => {
+    const loadStats = async () => {
+      const dbStats = await fetchStats();
+      if (dbStats) {
+        setStats([
+          {
+            icon: "🏆",
+            value: dbStats.totalPrizePool,
+            label: "Tournament Prize Pool",
+          },
+          {
+            icon: "👥",
+            value: dbStats.totalPlayers,
+            label: "Active Players",
+          },
+          {
+            icon: "🎮",
+            value: dbStats.totalTournaments,
+            label: "Gaming Events",
+          },
+        ]);
+      }
+    };
+    loadStats();
+  }, []);
 
   const handleSignup = () => {
     router.push("/signup");
   };
-
-  const stats = [
-    { icon: "🏆", value: "1M+", label: "Tournament Prize Pools" },
-    { icon: "👥", value: "500K+", label: "Active Players" },
-    { icon: "🎮", value: "100+", label: "Gaming Events" },
-  ];
 
   const gameCategories = [
     {

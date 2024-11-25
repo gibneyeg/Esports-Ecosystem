@@ -47,7 +47,6 @@ const ProfilePictureUploader = () => {
 
       const data = await response.json();
 
-      // Update the session with the new image URL
       await update({
         ...session,
         user: {
