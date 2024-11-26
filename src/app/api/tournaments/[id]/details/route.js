@@ -68,3 +68,53 @@ export async function GET(request, context) {
     );
   }
 }
+
+export async function DELETE(request, context) {
+  try {
+    const resolvedParams = await Promise.resolve(context.params);
+    const tournamentId = resolvedParams.id;
+
+    if (!tournamentId) {
+      return NextResponse.json(
+        { message: "Tournament ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // First check if tournament exists and get creator info
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!tournament) {
+      return NextResponse.json(
+        { message: "Tournament not found" },
+        { status: 404 }
+      );
+    }
+
+    // Delete the tournament and all related data
+    await prisma.tournament.delete({
+      where: { id: tournamentId },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Tournament successfully deleted",
+    });
+  } catch (error) {
+    console.error("Tournament deletion error:", error);
+    return NextResponse.json(
+      { message: "Failed to delete tournament", error: error.message },
+      { status: 500 }
+    );
+  }
+}

@@ -7,7 +7,6 @@ export async function POST(request, context) {
   try {
     // Get session with authOptions
     const session = await getServerSession(authOptions);
-
     // If no session, try to find user by email
     if (!session?.user?.email) {
       return NextResponse.json(
@@ -15,7 +14,6 @@ export async function POST(request, context) {
         { status: 401 }
       );
     }
-
     // Get user from database
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
@@ -121,6 +119,72 @@ export async function POST(request, context) {
     console.error("Tournament participation error:", error);
     return NextResponse.json(
       { message: `Failed to join tournament: ${error.message}` },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request, context) {
+  try {
+    // Get session with authOptions
+    const session = await getServerSession(authOptions);
+
+    // If no session, try to find user by email
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { message: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    // Get user from database
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!user) {
+      return NextResponse.json({ message: "User not found" }, { status: 401 });
+    }
+
+    const params = await context.params;
+    const tournamentId = params.id;
+
+    // Check if tournament exists
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      include: {
+        createdBy: true,
+      },
+    });
+
+    if (!tournament) {
+      return NextResponse.json(
+        { message: "Tournament not found" },
+        { status: 404 }
+      );
+    }
+
+    // Verify the user is the creator
+    if (tournament.userId !== user.id) {
+      return NextResponse.json(
+        { message: "You don't have permission to delete this tournament" },
+        { status: 403 }
+      );
+    }
+
+    // Delete the tournament - this will cascade delete participants due to the schema
+    await prisma.tournament.delete({
+      where: { id: tournamentId },
+    });
+
+    return NextResponse.json({
+      message: "Tournament successfully deleted",
+      success: true,
+    });
+  } catch (error) {
+    console.error("Tournament deletion error:", error);
+    return NextResponse.json(
+      { message: `Failed to delete tournament: ${error.message}` },
       { status: 500 }
     );
   }

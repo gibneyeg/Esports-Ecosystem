@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Layout from "../../../components/Layout.jsx";
 import TournamentBracket from "../../../components/TournamentBracket.jsx";
+import TournamentManagement from "../../../components/TournamentManagment.jsx";
 
 export default function TournamentView({ tournamentId }) {
   const router = useRouter();
@@ -224,22 +225,7 @@ export default function TournamentView({ tournamentId }) {
               {tournament.description}
             </p>
           </div>
-
-          {isCreator && (
-            <div className="mt-8 pt-8 border-t">
-              <h2 className="text-xl font-semibold mb-4">
-                Tournament Management
-              </h2>
-              <div className="flex gap-4">
-                <button className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700">
-                  Edit Tournament
-                </button>
-                <button className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
-                  Cancel Tournament
-                </button>
-              </div>
-            </div>
-          )}
+          {isCreator && <TournamentManagement tournamentId={tournament.id} />}
         </div>
         {tournament.participants?.length > 0 && (
           <section className="mt-8">

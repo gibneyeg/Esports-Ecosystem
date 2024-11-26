@@ -97,7 +97,61 @@ export async function POST(req) {
     );
   }
 }
+export async function DELETE(req) {
+  try {
+    // Get tournament ID from URL
+    const { searchParams } = new URL(req.url);
+    const tournamentId = searchParams.get("id");
 
+    if (!tournamentId) {
+      return NextResponse.json(
+        { message: "Tournament ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate session
+    const session = await validateSession();
+
+    // Check if tournament exists and user has permission
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      return NextResponse.json(
+        { message: "Tournament not found" },
+        { status: 404 }
+      );
+    }
+
+    // Verify the user is the creator
+    if (tournament.userId !== session.user.id) {
+      return NextResponse.json(
+        { message: "You don't have permission to delete this tournament" },
+        { status: 403 }
+      );
+    }
+
+    // Delete the tournament
+    await prisma.tournament.delete({
+      where: { id: tournamentId },
+    });
+
+    return NextResponse.json({ message: "Tournament successfully deleted" });
+  } catch (error) {
+    console.error("Tournament deletion error:", error);
+
+    if (error.message === "Authentication required") {
+      return NextResponse.json({ message: error.message }, { status: 401 });
+    }
+
+    return NextResponse.json(
+      { message: "Failed to delete tournament" },
+      { status: 500 }
+    );
+  }
+}
 export async function GET(req) {
   try {
     // Parse query parameters
