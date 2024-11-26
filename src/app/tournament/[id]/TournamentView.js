@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Layout from "../../../components/Layout.jsx";
+import TournamentBracket from "../../../components/TournamentBracket.jsx";
 
 export default function TournamentView({ tournamentId }) {
   const router = useRouter();
@@ -240,6 +241,20 @@ export default function TournamentView({ tournamentId }) {
             </div>
           )}
         </div>
+        {tournament.participants?.length > 0 && (
+          <section className="mt-8">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+              Tournament Bracket
+            </h2>
+            <div className="mb-8">
+              <div className="text-sm text-gray-600 mb-4">
+                Participants: {tournament.participants.length}/
+                {tournament.maxPlayers}
+              </div>
+              <TournamentBracket maxPlayers={tournament.maxPlayers} />
+            </div>
+          </section>
+        )}
       </div>
     </Layout>
   );

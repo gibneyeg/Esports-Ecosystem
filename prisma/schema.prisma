@@ -23,8 +23,11 @@ model User {
   image         String?   // For OAuth provider avatar
   accounts      Account[]
   sessions      Session[]
-    createdTournaments Tournament[] @relation("TournamentCreator")
+  createdTournaments Tournament[] @relation("TournamentCreator")
   tournaments        TournamentParticipant[]
+  player1Matches Match[] @relation("Player1Matches")
+  player2Matches Match[] @relation("Player2Matches")
+  wonMatches    Match[] @relation("WonMatches")
 }
 
 model Account {
@@ -40,7 +43,6 @@ model Account {
   scope             String?
   id_token          String? @db.Text
   session_state     String?
-
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
@@ -77,6 +79,7 @@ model Tournament {
   createdBy   User       @relation("TournamentCreator", fields: [userId], references: [id])
   userId      String
   participants TournamentParticipant[]
+  brackets    TournamentBracket[]
 }
 
 model TournamentParticipant {
@@ -90,9 +93,42 @@ model TournamentParticipant {
   @@unique([tournamentId, userId])
 }
 
+model TournamentBracket {
+  id           String     @id @default(uuid())
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId String
+  round        Int        // e.g., 1 for first round, 2 for second round, etc.
+  position     Int        // Position in the current round
+  matches      Match[]
+}
+
+model Match {
+  id            String     @id @default(uuid())
+  bracket       TournamentBracket @relation(fields: [bracketId], references: [id])
+  bracketId     String
+  player1       User?     @relation("Player1Matches", fields: [player1Id], references: [id])
+  player1Id     String?
+  player2       User?     @relation("Player2Matches", fields: [player2Id], references: [id])
+  player2Id     String?
+  winner        User?     @relation("WonMatches", fields: [winnerId], references: [id])
+  winnerId      String?
+  score         String?    // e.g., "2-1"
+  status        MatchStatus @default(PENDING)
+  position      Int        // Position in the bracket
+  scheduledTime DateTime?
+  completedTime DateTime?
+}
+
 enum TournamentStatus {
   UPCOMING
   ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum MatchStatus {
+  PENDING
+  IN_PROGRESS
   COMPLETED
   CANCELLED
 }
