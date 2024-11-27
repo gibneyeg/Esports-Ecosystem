@@ -86,7 +86,6 @@ export default function Tournaments() {
 
   return (
     <Layout>
-      {/* Main Title */}
       <div className="text-center mt-8">
         <h1 className="text-3xl font-bold text-gray-800">
           Upcoming Esports Tournaments
@@ -102,7 +101,6 @@ export default function Tournaments() {
           Create New Tournament
         </Link>
       </div>
-      {/* Active Tournaments Section */}
       <section className="mt-8 px-4">
         <h2 className="text-2xl font-semibold text-gray-800 mb-4">
           Active Tournaments
@@ -170,7 +168,6 @@ export default function Tournaments() {
         )}
       </section>
 
-      {/* Featured Tournaments Section */}
       <section className="mt-8 px-4">
         <h2 className="text-2xl font-semibold text-gray-800 mb-4">
           Featured Tournaments
@@ -201,7 +198,6 @@ export default function Tournaments() {
         </div>
       </section>
 
-      {/* Registration Closing Soon Section */}
       <section className="mt-8 px-4 mb-8">
         <h2 className="text-2xl font-semibold text-gray-800 mb-4">
           Registration Closing Soon

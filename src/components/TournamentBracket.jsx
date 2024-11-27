@@ -18,9 +18,7 @@ const TournamentBracket = ({ maxPlayers }) => {
       </div>
       {!isLastInRound && (
         <>
-          {/* Horizontal connector */}
           <div className="absolute top-1/2 -right-12 w-12 h-[2px] bg-gray-300"></div>
-          {/* Vertical connector for matches that need to join up */}
           {isEvenMatch && (
             <div
               className="absolute -right-12 h-[100px] w-[2px] bg-gray-300"
@@ -44,7 +42,6 @@ const TournamentBracket = ({ maxPlayers }) => {
       </div>
 
       <div className="flex gap-12 pb-8">
-        {/* Semi-Finals */}
         <div className="flex flex-col">
           <div className="text-center font-medium text-gray-700 mb-4">
             Semi-Finals
@@ -59,7 +56,6 @@ const TournamentBracket = ({ maxPlayers }) => {
           </div>
         </div>
 
-        {/* Finals */}
         <div className="flex flex-col">
           <div className="text-center font-medium text-gray-700 mb-4">
             Final
