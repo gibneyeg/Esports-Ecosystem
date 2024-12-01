@@ -227,7 +227,7 @@ export default function TournamentView({ tournamentId }) {
           </div>
           {isCreator && <TournamentManagement tournamentId={tournament.id} />}
         </div>
-        {tournament.participants?.length > 0 && (
+        {/* {tournament.participants?.length > 0 && (
           <section className="mt-8">
             <h2 className="text-2xl font-semibold text-gray-800 mb-4">
               Tournament Bracket
@@ -240,7 +240,7 @@ export default function TournamentView({ tournamentId }) {
               <TournamentBracket maxPlayers={tournament.maxPlayers} />
             </div>
           </section>
-        )}
+        )} */}
       </div>
     </Layout>
   );
