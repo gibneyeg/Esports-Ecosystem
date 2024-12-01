@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useSession } from "next-auth/react";
-
+import { uploadProfilePicture } from "../lib/uploadUtils";
 const ProfilePictureUploader = () => {
   const { data: session, update } = useSession();
   const [selectedFile, setSelectedFile] = useState(null);
@@ -28,25 +28,14 @@ const ProfilePictureUploader = () => {
 
   const handleUpload = async () => {
     if (!selectedFile) return;
-
     try {
       setIsUploading(true);
       setError("");
 
-      const formData = new FormData();
-      formData.append("image", selectedFile);
+      // Use the uploadProfilePicture function here instead of direct fetch
+      const data = await uploadProfilePicture(selectedFile);
 
-      const response = await fetch("/api/upload-profile-picture", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to upload image");
-      }
-
-      const data = await response.json();
-
+      // Update the session with new image URL
       await update({
         ...session,
         user: {
