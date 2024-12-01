@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useSession } from "next-auth/react";
-import { uploadProfilePicture } from "../lib/uploadUtils";
+import { uploadProfilePicture } from "@/lib/uploadUtils";
+
 const ProfilePictureUploader = () => {
   const { data: session, update } = useSession();
   const [selectedFile, setSelectedFile] = useState(null);
@@ -12,7 +13,6 @@ const ProfilePictureUploader = () => {
     const file = event.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        // 5MB limit
         setError("File size must be less than 5MB");
         return;
       }
@@ -32,10 +32,11 @@ const ProfilePictureUploader = () => {
       setIsUploading(true);
       setError("");
 
-      // Use the uploadProfilePicture function here instead of direct fetch
       const data = await uploadProfilePicture(selectedFile);
 
-      // Update the session with new image URL
+      // Wait before updating session
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       await update({
         ...session,
         user: {
@@ -44,10 +45,14 @@ const ProfilePictureUploader = () => {
         },
       });
 
+      // Wait after session update before clearing states
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       setSelectedFile(null);
       setPreviewUrl(null);
     } catch (err) {
       setError("Failed to upload image. Please try again.");
+      console.error("Upload error:", err);
     } finally {
       setIsUploading(false);
     }

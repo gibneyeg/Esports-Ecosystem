@@ -64,14 +64,27 @@ export default function Header() {
         body: formData,
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error("JSON Parse Error:", parseError);
+        throw new Error("Failed to parse server response");
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to upload image");
+        throw new Error(
+          typeof data.error === "string" ? data.error : "Failed to upload image"
+        );
+      }
+
+      // Add validation for the imageUrl
+      if (!data.imageUrl) {
+        throw new Error("Invalid response format: missing imageUrl");
       }
 
       // Update the session with the new image URL
-      const result = await update({
+      await update({
         ...session,
         user: {
           ...session?.user,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
 import prisma from "../../../lib/prisma";
+
 export async function POST(request) {
   try {
     const session = await getServerSession(authOptions);
@@ -34,7 +35,10 @@ export async function POST(request) {
     });
 
     if (!updatedUser) {
-      throw new Error("Failed to update user");
+      return NextResponse.json(
+        { error: "Failed to update user" },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -44,12 +48,8 @@ export async function POST(request) {
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json(
-      {
-        error: error.message || "Failed to upload image",
-      },
-      {
-        status: 500,
-      }
+      { error: error.message || "Internal server error" },
+      { status: 500 }
     );
   }
 }

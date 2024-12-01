@@ -10,7 +10,7 @@ export default function Contact() {
             Get in Touch
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            We'd love to hear from you. Whether you have a question about
+            We&apos;d love to hear from you. Whether you have a question about
             features, pricing, or anything else, our team is ready to answer all
             your questions.
           </p>

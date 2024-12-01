@@ -9,6 +9,17 @@ const nextConfig = {
       },
     ],
   },
+  // Add cookie and session configurations
+  serverRuntimeConfig: {
+    cookieOptions: {
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+    },
+  },
+  typescript: {
+    ignoreBuildErrors: false,
+  },
 };
 
 module.exports = nextConfig;
