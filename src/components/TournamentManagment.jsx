@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react"; // Add this
 
 const TournamentManagement = ({ tournamentId }) => {
   const router = useRouter();
+  const { data: session } = useSession(); // Add this
   const [isDeleting, setIsDeleting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [error, setError] = useState("");
@@ -12,21 +14,20 @@ const TournamentManagement = ({ tournamentId }) => {
       setIsDeleting(true);
       setError("");
 
-      const response = await fetch(`/api/tournaments/${tournamentId}/details`, {
+      const response = await fetch(`/api/tournaments/${tournamentId}`, {
         method: "DELETE",
-        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
+        const data = await response.json();
         throw new Error(data.message || "Failed to cancel tournament");
       }
 
-      // Use the tournaments page route
+      // Change this line from "/tournaments" to "/tournament"
       router.push("/tournament");
       router.refresh();
     } catch (error) {
@@ -37,17 +38,17 @@ const TournamentManagement = ({ tournamentId }) => {
       setShowConfirmation(false);
     }
   };
+  // If no session, don't render management controls
+  if (!session) return null;
 
   return (
     <div className="mt-8 pt-8 border-t">
       <h2 className="text-xl font-semibold mb-4">Tournament Management</h2>
-
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600">
           {error}
         </div>
       )}
-
       {!showConfirmation ? (
         <div className="flex gap-4">
           <button

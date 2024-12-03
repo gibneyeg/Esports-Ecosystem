@@ -68,7 +68,7 @@ model Tournament {
   id          String      @id @default(uuid())
   name        String
   description String
-  imageUrl String?
+  imageUrl    String?
   startDate   DateTime
   endDate     DateTime
   prizePool   Float
@@ -85,7 +85,7 @@ model Tournament {
 
 model TournamentParticipant {
   id           String     @id @default(uuid())
-  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   tournamentId String
   user         User       @relation(fields: [userId], references: [id])
   userId       String
@@ -96,16 +96,16 @@ model TournamentParticipant {
 
 model TournamentBracket {
   id           String     @id @default(uuid())
-  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   tournamentId String
-  round        Int        // e.g., 1 for first round, 2 for second round, etc.
-  position     Int        // Position in the current round
+  round        Int
+  position     Int
   matches      Match[]
 }
 
 model Match {
   id            String     @id @default(uuid())
-  bracket       TournamentBracket @relation(fields: [bracketId], references: [id])
+  bracket       TournamentBracket @relation(fields: [bracketId], references: [id], onDelete: Cascade)
   bracketId     String
   player1       User?     @relation("Player1Matches", fields: [player1Id], references: [id])
   player1Id     String?
@@ -113,13 +113,12 @@ model Match {
   player2Id     String?
   winner        User?     @relation("WonMatches", fields: [winnerId], references: [id])
   winnerId      String?
-  score         String?    // e.g., "2-1"
+  score         String?
   status        MatchStatus @default(PENDING)
-  position      Int        // Position in the bracket
+  position      Int
   scheduledTime DateTime?
   completedTime DateTime?
 }
-
 enum TournamentStatus {
   UPCOMING
   ONGOING

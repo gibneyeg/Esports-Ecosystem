@@ -4,7 +4,7 @@ import prisma from "../../../lib/prisma";
 import { authOptions } from "../auth/[...nextauth]/route";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
-
+import { unlink } from "fs/promises";
 async function validateSession() {
   const session = await getServerSession(authOptions);
 
@@ -123,23 +123,29 @@ export async function POST(req) {
   }
 }
 
-export async function DELETE(req) {
+export async function DELETE(req, context) {
   try {
-    // Get tournament ID from URL
-    const { searchParams } = new URL(req.url);
-    const tournamentId = searchParams.get("id");
+    const tournamentId = context.params.id;
 
-    if (!tournamentId) {
+    // Get session
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
       return NextResponse.json(
-        { message: "Tournament ID is required" },
-        { status: 400 }
+        { message: "Authentication required" },
+        { status: 401 }
       );
     }
 
-    // Validate session
-    const session = await validateSession();
+    // Get the actual user from database
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
 
-    // Check if tournament exists and user has permission
+    if (!user) {
+      return NextResponse.json({ message: "User not found" }, { status: 401 });
+    }
+
+    // Get tournament
     const tournament = await prisma.tournament.findUnique({
       where: { id: tournamentId },
     });
@@ -151,41 +157,36 @@ export async function DELETE(req) {
       );
     }
 
-    // Verify the user is the creator
-    if (tournament.userId !== session.user.id) {
+    // Check ownership
+    if (tournament.userId !== user.id) {
       return NextResponse.json(
         { message: "You don't have permission to delete this tournament" },
         { status: 403 }
       );
     }
 
-    // If tournament has an image, delete it
-    if (tournament.imageUrl) {
-      try {
-        const imagePath = join(process.cwd(), "public", tournament.imageUrl);
-        await unlink(imagePath);
-      } catch (error) {
-        console.error("Error deleting tournament image:", error);
-      }
-    }
-
-    // Delete the tournament
+    // With cascading deletes set up, we can directly delete the tournament
     await prisma.tournament.delete({
       where: { id: tournamentId },
     });
 
-    return NextResponse.json({ message: "Tournament successfully deleted" });
-  } catch (error) {
-    console.error("Tournament deletion error:", error);
-
-    if (error.message === "Authentication required") {
-      return NextResponse.json({ message: error.message }, { status: 401 });
+    // Delete the image file if it exists
+    if (tournament.imageUrl) {
+      try {
+        const imagePath = join(process.cwd(), "public", tournament.imageUrl);
+        await unlink(imagePath).catch(console.error);
+      } catch (error) {
+        console.error("Error deleting image file:", error);
+      }
     }
 
-    return NextResponse.json(
-      { message: "Failed to delete tournament" },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: true,
+      message: "Tournament successfully deleted",
+    });
+  } catch (error) {
+    console.error("Tournament deletion error:", error);
+    return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
 
