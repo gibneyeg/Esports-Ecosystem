@@ -68,6 +68,7 @@ model Tournament {
   id          String      @id @default(uuid())
   name        String
   description String
+  imageUrl String?
   startDate   DateTime
   endDate     DateTime
   prizePool   Float

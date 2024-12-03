@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "../../../lib/prisma";
 import { authOptions } from "../auth/[...nextauth]/route";
+import { writeFile, mkdir } from "fs/promises";
+import { join } from "path";
 
 async function validateSession() {
   const session = await getServerSession(authOptions);
@@ -19,24 +21,28 @@ async function validateSession() {
   return session;
 }
 
+// Helper function to generate a unique filename
+function generateUniqueFilename(originalName) {
+  const timestamp = Date.now();
+  const randomString = Math.random().toString(36).substring(2, 15);
+  const extension = originalName.split(".").pop();
+  return `${timestamp}-${randomString}.${extension}`;
+}
+
 export async function POST(req) {
   try {
-    // Validate session
     const session = await validateSession();
 
-    // Parse request body
-    const body = await req.json();
-    const {
-      name,
-      description,
-      startDate,
-      endDate,
-      prizePool,
-      maxPlayers,
-      game,
-    } = body;
+    const formData = await req.formData();
+    const name = formData.get("name");
+    const description = formData.get("description");
+    const startDate = formData.get("startDate");
+    const endDate = formData.get("endDate");
+    const prizePool = formData.get("prizePool");
+    const maxPlayers = formData.get("maxPlayers");
+    const game = formData.get("game");
+    const image = formData.get("image");
 
-    // Validate required fields
     if (!name || !description || !startDate || !endDate || !game) {
       return NextResponse.json(
         { message: "Missing required fields" },
@@ -44,7 +50,6 @@ export async function POST(req) {
       );
     }
 
-    // Validate dates
     const startDateTime = new Date(startDate);
     const endDateTime = new Date(endDate);
     if (startDateTime >= endDateTime) {
@@ -54,7 +59,32 @@ export async function POST(req) {
       );
     }
 
-    // Create tournament
+    let imageUrl = null;
+    if (image) {
+      try {
+        const bytes = await image.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+
+        const uploadsDir = join(process.cwd(), "public", "uploads");
+        try {
+          await mkdir(uploadsDir, { recursive: true });
+        } catch (err) {
+          if (err.code !== "EEXIST") throw err;
+        }
+
+        const filename = generateUniqueFilename(image.name);
+        const imagePath = join(uploadsDir, filename);
+        await writeFile(imagePath, buffer);
+        imageUrl = `/uploads/${filename}`;
+      } catch (error) {
+        console.error("Image upload error:", error);
+        return NextResponse.json(
+          { message: "Failed to upload image" },
+          { status: 500 }
+        );
+      }
+    }
+
     const tournament = await prisma.tournament.create({
       data: {
         name,
@@ -66,6 +96,7 @@ export async function POST(req) {
         game,
         userId: session.user.id,
         status: "UPCOMING",
+        imageUrl,
       },
       include: {
         createdBy: {
@@ -81,22 +112,17 @@ export async function POST(req) {
 
     return NextResponse.json(tournament);
   } catch (error) {
-    console.error("Tournament creation error:", {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-    });
-
+    console.error("Tournament creation error:", error);
     if (error.message === "Authentication required") {
       return NextResponse.json({ message: error.message }, { status: 401 });
     }
-
     return NextResponse.json(
       { message: `Failed to create tournament: ${error.message}` },
       { status: 500 }
     );
   }
 }
+
 export async function DELETE(req) {
   try {
     // Get tournament ID from URL
@@ -133,6 +159,16 @@ export async function DELETE(req) {
       );
     }
 
+    // If tournament has an image, delete it
+    if (tournament.imageUrl) {
+      try {
+        const imagePath = join(process.cwd(), "public", tournament.imageUrl);
+        await unlink(imagePath);
+      } catch (error) {
+        console.error("Error deleting tournament image:", error);
+      }
+    }
+
     // Delete the tournament
     await prisma.tournament.delete({
       where: { id: tournamentId },
@@ -152,6 +188,7 @@ export async function DELETE(req) {
     );
   }
 }
+
 export async function GET(req) {
   try {
     // Parse query parameters

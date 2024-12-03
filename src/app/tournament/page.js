@@ -132,28 +132,31 @@ export default function Tournaments() {
                 className="flex-none bg-white p-4 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 w-64"
               >
                 <div className="w-full h-40 bg-gray-100 rounded-md mb-4 flex items-center justify-center">
-                  <span className="text-4xl text-gray-400">
-                    {tournament.game[0]}
-                  </span>
+                  {tournament.imageUrl ? (
+                    <img
+                      src={tournament.imageUrl}
+                      alt={tournament.name}
+                      className="w-full h-full object-cover rounded-md"
+                    />
+                  ) : (
+                    <span className="text-4xl text-gray-400">
+                      {tournament.game[0]}
+                    </span>
+                  )}
                 </div>
                 <h3 className="text-lg font-semibold text-gray-800">
                   {tournament.name}
                 </h3>
                 <p className="text-gray-500 text-sm mt-2">
-                  Starts: {formatDate(tournament.startDate)}
+                  Test{tournament.game}
                 </p>
-                <p className="text-gray-600 mt-2 text-sm line-clamp-2">
-                  {tournament.description}
+                <p className="text-gray-500">
+                  Prize Pool: ${tournament.prizePool}
                 </p>
-                <div className="mt-2 text-sm">
-                  <p className="text-gray-500">
-                    Prize Pool: ${tournament.prizePool}
-                  </p>
-                  <p className="text-gray-500">
-                    Players: {tournament.participants?.length || 0}/
-                    {tournament.maxPlayers}
-                  </p>
-                </div>
+                <p className="text-gray-500">
+                  Players: {tournament.participants?.length || 0}/
+                  {tournament.maxPlayers}
+                </p>
                 <Link
                   href={`/tournament/${tournament.id}`}
                   className="mt-4 px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 text-xs inline-block"

@@ -167,6 +167,16 @@ export default function TournamentView({ tournamentId }) {
             )}
           </div>
 
+          {tournament.imageUrl && (
+            <div className="mt-4 mb-6">
+              <img
+                src={tournament.imageUrl}
+                alt={tournament.name}
+                className="w-full h-64 object-cover rounded-lg shadow-md"
+              />
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-6 mt-8">
             <div>
               <h2 className="text-xl font-semibold mb-4">Tournament Details</h2>
