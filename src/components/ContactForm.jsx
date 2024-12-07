@@ -1,5 +1,4 @@
 "use client";
-
 import React, { useState } from "react";
 
 const ContactForm = () => {
@@ -10,6 +9,7 @@ const ContactForm = () => {
     message: "",
   });
   const [status, setStatus] = useState("");
+  const [focusedField, setFocusedField] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -49,90 +49,122 @@ const ContactForm = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-5">
-        <div>
-          <label
-            htmlFor="name"
-            className="block text-sm font-medium text-gray-700"
-          >
-            Name
-          </label>
-          <input
-            type="text"
-            id="name"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            required
-            className="mt-1 block w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-gray-500 focus:ring-2 focus:ring-gray-500 focus:ring-opacity-20 transition-colors duration-200"
-            placeholder="Your full name"
-          />
-        </div>
-
-        <div>
-          <label
-            htmlFor="email"
-            className="block text-sm font-medium text-gray-700"
-          >
-            Email
-          </label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            className="mt-1 block w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-gray-500 focus:ring-2 focus:ring-gray-500 focus:ring-opacity-20 transition-colors duration-200"
-            placeholder="you@example.com"
-          />
-        </div>
-
-        <div>
-          <label
-            htmlFor="subject"
-            className="block text-sm font-medium text-gray-700"
-          >
-            Subject
-          </label>
-          <input
-            type="text"
-            id="subject"
-            name="subject"
-            value={formData.subject}
-            onChange={handleChange}
-            required
-            className="mt-1 block w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-gray-500 focus:ring-2 focus:ring-gray-500 focus:ring-opacity-20 transition-colors duration-200"
-            placeholder="What is this regarding?"
-          />
-        </div>
-
-        <div>
-          <label
-            htmlFor="message"
-            className="block text-sm font-medium text-gray-700"
-          >
-            Message
-          </label>
-          <textarea
-            id="message"
-            name="message"
-            value={formData.message}
-            onChange={handleChange}
-            required
-            rows="5"
-            className="mt-1 block w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-gray-500 focus:ring-2 focus:ring-gray-500 focus:ring-opacity-20 transition-colors duration-200 resize-none"
-            placeholder="Your message here..."
-          />
-        </div>
+    <div className="max-w-2xl mx-auto px-6 py-12">
+      <div className="text-center mb-12">
+        <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+          Get in Touch
+        </h2>
+        <p className="text-gray-600 text-lg max-w-xl mx-auto">
+          We&apos;d love to hear from you. Let us know how we can help.
+        </p>
       </div>
 
-      <div className="space-y-4">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-8 bg-white p-8 rounded-2xl shadow-lg border border-gray-100"
+      >
+        <div className="space-y-6">
+          <div className="relative">
+            <label
+              htmlFor="name"
+              className={`absolute left-4 transition-all duration-200 ${
+                focusedField === "name" || formData.name
+                  ? "-top-3 text-xs bg-white px-2 text-gray-700"
+                  : "top-3 text-gray-400"
+              }`}
+            >
+              Name
+            </label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              onFocus={() => setFocusedField("name")}
+              onBlur={() => setFocusedField(null)}
+              required
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-0 transition-colors duration-200"
+            />
+          </div>
+
+          <div className="relative">
+            <label
+              htmlFor="email"
+              className={`absolute left-4 transition-all duration-200 ${
+                focusedField === "email" || formData.email
+                  ? "-top-3 text-xs bg-white px-2 text-gray-700"
+                  : "top-3 text-gray-400"
+              }`}
+            >
+              Email
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              onFocus={() => setFocusedField("email")}
+              onBlur={() => setFocusedField(null)}
+              required
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-0 transition-colors duration-200"
+            />
+          </div>
+
+          <div className="relative">
+            <label
+              htmlFor="subject"
+              className={`absolute left-4 transition-all duration-200 ${
+                focusedField === "subject" || formData.subject
+                  ? "-top-3 text-xs bg-white px-2 text-gray-700"
+                  : "top-3 text-gray-400"
+              }`}
+            >
+              Subject
+            </label>
+            <input
+              type="text"
+              id="subject"
+              name="subject"
+              value={formData.subject}
+              onChange={handleChange}
+              onFocus={() => setFocusedField("subject")}
+              onBlur={() => setFocusedField(null)}
+              required
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-0 transition-colors duration-200"
+            />
+          </div>
+
+          <div className="relative">
+            <label
+              htmlFor="message"
+              className={`absolute left-4 transition-all duration-200 ${
+                focusedField === "message" || formData.message
+                  ? "-top-3 text-xs bg-white px-2 text-gray-700"
+                  : "top-3 text-gray-400"
+              }`}
+            >
+              Message
+            </label>
+            <textarea
+              id="message"
+              name="message"
+              value={formData.message}
+              onChange={handleChange}
+              onFocus={() => setFocusedField("message")}
+              onBlur={() => setFocusedField(null)}
+              required
+              rows="5"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-0 transition-colors duration-200 resize-none"
+            />
+          </div>
+        </div>
+
         <button
           type="submit"
           disabled={status === "sending"}
-          className="w-full bg-gray-900 text-white py-3 px-6 rounded-lg font-medium hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200"
+          className="w-full bg-black text-white py-4 px-6 rounded-xl font-medium hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[0.99]"
         >
           {status === "sending" ? (
             <span className="flex items-center justify-center">
@@ -164,23 +196,10 @@ const ContactForm = () => {
         </button>
 
         {status === "success" && (
-          <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-md">
+          <div className="bg-gray-50 border-l-4 border-gray-900 p-4 rounded-lg">
             <div className="flex">
-              <div className="flex-shrink-0">
-                <svg
-                  className="h-5 w-5 text-green-400"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
               <div className="ml-3">
-                <p className="text-sm text-green-700">
+                <p className="text-sm text-gray-700">
                   Thank you! Your message has been sent successfully.
                 </p>
               </div>
@@ -189,21 +208,8 @@ const ContactForm = () => {
         )}
 
         {status === "error" && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
             <div className="flex">
-              <div className="flex-shrink-0">
-                <svg
-                  className="h-5 w-5 text-red-400"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
               <div className="ml-3">
                 <p className="text-sm text-red-700">
                   Sorry, there was an error sending your message. Please try
@@ -213,8 +219,8 @@ const ContactForm = () => {
             </div>
           </div>
         )}
-      </div>
-    </form>
+      </form>
+    </div>
   );
 };
 
