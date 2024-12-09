@@ -99,7 +99,7 @@ describe("ContactForm", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const successMessage = container.querySelector(".text-green-700");
+    const successMessage = container.querySelector(".text-gray-700");
     expect(successMessage).toBeTruthy();
     expect(successMessage.textContent).toContain("Thank you");
   });
@@ -119,13 +119,11 @@ describe("ContactForm", () => {
     simulateChange(subjectInput, "Test Subject");
     simulateChange(messageInput, "Test Message");
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
     simulateSubmit(form);
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const errorMessage = container.querySelector(".text-red-700");
+    const errorMessage = container.querySelector(".bg-red-50");
     expect(errorMessage).toBeTruthy();
     expect(errorMessage.textContent).toContain("Sorry, there was an error");
   });

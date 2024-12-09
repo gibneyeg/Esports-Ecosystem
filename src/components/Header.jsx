@@ -111,8 +111,7 @@ export default function Header() {
         <Link href="/" className={`flex items-center ${styles.logo}`}>
           <img src={logo.src} className="h-6 sm:h-9" alt="Logo" />
         </Link>
-
-        <div className="flex-grow flex justify-center -ml-32">
+        <div className="flex-grow flex justify-center -ml-20">
           <ul className="flex space-x-8">
             <li>
               <Link
@@ -120,14 +119,6 @@ export default function Header() {
                 className="block py-2 text-gray-400 hover:text-white text-base"
               >
                 Home
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/About"
-                className="block py-2 text-gray-400 hover:text-white text-base"
-              >
-                Company
               </Link>
             </li>
             <li>
@@ -148,7 +139,6 @@ export default function Header() {
             </li>
           </ul>
         </div>
-
         <div className="flex items-center gap-4 min-w-[200px] justify-end">
           {isLoading ? (
             <div className="flex gap-4">
