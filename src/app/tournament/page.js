@@ -28,150 +28,192 @@ export default function Tournaments() {
     fetchTournaments();
   }, []);
 
-  // Helper function to format dates
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
       day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   // Filter tournaments based on different criteria
-  const activeTournaments = tournaments.filter(
-    (t) => t.status === "UPCOMING" || t.status === "IN_PROGRESS"
-  );
+  const now = new Date();
 
-  const featuredTournaments = tournaments
-    .filter((t) => t.prizePool >= 1000 && t.status === "UPCOMING")
-    .slice(0, 4);
-
-  // Get tournaments with close registration dates (within next 7 days)
-  const closingSoonTournaments = tournaments.filter((tournament) => {
-    if (tournament.status !== "UPCOMING") return false;
-    const startDate = new Date(tournament.startDate);
-    const now = new Date();
-    const daysUntilStart = (startDate - now) / (1000 * 60 * 60 * 24);
-    return daysUntilStart <= 7 && daysUntilStart > 0;
+  const registrationClosingSoon = tournaments.filter((tournament) => {
+    const registrationCloseDate = new Date(tournament.registrationCloseDate);
+    const daysUntilClose =
+      (registrationCloseDate - now) / (1000 * 60 * 60 * 24);
+    return (
+      daysUntilClose <= 7 &&
+      daysUntilClose > 0 &&
+      tournament.status === "UPCOMING"
+    );
   });
 
-  const renderTournamentCard = (tournament, buttonStyle = "blue") => (
+  const activeTournaments = tournaments.filter((tournament) => {
+    return tournament.status === "IN_PROGRESS";
+  });
+
+  const upcomingTournaments = tournaments.filter((tournament) => {
+    const registrationCloseDate = new Date(tournament.registrationCloseDate);
+    return tournament.status === "UPCOMING" && registrationCloseDate > now;
+  });
+
+  const renderTournamentCard = (tournament) => (
     <div
       key={tournament.id}
-      className="flex-none bg-white p-4 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 w-64"
+      className="flex-none bg-white p-4 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 w-72 relative overflow-hidden group"
     >
-      <div className="w-full h-40 bg-gray-100 rounded-md mb-4 flex items-center justify-center">
+      <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+      <div className="w-full h-40 bg-gray-100 rounded-lg mb-4 overflow-hidden">
         {tournament.imageUrl ? (
           <img
             src={tournament.imageUrl}
             alt={tournament.name}
-            className="w-full h-full object-cover rounded-md"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <span className="text-4xl text-gray-400">{tournament.game[0]}</span>
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+            <span className="text-4xl font-bold text-gray-300">
+              {tournament.game[0]}
+            </span>
+          </div>
         )}
       </div>
-      <h3 className="text-lg font-semibold text-gray-800">{tournament.name}</h3>
-      <p className="text-gray-500 text-sm mt-2">{tournament.game}</p>
-      <p className="text-gray-500">Prize Pool: ${tournament.prizePool}</p>
-      <p className="text-gray-500">
-        Players: {tournament.participants?.length || 0}/{tournament.maxPlayers}
-      </p>
-      {buttonStyle === "orange" && (
-        <p className="text-red-500 font-semibold mt-2 text-sm">
-          Starts: {formatDate(tournament.startDate)}
-        </p>
-      )}
-      <Link
-        href={`/tournament/${tournament.id}`}
-        className={`mt-4 px-4 py-2 text-white ${
-          buttonStyle === "orange"
-            ? "bg-orange-600 hover:bg-orange-700"
-            : "bg-blue-600 hover:bg-blue-700"
-        } rounded-md text-xs inline-block`}
-      >
-        {buttonStyle === "orange" ? "Register Now" : "View Details"}
-      </Link>
-    </div>
-  );
 
-  return (
-    <Layout>
-      <div className="text-center mt-8">
-        <h1 className="text-3xl font-bold text-gray-800">
-          Upcoming Esports Tournaments
-        </h1>
-        <p className="text-lg text-gray-600 mt-2">
-          Check out the featured tournaments and those with registration closing
-          soon.
-        </p>
+      <div className="space-y-2">
+        <h3 className="text-lg font-bold text-gray-800 line-clamp-2">
+          {tournament.name}
+        </h3>
+
+        <div className="flex items-center space-x-2 text-gray-600">
+          <span className="text-xs font-medium px-2 py-1 bg-gray-100 rounded-full">
+            {tournament.game}
+          </span>
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-600">Prize Pool</span>
+            <span className="font-semibold text-green-600">
+              ${tournament.prizePool}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-600">Players</span>
+            <span className="font-semibold">
+              {tournament.participants?.length || 0}/{tournament.maxPlayers}
+            </span>
+          </div>
+
+          <div className="pt-1">
+            <div className="text-xs text-gray-600">Registration Closes</div>
+            <div className="font-medium text-sm text-gray-800">
+              {formatDate(tournament.registrationCloseDate)}
+            </div>
+          </div>
+        </div>
+
+        <br>\</br>
         <Link
-          href="/tournament/create"
-          className="inline-block mt-4 px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+          href={`/tournament/${tournament.id}`}
+          className="mt-3 w-full py-2 px-4 text-white text-sm text-center font-medium rounded-lg transition-colors bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 relative z-10"
         >
-          Create New Tournament
+          View Details
         </Link>
       </div>
+    </div>
+  );
+  return (
+    <Layout>
+      <div className="relative bg-gradient-to-br from-gray-900 to-gray-800 text-white py-16 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+            Esports Tournaments
+          </h1>
+          <p className="text-xl text-gray-300 mb-8">
+            Browse and join tournaments or create your own
+          </p>
+          <Link
+            href="/tournament/create"
+            className="inline-block px-8 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg transition-colors duration-200 transform hover:scale-105"
+          >
+            Create New Tournament
+          </Link>
+        </div>
+      </div>
 
-      <section className="mt-8 px-4">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-          Active Tournaments
-        </h2>
-        {isLoading ? (
-          <div className="flex overflow-x-auto space-x-4 py-4">
-            {[1, 2, 3].map((index) => (
-              <div
-                key={index}
-                className="flex-none bg-white p-4 rounded-lg shadow-lg w-64 animate-pulse"
-              >
-                <div className="w-full h-40 bg-gray-200 rounded-md mb-4" />
-                <div className="h-6 bg-gray-200 rounded w-3/4 mb-2" />
-                <div className="h-4 bg-gray-200 rounded w-1/2 mb-4" />
-                <div className="h-16 bg-gray-200 rounded mb-4" />
-                <div className="space-y-2">
-                  <div className="h-4 bg-gray-200 rounded w-2/3" />
-                  <div className="h-4 bg-gray-200 rounded w-1/2" />
-                </div>
-                <div className="mt-4 h-8 bg-gray-200 rounded w-24" />
-              </div>
-            ))}
-          </div>
-        ) : activeTournaments.length > 0 ? (
-          <div className="flex overflow-x-auto space-x-4 py-4">
-            {activeTournaments.map((tournament) =>
-              renderTournamentCard(tournament)
-            )}
-          </div>
-        ) : (
-          <p className="text-gray-600">No active tournaments available.</p>
+      {/* Tournament Sections */}
+      <div className="max-w-7xl mx-auto px-4 py-12">
+        {registrationClosingSoon.length > 0 && (
+          <section className="mb-16">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+              <span className="text-orange-500 mr-2">●</span>
+              Registration Closing Soon
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {registrationClosingSoon.map((tournament) =>
+                renderTournamentCard(tournament, "orange")
+              )}
+            </div>
+          </section>
         )}
-      </section>
 
-      {featuredTournaments.length > 0 && (
-        <section className="mt-8 px-4">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-            Featured Tournaments
-          </h2>
-          <div className="flex overflow-x-auto space-x-4 py-4">
-            {featuredTournaments.map((tournament) =>
-              renderTournamentCard(tournament)
-            )}
-          </div>
-        </section>
-      )}
+        {activeTournaments.length > 0 && (
+          <section className="mb-16">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+              <span className="text-green-500 mr-2">●</span>
+              Active Tournaments
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {activeTournaments.map((tournament) =>
+                renderTournamentCard(tournament)
+              )}
+            </div>
+          </section>
+        )}
 
-      {closingSoonTournaments.length > 0 && (
-        <section className="mt-8 px-4 mb-8">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-            Registration Closing Soon
+        <section className="mb-16">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+            <span className="text-blue-500 mr-2">●</span>
+            Upcoming Tournaments
           </h2>
-          <div className="flex overflow-x-auto space-x-4 py-4">
-            {closingSoonTournaments.map((tournament) =>
-              renderTournamentCard(tournament, "orange")
-            )}
-          </div>
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map((index) => (
+                <div
+                  key={index}
+                  className="bg-white p-6 rounded-xl shadow-lg w-full animate-pulse"
+                >
+                  <div className="w-full h-48 bg-gray-200 rounded-lg mb-4" />
+                  <div className="space-y-3">
+                    <div className="h-6 bg-gray-200 rounded w-3/4" />
+                    <div className="h-4 bg-gray-200 rounded w-1/2" />
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-full" />
+                      <div className="h-4 bg-gray-200 rounded w-full" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : upcomingTournaments.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {upcomingTournaments.map((tournament) =>
+                renderTournamentCard(tournament)
+              )}
+            </div>
+          ) : (
+            <p className="text-gray-600 text-center py-8">
+              No upcoming tournaments available.
+            </p>
+          )}
         </section>
-      )}
+      </div>
     </Layout>
   );
 }

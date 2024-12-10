@@ -5,6 +5,7 @@ import { authOptions } from "../auth/[...nextauth]/route";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { unlink } from "fs/promises";
+
 async function validateSession() {
   const session = await getServerSession(authOptions);
 
@@ -21,7 +22,6 @@ async function validateSession() {
   return session;
 }
 
-// Helper function to generate a unique filename
 function generateUniqueFilename(originalName) {
   const timestamp = Date.now();
   const randomString = Math.random().toString(36).substring(2, 15);
@@ -38,20 +38,38 @@ export async function POST(req) {
     const description = formData.get("description");
     const startDate = formData.get("startDate");
     const endDate = formData.get("endDate");
+    const registrationCloseDate = formData.get("registrationCloseDate");
     const prizePool = formData.get("prizePool");
     const maxPlayers = formData.get("maxPlayers");
     const game = formData.get("game");
     const image = formData.get("image");
 
-    if (!name || !description || !startDate || !endDate || !game) {
+    if (
+      !name ||
+      !description ||
+      !startDate ||
+      !endDate ||
+      !registrationCloseDate ||
+      !game
+    ) {
       return NextResponse.json(
         { message: "Missing required fields" },
         { status: 400 }
       );
     }
 
+    // Validate dates
     const startDateTime = new Date(startDate);
     const endDateTime = new Date(endDate);
+    const registrationCloseDateTime = new Date(registrationCloseDate);
+
+    if (registrationCloseDateTime >= startDateTime) {
+      return NextResponse.json(
+        { message: "Registration must close before tournament starts" },
+        { status: 400 }
+      );
+    }
+
     if (startDateTime >= endDateTime) {
       return NextResponse.json(
         { message: "End date must be after start date" },
@@ -91,6 +109,7 @@ export async function POST(req) {
         description,
         startDate: startDateTime,
         endDate: endDateTime,
+        registrationCloseDate: registrationCloseDateTime,
         prizePool: parseFloat(prizePool || 0),
         maxPlayers: parseInt(maxPlayers || 10),
         game,
@@ -123,6 +142,79 @@ export async function POST(req) {
   }
 }
 
+export async function GET(req) {
+  try {
+    const { searchParams } = new URL(req.url);
+
+    const where = {
+      ...(searchParams.get("status") && { status: searchParams.get("status") }),
+      ...(searchParams.get("game") && { game: searchParams.get("game") }),
+      ...(searchParams.get("createdBy") && {
+        userId: searchParams.get("createdBy"),
+      }),
+    };
+
+    const tournaments = await prisma.tournament.findMany({
+      where,
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+          },
+        },
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                username: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const enhancedTournaments = tournaments.map((tournament) => {
+      const now = new Date();
+      const startDate = new Date(tournament.startDate);
+      const registrationCloseDate = new Date(tournament.registrationCloseDate);
+      const isUpcoming = tournament.status === "UPCOMING" && startDate > now;
+
+      return {
+        ...tournament,
+        participantCount: tournament.participants.length,
+        isRegistrationOpen:
+          isUpcoming &&
+          tournament.participants.length < tournament.maxPlayers &&
+          now < registrationCloseDate,
+        formattedStartDate: startDate.toLocaleString(),
+        formattedEndDate: new Date(tournament.endDate).toLocaleString(),
+        formattedRegistrationCloseDate: registrationCloseDate.toLocaleString(),
+      };
+    });
+
+    return NextResponse.json(enhancedTournaments);
+  } catch (error) {
+    console.error("Tournament fetch error:", error);
+    return NextResponse.json(
+      {
+        message: "Failed to fetch tournaments",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      },
+      { status: 500 }
+    );
+  }
+}
 export async function DELETE(req, context) {
   try {
     const tournamentId = context.params.id;
@@ -187,79 +279,5 @@ export async function DELETE(req, context) {
   } catch (error) {
     console.error("Tournament deletion error:", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
-  }
-}
-
-export async function GET(req) {
-  try {
-    // Parse query parameters
-    const { searchParams } = new URL(req.url);
-
-    // Build query filters
-    const where = {
-      ...(searchParams.get("status") && { status: searchParams.get("status") }),
-      ...(searchParams.get("game") && { game: searchParams.get("game") }),
-      ...(searchParams.get("createdBy") && {
-        userId: searchParams.get("createdBy"),
-      }),
-    };
-
-    // Fetch tournaments
-    const tournaments = await prisma.tournament.findMany({
-      where,
-      include: {
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            username: true,
-          },
-        },
-        participants: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                username: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    // Enhance tournament data
-    const enhancedTournaments = tournaments.map((tournament) => {
-      const now = new Date();
-      const startDate = new Date(tournament.startDate);
-      const isUpcoming = tournament.status === "UPCOMING" && startDate > now;
-
-      return {
-        ...tournament,
-        participantCount: tournament.participants.length,
-        isRegistrationOpen:
-          isUpcoming && tournament.participants.length < tournament.maxPlayers,
-        formattedStartDate: startDate.toLocaleString(),
-        formattedEndDate: new Date(tournament.endDate).toLocaleString(),
-      };
-    });
-
-    return NextResponse.json(enhancedTournaments);
-  } catch (error) {
-    console.error("Tournament fetch error:", error);
-    return NextResponse.json(
-      {
-        message: "Failed to fetch tournaments",
-        error:
-          process.env.NODE_ENV === "development" ? error.message : undefined,
-      },
-      { status: 500 }
-    );
   }
 }

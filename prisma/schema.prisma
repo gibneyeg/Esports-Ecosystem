@@ -71,6 +71,7 @@ model Tournament {
   imageUrl    String?
   startDate   DateTime
   endDate     DateTime
+  registrationCloseDate DateTime
   prizePool   Float
   maxPlayers  Int
   game        String

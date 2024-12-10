@@ -144,7 +144,8 @@ export default function TournamentView({ tournamentId }) {
   const canJoin =
     !isParticipant &&
     tournament.participants.length < tournament.maxPlayers &&
-    tournament.status === "UPCOMING";
+    tournament.status === "UPCOMING" &&
+    new Date() < new Date(tournament.registrationCloseDate);
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString("en-US", {
@@ -198,6 +199,10 @@ export default function TournamentView({ tournamentId }) {
               <div className="space-y-3">
                 <p>
                   <span className="font-medium">Game:</span> {tournament.game}
+                </p>
+                <p>
+                  <span className="font-medium">Registration Closes:</span> //
+                  {formatDate(tournament.registrationCloseDate)}
                 </p>
                 <p>
                   <span className="font-medium">Start Date:</span>{" "}

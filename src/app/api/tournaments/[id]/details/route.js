@@ -1,5 +1,32 @@
 import { NextResponse } from "next/server";
 import prisma from "../../../../../lib/prisma";
+import fs from "fs/promises";
+import path from "path";
+
+async function deleteTournamentImage(imageUrl) {
+  if (!imageUrl) return;
+
+  try {
+    const filename = imageUrl.split("/").pop();
+    if (!filename) return;
+
+    const imagePath = path.join(
+      process.cwd(),
+      "public",
+      "uploads",
+      "tournaments",
+      filename
+    );
+
+    // Check if file exists before attempting to delete
+    await fs.access(imagePath);
+    await fs.unlink(imagePath);
+
+    console.log(`Successfully deleted image: ${filename}`);
+  } catch (error) {
+    console.error("Error deleting tournament image:", error);
+  }
+}
 
 export async function GET(request, context) {
   try {
@@ -101,6 +128,11 @@ export async function DELETE(request, context) {
       );
     }
 
+    // Delete the tournament image if it exists
+    if (tournament.imageUrl) {
+      await deleteTournamentImage(tournament.imageUrl);
+    }
+
     // Delete the tournament and all related data
     await prisma.tournament.delete({
       where: { id: tournamentId },
@@ -108,7 +140,7 @@ export async function DELETE(request, context) {
 
     return NextResponse.json({
       success: true,
-      message: "Tournament successfully deleted",
+      message: "Tournament and associated image successfully deleted",
     });
   } catch (error) {
     console.error("Tournament deletion error:", error);

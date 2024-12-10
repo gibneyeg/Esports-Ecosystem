@@ -7,12 +7,13 @@ import Layout from "../../../components/Layout.jsx";
 
 export default function CreateTournament() {
   const router = useRouter();
-  const { data: status } = useSession();
+  const { data: session, status } = useSession();
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     startDate: "",
     endDate: "",
+    registrationCloseDate: "",
     prizePool: "",
     maxPlayers: "",
     game: "",
@@ -53,6 +54,25 @@ export default function CreateTournament() {
     event.preventDefault();
     setIsSubmitting(true);
     setError("");
+
+    // Validate dates
+    const startTime = new Date(formData.startDate).getTime();
+    const endTime = new Date(formData.endDate).getTime();
+    const registrationCloseTime = new Date(
+      formData.registrationCloseDate
+    ).getTime();
+
+    if (registrationCloseTime >= startTime) {
+      setError("Registration must close before tournament starts");
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (startTime >= endTime) {
+      setError("End date must be after start date");
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       const formDataToSend = new FormData();
@@ -191,7 +211,23 @@ export default function CreateTournament() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label htmlFor="registrationCloseDate" className="block mb-2">
+                Registration Closes
+              </label>
+              <input
+                id="registrationCloseDate"
+                type="datetime-local"
+                name="registrationCloseDate"
+                value={formData.registrationCloseDate}
+                onChange={handleChange}
+                required
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
+                disabled={isSubmitting}
+              />
+            </div>
+
             <div>
               <label htmlFor="startDate" className="block mb-2">
                 Start Date
