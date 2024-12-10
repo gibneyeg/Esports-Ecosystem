@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -87,6 +86,19 @@ export default function TournamentView({ tournamentId }) {
     }
   };
 
+  const getDisplayName = (user) => {
+    if (user.name) return user.name;
+    if (user.username) return user.username;
+    if (user.email) {
+      return user.email.split("@")[0];
+    }
+    return "Anonymous User";
+  };
+
+  const getParticipantDisplayName = (participant) => {
+    return getDisplayName(participant.user);
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -154,7 +166,10 @@ export default function TournamentView({ tournamentId }) {
                 {tournament.name}
               </h1>
               <p className="text-gray-600 mt-2">
-                Created by: {tournament.createdBy?.name || "Unknown"}
+                Created by:{" "}
+                {tournament.createdBy
+                  ? getDisplayName(tournament.createdBy)
+                  : "Unknown"}
               </p>
             </div>
             {session?.user && canJoin && (
@@ -216,7 +231,7 @@ export default function TournamentView({ tournamentId }) {
                       key={participant.id}
                       className="bg-gray-50 p-2 rounded-md flex items-center justify-between"
                     >
-                      <span>{participant.user.name}</span>
+                      <span>{getParticipantDisplayName(participant)}</span>
                       <span className="text-sm text-gray-500">
                         {formatDate(participant.joinedAt)}
                       </span>
@@ -237,20 +252,6 @@ export default function TournamentView({ tournamentId }) {
           </div>
           {isCreator && <TournamentManagement tournamentId={tournament.id} />}
         </div>
-        {/* {tournament.participants?.length > 0 && (
-          <section className="mt-8">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-              Tournament Bracket
-            </h2>
-            <div className="mb-8">
-              <div className="text-sm text-gray-600 mb-4">
-                Participants: {tournament.participants.length}/
-                {tournament.maxPlayers}
-              </div>
-              <TournamentBracket maxPlayers={tournament.maxPlayers} />
-            </div>
-          </section>
-        )} */}
       </div>
     </Layout>
   );
