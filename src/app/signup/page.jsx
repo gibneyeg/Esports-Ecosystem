@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 export default function SignUpPage() {
@@ -14,6 +14,8 @@ export default function SignUpPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -47,13 +49,19 @@ export default function SignUpPage() {
         throw new Error(data.error || "Error creating account");
       }
 
-      router.push("/login");
+      // Redirect to login with the callback URL if it exists
+      router.push(
+        `/login${
+          callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""
+        }`
+      );
     } catch (err) {
       setError(err.message);
     }
 
     setLoading(false);
   };
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-gray-50">
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-6">
@@ -139,7 +147,14 @@ export default function SignUpPage() {
 
         <p className="mt-4 text-center text-sm text-gray-600">
           Already have an account?{" "}
-          <Link href="/login" className="text-blue-500 hover:underline">
+          <Link
+            href={`/login${
+              callbackUrl
+                ? `?callbackUrl=${encodeURIComponent(callbackUrl)}`
+                : ""
+            }`}
+            className="text-blue-500 hover:underline"
+          >
             Sign in
           </Link>
         </p>

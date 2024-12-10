@@ -7,7 +7,7 @@ import Layout from "../../../components/Layout.jsx";
 
 export default function CreateTournament() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: status } = useSession();
   const [formData, setFormData] = useState({
     name: "",
     description: "",

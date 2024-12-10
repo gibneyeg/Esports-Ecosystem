@@ -11,16 +11,16 @@
     "prepare": "husky install"
   },
   "dependencies": {
-    "@auth/core": "^0.37.3",
+    "@auth/core": "^0.37.4",
     "@auth/prisma-adapter": "^2.7.3",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.5.1",
-    "next": "15.0.0",
-    "next-auth": "^4.24.10",
+    "next": "14.2.20",
+    "next-auth": "^4.24.7",
     "nodemailer": "^6.9.16",
     "pg": "^8.13.1",
-    "react": "19.0.0-rc-65a56d0e-20241020",
-    "react-dom": "19.0.0-rc-65a56d0e-20241020"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@prisma/client": "^5.22.0",
@@ -29,7 +29,7 @@
     "cypress": "^13.15.1",
     "eslint": "^8",
     "eslint-config-next": "15.0.0",
-    "husky": "^8.0.0",
+    "husky": "^8.0.3",
     "jsdom": "^25.0.1",
     "postcss": "^8.4.47",
     "prisma": "^5.21.1",

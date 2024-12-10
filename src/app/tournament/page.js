@@ -147,9 +147,7 @@ export default function Tournaments() {
                 <h3 className="text-lg font-semibold text-gray-800">
                   {tournament.name}
                 </h3>
-                <p className="text-gray-500 text-sm mt-2">
-                  Test{tournament.game}
-                </p>
+                <p className="text-gray-500 text-sm mt-2">{tournament.game}</p>
                 <p className="text-gray-500">
                   Prize Pool: ${tournament.prizePool}
                 </p>

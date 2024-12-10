@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showTournamentMessage, setShowTournamentMessage] = useState(true);
+  const callbackUrl = searchParams.get("callbackUrl");
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -42,7 +43,8 @@ export default function LoginPage() {
       if (result?.error) {
         setError(result.error);
       } else if (result?.ok) {
-        router.push(callbackUrl);
+        // Force a full page refresh to update auth state
+        window.location.href = callbackUrl;
       }
     } catch (error) {
       setError("Something went wrong!");
@@ -50,7 +52,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
@@ -152,7 +153,9 @@ export default function LoginPage() {
           Sign in with Google
         </button>
         <Link
-          href="/signup"
+          href={`/signup${
+            callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""
+          }`}
           className="block text-center text-blue-600 hover:text-blue-700 mt-4"
         >
           Don&apos;t have an account? Register
