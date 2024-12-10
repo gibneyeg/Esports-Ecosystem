@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -99,6 +100,35 @@ export default function TournamentView({ tournamentId }) {
     return getDisplayName(participant.user);
   };
 
+  const getTournamentStatus = () => {
+    const now = new Date();
+    const endDate = new Date(tournament.endDate);
+
+    if (endDate < now || tournament.status === "COMPLETED") {
+      return "COMPLETED";
+    }
+
+    const startDate = new Date(tournament.startDate);
+    if (now >= startDate && now <= endDate) {
+      return "IN PROGRESS";
+    }
+
+    return "UPCOMING";
+  };
+
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case "COMPLETED":
+        return "inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-red-100 text-red-800";
+      case "IN_PROGRESS":
+        return "inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-800";
+      case "UPCOMING":
+        return "inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800";
+      default:
+        return "inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-gray-100 text-gray-800";
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -157,6 +187,8 @@ export default function TournamentView({ tournamentId }) {
     });
   };
 
+  const currentStatus = getTournamentStatus();
+
   return (
     <Layout>
       <div className="max-w-4xl mx-auto p-6">
@@ -201,7 +233,7 @@ export default function TournamentView({ tournamentId }) {
                   <span className="font-medium">Game:</span> {tournament.game}
                 </p>
                 <p>
-                  <span className="font-medium">Registration Closes:</span> //
+                  <span className="font-medium">Registration Closes:</span>{" "}
                   {formatDate(tournament.registrationCloseDate)}
                 </p>
                 <p>
@@ -218,7 +250,9 @@ export default function TournamentView({ tournamentId }) {
                 </p>
                 <p>
                   <span className="font-medium">Status:</span>{" "}
-                  {tournament.status}
+                  <span className={getStatusStyle(currentStatus)}>
+                    {currentStatus}
+                  </span>
                 </p>
                 <p>
                   <span className="font-medium">Players:</span>{" "}
