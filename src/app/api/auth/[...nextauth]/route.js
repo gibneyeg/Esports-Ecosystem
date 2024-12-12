@@ -67,14 +67,33 @@ const handler = NextAuth({
             where: { email: profile.email },
             include: { accounts: true },
           });
-
+    
           if (existingUser) {
-            if (
-              !existingUser.accounts?.some((acc) => acc.provider === "google")
-            ) {
-              await prisma.account.create({
-                data: {
-                  userId: existingUser.id,
+            // Check if this email already has a Google account linked
+            const hasGoogleAccount = existingUser.accounts.some(
+              acc => acc.provider === "google"
+            );
+    
+            if (!hasGoogleAccount) {
+              // If no Google account is linked, prevent automatic sign-in
+              return `/login?error=Signin`; // Redirect to login with error
+            }
+    
+            return true;
+          } 
+    
+          // Create new user if email doesn't exist
+          await prisma.user.create({
+            data: {
+              email: profile.email,
+              name: profile.name,
+              username: profile.name,
+              image: profile.picture,
+              rank: "Bronze",
+              points: 0,
+              emailVerified: new Date(),
+              accounts: {
+                create: {
                   type: account.type,
                   provider: account.provider,
                   providerAccountId: account.providerAccountId,
@@ -84,54 +103,19 @@ const handler = NextAuth({
                   scope: account.scope,
                   id_token: account.id_token,
                 },
-              });
-            }
-
-            // Update user information
-            await prisma.user.update({
-              where: { id: existingUser.id },
-              data: {
-                name: profile.name,
-                image: profile.picture,
-                emailVerified: new Date(),
               },
-            });
-
-            return true;
-          } else {
-            // Create new user
-            const newUser = await prisma.user.create({
-              data: {
-                email: profile.email,
-                name: profile.name,
-                username: profile.name,
-                image: profile.picture,
-                rank: "Bronze",
-                points: 0,
-                emailVerified: new Date(),
-                accounts: {
-                  create: {
-                    type: account.type,
-                    provider: account.provider,
-                    providerAccountId: account.providerAccountId,
-                    access_token: account.access_token,
-                    expires_at: account.expires_at,
-                    token_type: account.token_type,
-                    scope: account.scope,
-                    id_token: account.id_token,
-                  },
-                },
-              },
-            });
-
-            return true;
-          }
+            },
+          });
+          
+          return true;
         }
         return true;
       } catch (error) {
         console.error("SignIn error:", error);
         return false;
       }
+  
+
     },
     async jwt({ token, user, trigger, session }) {
       if (trigger === "signIn" && user) {
@@ -157,7 +141,6 @@ const handler = NextAuth({
         }
       }
 
-      // Handle session update
       if (trigger === "update" && session?.user) {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email },
@@ -183,7 +166,6 @@ const handler = NextAuth({
     },
     async session({ session, token }) {
       if (session?.user) {
-        //  user data including tournament information
         const dbUser = await prisma.user.findUnique({
           where: { email: session.user.email },
           select: {
@@ -239,7 +221,6 @@ const handler = NextAuth({
           session.user.points = dbUser.points;
           session.user.image = dbUser.image;
 
-          // Add tournament data
           session.user.createdTournaments = dbUser.createdTournaments.map(
             (t) => ({
               ...t,
@@ -254,12 +235,11 @@ const handler = NextAuth({
 
         session.user.email = token.email;
         session.user.name = token.name;
-        session.user.image = token.image || dbUser?.image; // Use token image or fallback to dbUser image
+        session.user.image = token.image || dbUser?.image;
       }
       return session;
     },
     async redirect({ url, baseUrl }) {
-      // Handle relative URLs
       if (url.startsWith("/")) return `${baseUrl}${url}`;
       if (new URL(url).origin === baseUrl) return url;
       return baseUrl;
@@ -269,7 +249,7 @@ const handler = NextAuth({
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
-    updateAge: 24 * 60 * 60, // 24 hours - prevents too frequent session updates
+    updateAge: 24 * 60 * 60, // 24 hours
   },
   cookies: {
     sessionToken: {
@@ -282,7 +262,6 @@ const handler = NextAuth({
       },
     },
   },
-  // debug: process.env.NODE_ENV === "development",
 });
 
 export { handler as GET, handler as POST };

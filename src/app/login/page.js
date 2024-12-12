@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [showTournamentMessage, setShowTournamentMessage] = useState(true);
   const callbackUrl = searchParams.get("callbackUrl");
+  const errorType = searchParams.get("error");
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -23,6 +24,13 @@ export default function LoginPage() {
       router.push(callbackUrl);
     }
   }, [status, router, searchParams]);
+
+  useEffect(() => {
+    // Handle auth errors from URL
+    if (errorType === 'Signin') {
+      setError("An account with this email already exists.");
+    }
+  }, [errorType]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,7 +51,6 @@ export default function LoginPage() {
       if (result?.error) {
         setError(result.error);
       } else if (result?.ok) {
-        // Force a full page refresh to update auth state
         window.location.href = callbackUrl;
       }
     } catch (error) {
@@ -52,6 +59,7 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
@@ -74,15 +82,16 @@ export default function LoginPage() {
           <h1 className="text-3xl font-bold text-gray-900">Welcome Back</h1>
           <p className="text-gray-500">Sign in to your account</p>
         </div>
+        
         {showTournamentMessage &&
-          decodeURIComponent(searchParams.get("callbackUrl") || "") ===
-            "/tournament/create" && (
+          decodeURIComponent(searchParams.get("callbackUrl") || "") === "/tournament/create" && (
             <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-md mb-6">
               <p className="text-sm text-blue-700">
                 Please log in to create a tournament
               </p>
             </div>
           )}
+          
         {error && (
           <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-md">
             <p className="text-sm text-red-700">{error}</p>
@@ -132,9 +141,7 @@ export default function LoginPage() {
             <div className="w-full border-t border-gray-200" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-white text-gray-500">
-              Or continue with
-            </span>
+            <span className="px-4 bg-white text-gray-500">Or continue with</span>
           </div>
         </div>
 
@@ -152,10 +159,9 @@ export default function LoginPage() {
           />
           Sign in with Google
         </button>
+
         <Link
-          href={`/signup${
-            callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""
-          }`}
+          href={`/signup${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`}
           className="block text-center text-blue-600 hover:text-blue-700 mt-4"
         >
           Don&apos;t have an account? Register
