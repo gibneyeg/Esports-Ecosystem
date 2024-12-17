@@ -28,6 +28,12 @@ export default function Header() {
   }, [showProfileMenu]);
 
   const handleLogout = async () => {
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c
+        .replace(/^ +/, "")
+        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+
     await signOut({ redirect: true, callbackUrl: "/" });
   };
 

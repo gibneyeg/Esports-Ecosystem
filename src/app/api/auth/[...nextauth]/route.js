@@ -59,6 +59,29 @@ const handler = NextAuth({
     signIn: "/login",
     error: "/login",
   },
+  events: {
+    signOut: async ({ session, token }) => {
+      if (session?.user?.email) {
+        await prisma.session.deleteMany({
+          where: {
+            user: {
+              email: session.user.email,
+            },
+          },
+        });
+
+        // Also clean up any expired sessions
+        const now = new Date();
+        await prisma.session.deleteMany({
+          where: {
+            expires: {
+              lt: now,
+            },
+          },
+        });
+      }
+    },
+  },
   callbacks: {
     async signIn({ account, profile }) {
       try {
@@ -67,21 +90,21 @@ const handler = NextAuth({
             where: { email: profile.email },
             include: { accounts: true },
           });
-    
+
           if (existingUser) {
             // Check if this email already has a Google account linked
             const hasGoogleAccount = existingUser.accounts.some(
-              acc => acc.provider === "google"
+              (acc) => acc.provider === "google"
             );
-    
+
             if (!hasGoogleAccount) {
               // If no Google account is linked, prevent automatic sign-in
               return `/login?error=Signin`; // Redirect to login with error
             }
-    
+
             return true;
-          } 
-    
+          }
+
           // Create new user if email doesn't exist
           await prisma.user.create({
             data: {
@@ -106,7 +129,7 @@ const handler = NextAuth({
               },
             },
           });
-          
+
           return true;
         }
         return true;
@@ -114,8 +137,6 @@ const handler = NextAuth({
         console.error("SignIn error:", error);
         return false;
       }
-  
-
     },
     async jwt({ token, user, trigger, session }) {
       if (trigger === "signIn" && user) {

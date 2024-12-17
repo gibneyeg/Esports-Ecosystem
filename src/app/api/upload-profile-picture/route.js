@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
 import prisma from "../../../lib/prisma";
+import { writeFile } from "fs/promises";
+import path from "path";
 
 export async function POST(request) {
   try {
@@ -20,17 +22,35 @@ export async function POST(request) {
       );
     }
 
-    // Convert file to base64
+    // Create a unique filename using timestamp and original name
+    const timestamp = Date.now();
+    const fileName = `profile-${timestamp}-${file.name}`;
+
+    // Convert the file to a buffer
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const base64Image = `data:${file.type};base64,${buffer.toString("base64")}`;
+
+    // Define the path where images will be stored
+    const imagePath = path.join(
+      process.cwd(),
+      "public",
+      "img",
+      "profiles",
+      fileName
+    );
+
+    // Save the file
+    await writeFile(imagePath, buffer);
+
+    // The URL that will be stored in the database and used in the frontend
+    const imageUrl = `/img/profiles/${fileName}`;
 
     const updatedUser = await prisma.user.update({
       where: {
         email: session.user.email,
       },
       data: {
-        image: base64Image,
+        image: imageUrl,
       },
     });
 
@@ -42,7 +62,7 @@ export async function POST(request) {
     }
 
     return NextResponse.json({
-      imageUrl: base64Image,
+      imageUrl: imageUrl,
       message: "Profile picture updated successfully",
     });
   } catch (error) {
@@ -53,9 +73,3 @@ export async function POST(request) {
     );
   }
 }
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
