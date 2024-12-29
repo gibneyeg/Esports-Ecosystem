@@ -16,9 +16,14 @@ export default function Header() {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState("");
 
+  // Only show loading state for logged in users
+  const isLoading = status === "loading" && session?.user;
+
   useEffect(() => {
+    if (!showProfileMenu) return; // Only add listener if menu is shown
+    
     const handleClickOutside = (event) => {
-      if (showProfileMenu && !event.target.closest(".profile-menu-container")) {
+      if (!event.target.closest(".profile-menu-container")) {
         setShowProfileMenu(false);
       }
     };
@@ -41,7 +46,6 @@ export default function Header() {
     const file = event.target.files[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        // 2MB limit
         setError("File size must be less than 2MB");
         return;
       }
@@ -74,7 +78,6 @@ export default function Header() {
       try {
         data = await response.json();
       } catch (parseError) {
-        console.error("JSON Parse Error:", parseError);
         throw new Error("Failed to parse server response");
       }
 
@@ -84,12 +87,10 @@ export default function Header() {
         );
       }
 
-      // Add validation for the imageUrl
       if (!data.imageUrl) {
         throw new Error("Invalid response format: missing imageUrl");
       }
 
-      // Update the session with the new image URL
       await update({
         ...session,
         user: {
@@ -108,8 +109,6 @@ export default function Header() {
       setIsUploading(false);
     }
   };
-
-  const isLoading = status === "loading";
 
   return (
     <header className="bg-black">
@@ -146,7 +145,7 @@ export default function Header() {
           </ul>
         </div>
         <div className="flex items-center gap-4 min-w-[200px] justify-end">
-          {isLoading ? (
+          {status === "loading" && session?.user ? (
             <div className="flex gap-4">
               <div className="w-20 h-10 bg-gray-700 rounded-lg animate-pulse"></div>
               <div className="w-24 h-10 bg-gray-700 rounded-lg animate-pulse"></div>
