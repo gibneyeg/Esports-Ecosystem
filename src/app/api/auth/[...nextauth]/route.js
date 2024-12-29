@@ -22,6 +22,7 @@ const handler = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        remember: { label: "Remember Me", type: "boolean" }
       },
       async authorize(credentials) {
         try {
@@ -48,6 +49,7 @@ const handler = NextAuth({
             email: user.email,
             name: user.username,
             image: user.image,
+            remember: credentials.remember
           };
         } catch (error) {
           throw new Error(error.message);
@@ -70,7 +72,7 @@ const handler = NextAuth({
           },
         });
 
-        // Also clean up any expired sessions
+        // Clean up expired sessions
         const now = new Date();
         await prisma.session.deleteMany({
           where: {
@@ -139,6 +141,7 @@ const handler = NextAuth({
       }
     },
     async jwt({ token, user, trigger, session }) {
+      // Set session duration based on remember me choice
       if (trigger === "signIn" && user) {
         const dbUser = await prisma.user.findUnique({
           where: { email: user.email },
@@ -159,6 +162,11 @@ const handler = NextAuth({
           token.rank = dbUser.rank;
           token.points = dbUser.points;
           token.image = dbUser.image;
+          
+          // Set token expiry based on remember me
+          if (!user.remember) {
+            token.maxAge = 24 * 60 * 60; // 24 hours
+          }
         }
       }
 
@@ -185,6 +193,7 @@ const handler = NextAuth({
 
       return token;
     },
+    
     async session({ session, token }) {
       if (session?.user) {
         const dbUser = await prisma.user.findUnique({
@@ -266,10 +275,9 @@ const handler = NextAuth({
       return baseUrl;
     },
   },
-
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60, // 30 days (max possible session length)
     updateAge: 24 * 60 * 60, // 24 hours
   },
   cookies: {
