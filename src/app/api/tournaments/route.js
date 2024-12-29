@@ -2,9 +2,14 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "../../../lib/prisma";
 import { authOptions } from "../auth/[...nextauth]/route";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { unlink } from "fs/promises";
+import { v2 as cloudinary } from 'cloudinary';
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 async function validateSession() {
   const session = await getServerSession(authOptions);
@@ -22,13 +27,6 @@ async function validateSession() {
   return session;
 }
 
-function generateUniqueFilename(originalName) {
-  const timestamp = Date.now();
-  const randomString = Math.random().toString(36).substring(2, 15);
-  const extension = originalName.split(".").pop();
-  return `${timestamp}-${randomString}.${extension}`;
-}
-
 export async function POST(req) {
   try {
     const session = await validateSession();
@@ -44,18 +42,8 @@ export async function POST(req) {
     const game = formData.get("game");
     const image = formData.get("image");
 
-    if (
-      !name ||
-      !description ||
-      !startDate ||
-      !endDate ||
-      !registrationCloseDate ||
-      !game
-    ) {
-      return NextResponse.json(
-        { message: "Missing required fields" },
-        { status: 400 }
-      );
+    if (!name || !description || !startDate || !endDate || !registrationCloseDate || !game) {
+      return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
     }
 
     // Validate dates
@@ -82,24 +70,17 @@ export async function POST(req) {
       try {
         const bytes = await image.arrayBuffer();
         const buffer = Buffer.from(bytes);
+        const base64Image = `data:${image.type};base64,${buffer.toString('base64')}`;
 
-        const uploadsDir = join(process.cwd(), "public", "uploads");
-        try {
-          await mkdir(uploadsDir, { recursive: true });
-        } catch (err) {
-          if (err.code !== "EEXIST") throw err;
-        }
+        const uploadResponse = await cloudinary.uploader.upload(base64Image, {
+          folder: "tournament_banners",
+          upload_preset: "tournament_images", // Make sure to create this preset in Cloudinary
+        });
 
-        const filename = generateUniqueFilename(image.name);
-        const imagePath = join(uploadsDir, filename);
-        await writeFile(imagePath, buffer);
-        imageUrl = `/uploads/${filename}`;
+        imageUrl = uploadResponse.secure_url;
       } catch (error) {
         console.error("Image upload error:", error);
-        return NextResponse.json(
-          { message: "Failed to upload image" },
-          { status: 500 }
-        );
+        return NextResponse.json({ message: "Failed to upload image" }, { status: 500 });
       }
     }
 
@@ -218,17 +199,12 @@ export async function GET(req) {
 export async function DELETE(req, context) {
   try {
     const tournamentId = context.params.id;
-
-    // Get session
     const session = await getServerSession(authOptions);
+    
     if (!session?.user?.email) {
-      return NextResponse.json(
-        { message: "Authentication required" },
-        { status: 401 }
-      );
+      return NextResponse.json({ message: "Authentication required" }, { status: 401 });
     }
 
-    // Get the actual user from database
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
     });
@@ -237,19 +213,14 @@ export async function DELETE(req, context) {
       return NextResponse.json({ message: "User not found" }, { status: 401 });
     }
 
-    // Get tournament
     const tournament = await prisma.tournament.findUnique({
       where: { id: tournamentId },
     });
 
     if (!tournament) {
-      return NextResponse.json(
-        { message: "Tournament not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ message: "Tournament not found" }, { status: 404 });
     }
 
-    // Check ownership
     if (tournament.userId !== user.id) {
       return NextResponse.json(
         { message: "You don't have permission to delete this tournament" },
@@ -257,20 +228,26 @@ export async function DELETE(req, context) {
       );
     }
 
-    // With cascading deletes set up, we can directly delete the tournament
+    // Delete image from Cloudinary if it exists
+    if (tournament.imageUrl) {
+      try {
+        // Extract public_id from the Cloudinary URL
+        const publicId = tournament.imageUrl
+          .split('/')
+          .slice(-2)
+          .join('/')
+          .split('.')[0];
+        
+        await cloudinary.uploader.destroy(publicId);
+      } catch (error) {
+        console.error("Error deleting image from Cloudinary:", error);
+      }
+    }
+
+    // Delete tournament from database
     await prisma.tournament.delete({
       where: { id: tournamentId },
     });
-
-    // Delete the image file if it exists
-    if (tournament.imageUrl) {
-      try {
-        const imagePath = join(process.cwd(), "public", tournament.imageUrl);
-        await unlink(imagePath).catch(console.error);
-      } catch (error) {
-        console.error("Error deleting image file:", error);
-      }
-    }
 
     return NextResponse.json({
       success: true,

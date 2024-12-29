@@ -5,72 +5,37 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 const router = useRouter();
 
-// Image compression function
-const compressImage = async (file) => {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      const img = new Image();
-      img.onload = function () {
-        const canvas = document.createElement("canvas");
-        let width = img.width;
-        let height = img.height;
 
-        // Max dimensions
-        const MAX_WIDTH = 800;
-        const MAX_HEIGHT = 800;
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Convert to JPEG format for smaller size
-        canvas.toBlob(
-          (blob) => {
-            resolve(blob);
-          },
-          "image/jpeg",
-          0.7
-        ); // 0.7 quality for good balance
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-};
 
 const ProfilePictureUploader = () => {
   const { data: session, update } = useSession();
+  const router = useRouter();
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState("");
 
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+  const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+  const validateFile = (file) => {
+    // Check file size
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error('File size must be less than 5MB');
+    }
+
+    // Check file type
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      throw new Error('Please select a valid image file (JPEG, PNG, or WebP)');
+    }
+  };
+
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setError("File size must be less than 5MB");
-        return;
-      }
-      if (!file.type.startsWith("image/")) {
-        setError("Please select an image file");
-        return;
-      }
+    if (!file) return;
+
+    try {
+      validateFile(file);
       setSelectedFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -78,6 +43,10 @@ const ProfilePictureUploader = () => {
       };
       reader.readAsDataURL(file);
       setError("");
+    } catch (err) {
+      setError(err.message);
+      setSelectedFile(null);
+      setPreviewUrl(null);
     }
   };
 
@@ -88,39 +57,57 @@ const ProfilePictureUploader = () => {
       setIsUploading(true);
       setError("");
 
-      // Compress the image first
-      const compressedImage = await compressImage(selectedFile);
-
       const formData = new FormData();
-      formData.append("image", compressedImage, selectedFile.name);
+      formData.append("file", selectedFile);
+      formData.append("upload_preset", "profile_pictures");
+      formData.append("cloud_name", process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME);
 
-      const response = await fetch("/api/upload-profile-picture", {
-        method: "POST",
-        body: formData,
-      });
+      // Upload to Cloudinary
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to upload image");
+        throw new Error(data.error?.message || "Upload failed");
       }
 
-      // Update session with new image
+      // Update user profile
+      const updateResponse = await fetch("/api/update-profile-picture", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          imageUrl: data.secure_url,
+        }),
+      });
+
+      if (!updateResponse.ok) {
+        throw new Error("Failed to update profile");
+      }
+
+      // Update session
       await update({
         ...session,
         user: {
           ...session?.user,
-          image: data.imageUrl,
+          image: data.secure_url,
         },
       });
 
-      // Wait for session update to complete
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Instead of window.location.reload(), use router
+      // Reset states
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      
       router.refresh();
     } catch (err) {
-      setError(err.message || "Failed to upload image. Please try again.");
+      setError(err.message || "Failed to upload image");
       console.error("Upload error:", err);
     } finally {
       setIsUploading(false);
