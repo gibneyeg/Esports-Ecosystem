@@ -22,34 +22,44 @@ const handler = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
-        remember: { label: "Remember Me", type: "boolean" }
+        remember: { label: "Remember Me", type: "checkbox" }
       },
       async authorize(credentials) {
         try {
           if (!credentials?.email || !credentials?.password) {
             throw new Error("Missing credentials");
           }
+
           const user = await prisma.user.findUnique({
             where: {
               email: credentials.email,
             },
           });
+
           if (!user || !user.password) {
             throw new Error("Invalid credentials");
           }
+
+          // Check if email is verified for credentials login
+          if (!user.emailVerified && user.password) {
+            throw new Error("Please verify your email before logging in");
+          }
+
           const isPasswordValid = await bcrypt.compare(
             credentials.password,
             user.password
           );
+
           if (!isPasswordValid) {
             throw new Error("Invalid credentials");
           }
+
           return {
             id: user.id,
             email: user.email,
             name: user.username,
             image: user.image,
-            remember: credentials.remember
+            remember: credentials.remember === "true"
           };
         } catch (error) {
           throw new Error(error.message);
@@ -141,7 +151,6 @@ const handler = NextAuth({
       }
     },
     async jwt({ token, user, trigger, session }) {
-      // Set session duration based on remember me choice
       if (trigger === "signIn" && user) {
         const dbUser = await prisma.user.findUnique({
           where: { email: user.email },
@@ -162,10 +171,10 @@ const handler = NextAuth({
           token.rank = dbUser.rank;
           token.points = dbUser.points;
           token.image = dbUser.image;
-          
+
           // Set token expiry based on remember me
           if (!user.remember) {
-            token.maxAge = 24 * 60 * 60; // 24 hours
+            token.maxAge = 24 * 60 * 60; // 24 hours if not remembered
           }
         }
       }

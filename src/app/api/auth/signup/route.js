@@ -1,6 +1,8 @@
+// app/api/auth/signup/route.js
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import prisma from "../../../../lib/prisma.js";
+
 export async function POST(request) {
   try {
     const { username, email, password } = await request.json();
@@ -35,13 +37,26 @@ export async function POST(request) {
         password: hashedPassword,
         rank: "Bronze",
         points: 0,
+        emailVerified: null, // Explicitly set as null until verified
       },
+    });
+
+    // Trigger verification email
+    await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/auth/verify-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
     });
 
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
 
-    return NextResponse.json(userWithoutPassword);
+    return NextResponse.json({
+      ...userWithoutPassword,
+      message: "Please check your email to verify your account",
+    });
   } catch (error) {
     console.error("Signup error:", error);
     return NextResponse.json({ error: "Error creating user" }, { status: 500 });

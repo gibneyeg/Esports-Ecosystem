@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import prisma from "../../../../lib/prisma.js"; // Using the same relative import as signup
+import prisma from "../../../../lib/prisma.js";
 
 export async function POST(request) {
   try {
@@ -15,6 +15,14 @@ export async function POST(request) {
       return NextResponse.json(
         { error: "Invalid credentials" },
         { status: 401 }
+      );
+    }
+
+    // Check email verification
+    if (!user.emailVerified) {
+      return NextResponse.json(
+        { error: "Please verify your email address" },
+        { status: 403 }
       );
     }
 
@@ -33,6 +41,9 @@ export async function POST(request) {
     return NextResponse.json(userWithoutPassword);
   } catch (error) {
     console.error("Login error:", error);
-    return NextResponse.json({ error: "Error during login" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Error during login" },
+      { status: 500 }
+    );
   }
 }

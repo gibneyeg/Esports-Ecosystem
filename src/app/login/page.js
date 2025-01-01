@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showTournamentMessage, setShowTournamentMessage] = useState(true);
+  const [resendingEmail, setResendingEmail] = useState(false);
   const callbackUrl = searchParams.get("callbackUrl");
   const errorType = searchParams.get("error");
 
@@ -31,6 +32,34 @@ export default function LoginPage() {
       setError("An account with this email already exists.");
     }
   }, [errorType]);
+
+  const handleResendVerification = async () => {
+    if (!email) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    setResendingEmail(true);
+    try {
+      const response = await fetch('/api/auth/verify-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send verification email');
+      }
+
+      setError('Verification email sent! Please check your inbox.');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setResendingEmail(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,7 +79,12 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        setError(result.error);
+        // Check if the error is about email verification
+        if (result.error === "Please verify your email before logging in") {
+          setError("This account has not been verified. Please check your email or click below to resend verification email.");
+        } else {
+          setError(result.error);
+        }
       } else if (result?.ok) {
         router.push(callbackUrl);
       }
@@ -80,7 +114,21 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8 space-y-6">
-        {/* ... existing header and error message JSX ... */}
+        {error && (
+          <div className="p-4 text-sm bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-700">{error}</p>
+            {error.includes('not been verified') && (
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                disabled={resendingEmail}
+                className="mt-2 w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+              >
+                {resendingEmail ? 'Sending...' : 'Resend Verification Email'}
+              </button>
+            )}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-1">
