@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Layout from "/src/components/Layout.jsx";
@@ -8,7 +8,10 @@ import Layout from "/src/components/Layout.jsx";
 export default function Tournaments() {
   const { data: session } = useSession();
   const [tournaments, setTournaments] = useState([]);
+  const [filteredTournaments, setFilteredTournaments] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const searchInputRef = useRef(null);
 
   useEffect(() => {
     const fetchTournaments = async () => {
@@ -17,6 +20,7 @@ export default function Tournaments() {
         if (response.ok) {
           const data = await response.json();
           setTournaments(data);
+          setFilteredTournaments(data);
         }
       } catch (error) {
         console.error("Error fetching tournaments:", error);
@@ -28,13 +32,29 @@ export default function Tournaments() {
     fetchTournaments();
   }, []);
 
+  const filterTournaments = (query) => {
+    if (!query.trim()) {
+      setFilteredTournaments(tournaments);
+      return;
+    }
+    
+    const searchTerm = query.toLowerCase();
+    const filtered = tournaments.filter(tournament => 
+      tournament.name.toLowerCase().includes(searchTerm) ||
+      tournament.game.toLowerCase().includes(searchTerm)
+    );
+    
+    setFilteredTournaments(filtered);
+  };
+
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
+    return new Date(dateString).toLocaleDateString("en-IE", {
       year: "numeric",
       month: "long",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
     });
   };
 
@@ -52,7 +72,7 @@ export default function Tournaments() {
 
   const now = new Date();
 
-  const registrationClosingSoon = tournaments.filter((tournament) => {
+  const registrationClosingSoon = filteredTournaments.filter((tournament) => {
     const registrationCloseDate = new Date(tournament.registrationCloseDate);
     const daysUntilClose =
       (registrationCloseDate - now) / (1000 * 60 * 60 * 24);
@@ -63,21 +83,52 @@ export default function Tournaments() {
     );
   });
 
-  const activeTournaments = tournaments.filter((tournament) => {
+  const activeTournaments = filteredTournaments.filter((tournament) => {
     const startDate = new Date(tournament.startDate);
     const endDate = new Date(tournament.endDate);
     return (startDate <= now && endDate >= now) || tournament.status === "IN_PROGRESS";
   });
 
-  const upcomingTournaments = tournaments.filter((tournament) => {
+  const upcomingTournaments = filteredTournaments.filter((tournament) => {
     const startDate = new Date(tournament.startDate);
     return startDate > now && tournament.status === "UPCOMING";
   });
 
-  const completedTournaments = tournaments.filter((tournament) => {
+  const completedTournaments = filteredTournaments.filter((tournament) => {
     const endDate = new Date(tournament.endDate);
     return endDate < now || tournament.status === "COMPLETED";
   });
+
+  const SearchBar = () => {
+    const handleChange = (e) => {
+      setSearchQuery(e.target.value);
+      filterTournaments(e.target.value);
+    };
+
+    return (
+      <div className="mb-12">
+        <div className="max-w-2xl mx-auto">
+          <div className="relative">
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search tournaments by name or game..."
+              value={searchQuery}
+              onChange={handleChange}
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              autoComplete="off"
+              autoFocus
+            />
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderTournamentCard = (tournament) => {
     const isCompleted = tournament.status === "COMPLETED";
@@ -183,8 +234,6 @@ export default function Tournaments() {
               {isCompleted ? "View Results" : "View Details"}
             </Link>
             
-
-  
             {isRegistered && !isCompleted && (
               <div className="text-sm text-center text-gray-600 py-2">
                 You are registered for this tournament
@@ -216,6 +265,8 @@ export default function Tournaments() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-12">
+        <SearchBar />
+        
         {registrationClosingSoon.length > 0 && (
           <section className="mb-16">
             <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
