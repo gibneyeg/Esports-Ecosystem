@@ -1,3 +1,4 @@
+// app/api/tournaments/[id]/details/route.js
 import { NextResponse } from "next/server";
 import prisma from "../../../../../lib/prisma";
 import fs from "fs/promises";
@@ -5,11 +6,9 @@ import path from "path";
 
 async function deleteTournamentImage(imageUrl) {
   if (!imageUrl) return;
-
   try {
     const filename = imageUrl.split("/").pop();
     if (!filename) return;
-
     const imagePath = path.join(
       process.cwd(),
       "public",
@@ -17,11 +16,8 @@ async function deleteTournamentImage(imageUrl) {
       "tournaments",
       filename
     );
-
-    // Check if file exists before attempting to delete
     await fs.access(imagePath);
     await fs.unlink(imagePath);
-
     console.log(`Successfully deleted image: ${filename}`);
   } catch (error) {
     console.error("Error deleting tournament image:", error);
@@ -49,6 +45,15 @@ export async function GET(request, context) {
             name: true,
             email: true,
             username: true,
+          },
+        },
+        winner: {  // Add winner relation
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            points: true,  // Include points to show their current score
           },
         },
         participants: {
@@ -84,6 +89,7 @@ export async function GET(request, context) {
         tournament.participants.length < tournament.maxPlayers &&
         tournament.status === "UPCOMING" &&
         new Date() < new Date(tournament.startDate),
+      hasWinner: !!tournament.winner,  // Add boolean flag for winner existence
     };
 
     return NextResponse.json(enrichedTournament);

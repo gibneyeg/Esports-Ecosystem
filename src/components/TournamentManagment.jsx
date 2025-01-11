@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react"; // Add this
+import { useSession } from "next-auth/react";
 
 const TournamentManagement = ({ tournamentId }) => {
   const router = useRouter();
-  const { data: session } = useSession(); // Add this
+  const { data: session } = useSession();
   const [isDeleting, setIsDeleting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [error, setError] = useState("");
@@ -13,7 +13,6 @@ const TournamentManagement = ({ tournamentId }) => {
     try {
       setIsDeleting(true);
       setError("");
-
       const response = await fetch(`/api/tournaments/${tournamentId}`, {
         method: "DELETE",
         headers: {
@@ -21,13 +20,10 @@ const TournamentManagement = ({ tournamentId }) => {
         },
         credentials: "include",
       });
-
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.message || "Failed to cancel tournament");
       }
-
-      // Change this line from "/tournaments" to "/tournament"
       router.push("/tournament");
       router.refresh();
     } catch (error) {
@@ -38,33 +34,33 @@ const TournamentManagement = ({ tournamentId }) => {
       setShowConfirmation(false);
     }
   };
-  // If no session, don't render management controls
+
   if (!session) return null;
 
   return (
-    <div className="mt-8 pt-8 border-t">
-      <h2 className="text-xl font-semibold mb-4">Tournament Management</h2>
+    <>
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600">
           {error}
         </div>
       )}
+      
       {!showConfirmation ? (
-        <div className="flex gap-4">
+        <>
           <button
             onClick={() => router.push(`/tournaments/${tournamentId}/edit`)}
-            className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors"
+            className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
           >
             Edit Tournament
           </button>
           <button
             onClick={() => setShowConfirmation(true)}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+            className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
             disabled={isDeleting}
           >
-            {isDeleting ? "Cancelling..." : "Cancel Tournament"}
+            Cancel Tournament
           </button>
-        </div>
+        </>
       ) : (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-red-800 mb-4">
@@ -77,14 +73,14 @@ const TournamentManagement = ({ tournamentId }) => {
                 setShowConfirmation(false);
                 setError("");
               }}
-              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+              className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
               disabled={isDeleting}
             >
               No, keep tournament
             </button>
             <button
               onClick={handleCancelTournament}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               disabled={isDeleting}
             >
               {isDeleting ? "Cancelling..." : "Yes, cancel tournament"}
@@ -92,7 +88,7 @@ const TournamentManagement = ({ tournamentId }) => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

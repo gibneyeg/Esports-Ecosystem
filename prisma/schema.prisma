@@ -11,23 +11,43 @@ model User {
   id            String    @id @default(uuid())
   username      String?   @unique
   email         String?   @unique
-  password      String?   // Made optional since Google auth users won't have passwords
+  password      String?
   rank          String    @default("Bronze")
   points        Int       @default(0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   
   // NextAuth.js required fields
-  name          String?   // For OAuth provider name
+  name          String?
   emailVerified DateTime?
-  image         String?   // For OAuth provider avatar
+  image         String?
   accounts      Account[]
   sessions      Session[]
+  
+  // Tournament relations
   createdTournaments Tournament[] @relation("TournamentCreator")
-  tournaments        TournamentParticipant[]
-  player1Matches Match[] @relation("Player1Matches")
-  player2Matches Match[] @relation("Player2Matches")
-  wonMatches    Match[] @relation("WonMatches")
+  wonTournaments    Tournament[] @relation("TournamentWinner")
+  tournaments       TournamentParticipant[]
+  tournamentWins    TournamentWinner[]     // Add this line for TournamentWinner relation
+  
+  // Match relations
+  player1Matches    Match[] @relation("Player1Matches")
+  player2Matches    Match[] @relation("Player2Matches")
+  wonMatches        Match[] @relation("WonMatches")
+}
+
+model TournamentWinner {
+  id           String     @id @default(uuid())
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId String
+  user         User      @relation(fields: [userId], references: [id])
+  userId       String
+  position     Int       // 1 for first place, 2 for second, 3 for third
+  prizeMoney   Float     // Amount won
+  createdAt    DateTime  @default(now())
+
+  @@unique([tournamentId, position])  // Ensure no duplicate positions per tournament
+  @@unique([tournamentId, userId])    // Ensure a user can't win multiple positions
 }
 
 model Account {
@@ -80,8 +100,11 @@ model Tournament {
   updatedAt   DateTime    @updatedAt
   createdBy   User       @relation("TournamentCreator", fields: [userId], references: [id])
   userId      String
+  winner      User?      @relation("TournamentWinner", fields: [winnerId], references: [id])
+  winnerId    String?
   participants TournamentParticipant[]
   brackets    TournamentBracket[]
+    winners     TournamentWinner[]
 }
 
 model TournamentParticipant {

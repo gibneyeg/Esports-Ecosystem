@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Layout from "../../../components/Layout.jsx";
 import TournamentBracket from "../../../components/TournamentBracket.jsx";
 import TournamentManagement from "../../../components/TournamentManagment.jsx";
+import DeclareWinnerButton from "../../../components/TournamentWinner.jsx";
 
 export default function TournamentView({ tournamentId }) {
   const router = useRouter();
@@ -13,6 +14,47 @@ export default function TournamentView({ tournamentId }) {
   const [tournament, setTournament] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Function to update tournament status
+  const updateTournamentStatus = async (tournament) => {
+    const now = new Date();
+    const startDate = new Date(tournament.startDate);
+    const endDate = new Date(tournament.endDate);
+
+    let newStatus = tournament.status;
+
+    if (endDate < now) {
+      newStatus = "COMPLETED";
+    } else if (now >= startDate && now <= endDate) {
+      newStatus = "IN_PROGRESS";
+    } else {
+      newStatus = "UPCOMING";
+    }
+
+    // Only update if status has changed
+    if (newStatus !== tournament.status) {
+      try {
+        const response = await fetch(`/api/tournaments/${tournament.id}/status`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status: newStatus }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update tournament status');
+        }
+
+        return await response.json();
+      } catch (error) {
+        console.error('Error updating tournament status:', error);
+        return tournament;
+      }
+    }
+
+    return tournament;
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -37,7 +79,9 @@ export default function TournamentView({ tournamentId }) {
         }
 
         if (mounted) {
-          setTournament(data);
+          // Update tournament status if needed
+          const updatedTournament = await updateTournamentStatus(data);
+          setTournament(updatedTournament);
         }
       } catch (err) {
         console.error("Error fetching tournament:", err);
@@ -101,19 +145,7 @@ export default function TournamentView({ tournamentId }) {
   };
 
   const getTournamentStatus = () => {
-    const now = new Date();
-    const endDate = new Date(tournament.endDate);
-
-    if (endDate < now || tournament.status === "COMPLETED") {
-      return "COMPLETED";
-    }
-
-    const startDate = new Date(tournament.startDate);
-    if (now >= startDate && now <= endDate) {
-      return "IN PROGRESS";
-    }
-
-    return "UPCOMING";
+    return tournament.status;
   };
 
   const getStatusStyle = (status) => {
@@ -189,6 +221,13 @@ export default function TournamentView({ tournamentId }) {
 
   const currentStatus = getTournamentStatus();
 
+  console.log('Tournament:', {
+    isCreator,
+    currentStatus,
+    tournamentStatus: tournament.status,
+    hasParticipants: tournament.participants?.length > 0
+  });
+
   return (
     <Layout>
       <div className="max-w-4xl mx-auto p-6">
@@ -258,8 +297,17 @@ export default function TournamentView({ tournamentId }) {
                   <span className="font-medium">Players:</span>{" "}
                   {tournament.participants?.length || 0}/{tournament.maxPlayers}
                 </p>
-              </div>
-            </div>
+                {tournament.winner && (
+      <p>
+        <span className="font-medium">Winner:</span>{" "}
+        <span className="text-green-600 font-semibold">
+          {getDisplayName(tournament.winner)}
+        </span>
+      </p>
+    )}
+  </div>
+</div>
+      
 
             <div>
               <h2 className="text-xl font-semibold mb-4">Participants</h2>
@@ -282,14 +330,20 @@ export default function TournamentView({ tournamentId }) {
               </div>
             </div>
           </div>
-
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4">Description</h2>
-            <p className="text-gray-700 whitespace-pre-wrap">
-              {tournament.description}
-            </p>
-          </div>
-          {isCreator && <TournamentManagement tournamentId={tournament.id} />}
+          {isCreator && (
+  <div className="mt-8">
+    <h2 className="text-xl font-semibold mb-4">Tournament Management</h2>
+    <div className="flex gap-3">
+      <DeclareWinnerButton 
+        tournament={tournament} 
+        onWinnerDeclared={(updatedTournament) => {
+          setTournament(updatedTournament);
+        }}
+      />
+      <TournamentManagement tournamentId={tournament.id} />
+    </div>
+  </div>
+)}
         </div>
       </div>
     </Layout>
