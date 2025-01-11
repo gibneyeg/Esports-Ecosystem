@@ -1,10 +1,13 @@
-const { PrismaClient, TournamentStatus } = require('@prisma/client')
+// prisma/seed.ts
+import { PrismaClient, TournamentStatus } from '@prisma/client'
 const bcrypt = require('bcryptjs')
 
 const prisma = new PrismaClient()
 
 async function main() {
-  // Create test users
+  const verificationDate = new Date();
+  
+  // Create test users with proper verification
   const testUsers = [
     {
       name: 'John Doe',
@@ -13,6 +16,7 @@ async function main() {
       password: await bcrypt.hash('password123', 12),
       rank: 'Gold',
       points: 1000,
+      emailVerified: verificationDate,
     },
     {
       name: 'Jane Smith',
@@ -21,6 +25,7 @@ async function main() {
       password: await bcrypt.hash('password123', 12),
       rank: 'Silver',
       points: 750,
+      emailVerified: verificationDate,
     },
     {
       name: 'Bob Wilson',
@@ -29,15 +34,24 @@ async function main() {
       password: await bcrypt.hash('password123', 12),
       rank: 'Bronze',
       points: 500,
+      emailVerified: verificationDate,
     },
   ]
 
-  console.log('Creating users...')
+  // First, delete all existing data in the correct order
+  console.log('Cleaning existing data...')
+  await prisma.tournamentParticipant.deleteMany()
+  await prisma.match.deleteMany()
+  await prisma.tournamentBracket.deleteMany()
+  await prisma.tournament.deleteMany()
+  await prisma.account.deleteMany()
+  await prisma.session.deleteMany()
+  await prisma.user.deleteMany()
+
+  console.log('Creating verified users...')
   for (const userData of testUsers) {
-    await prisma.user.upsert({
-      where: { email: userData.email },
-      update: {},
-      create: userData,
+    await prisma.user.create({
+      data: userData
     })
   }
 
@@ -52,7 +66,7 @@ async function main() {
       registrationCloseDate: new Date('2024-05-30'),
       prizePool: 1000,
       maxPlayers: 8,
-      status: TournamentStatus.UPCOMING,
+      status: 'UPCOMING' as TournamentStatus,
     },
     {
       name: 'Winter Classic',
@@ -63,7 +77,7 @@ async function main() {
       registrationCloseDate: new Date('2024-12-13'),
       prizePool: 1500,
       maxPlayers: 16,
-      status: TournamentStatus.UPCOMING,
+      status: 'UPCOMING' as TournamentStatus,
     },
   ]
 
@@ -82,6 +96,17 @@ async function main() {
         },
       })
     }
+  }
+
+  // Verify all test accounts have been properly verified
+  const unverifiedUsers = await prisma.user.findMany({
+    where: { emailVerified: null }
+  })
+
+  if (unverifiedUsers.length > 0) {
+    console.error('Warning: Some users remain unverified:', unverifiedUsers.map(u => u.email))
+  } else {
+    console.log('All users successfully verified!')
   }
 
   console.log('Seed data inserted successfully!')
