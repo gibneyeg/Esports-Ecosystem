@@ -1,158 +1,171 @@
-// app/api/tournaments/[id]/details/route.js
+// app/api/tournament/[id]/winners/route.js
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import prisma from "../../../../../lib/prisma";
-import fs from "fs/promises";
-import path from "path";
+import { authOptions } from "../../../auth/[...nextauth]/route";
 
-async function deleteTournamentImage(imageUrl) {
-  if (!imageUrl) return;
+const calculateRank = (points) => {
+  if (points >= 5000) return 'Grandmaster';
+  if (points >= 4000) return 'Master';
+  if (points >= 3000) return 'Diamond';
+  if (points >= 2000) return 'Platinum';
+  if (points >= 1000) return 'Gold';
+  if (points >= 500) return 'Silver';
+  return 'Bronze';
+};
+
+export async function POST(request, context) {
   try {
-    const filename = imageUrl.split("/").pop();
-    if (!filename) return;
-    const imagePath = path.join(
-      process.cwd(),
-      "public",
-      "uploads",
-      "tournaments",
-      filename
-    );
-    await fs.access(imagePath);
-    await fs.unlink(imagePath);
-    console.log(`Successfully deleted image: ${filename}`);
-  } catch (error) {
-    console.error("Error deleting tournament image:", error);
-  }
-}
+    const { id } = context.params;
+    const { winners } = await request.json();
 
-export async function GET(request, context) {
-  try {
-    const resolvedParams = await Promise.resolve(context.params);
-    const tournamentId = resolvedParams.id;
-
-    if (!tournamentId) {
+    if (!winners || !winners.length) {
       return NextResponse.json(
-        { message: "Tournament ID is required" },
+        { message: "At least one winner is required" },
         { status: 400 }
       );
     }
 
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { message: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
     const tournament = await prisma.tournament.findUnique({
-      where: { id: tournamentId },
+      where: { id },
       include: {
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            username: true,
+        createdBy: true,
+        winners: true,
+      },
+    });
+
+    if (!tournament) {
+      return NextResponse.json(
+        { message: "Tournament not found" },
+        { status: 404 }
+      );
+    }
+
+    if (tournament.createdBy.email !== session.user.email) {
+      return NextResponse.json(
+        { message: "Only tournament creator can declare winners" },
+        { status: 403 }
+      );
+    }
+
+    const result = await prisma.$transaction(async (prisma) => {
+      // Clear existing winners
+      await prisma.tournamentWinner.deleteMany({
+        where: { tournamentId: id },
+      });
+
+      // Process each winner
+      for (const winner of winners) {
+        const prizePercentage = winner.position === 1 ? 0.5 : 
+                               winner.position === 2 ? 0.3 : 
+                               winner.position === 3 ? 0.2 : 0;
+        
+        const prizeMoney = tournament.prizePool * prizePercentage;
+
+        // Create tournament winner record
+        await prisma.tournamentWinner.create({
+          data: {
+            tournamentId: id,
+            userId: winner.userId,
+            position: winner.position,
+            prizeMoney: prizeMoney,
           },
+        });
+
+        // Calculate points based on position
+        const points = winner.position === 1 ? 100 : 
+                      winner.position === 2 ? 50 : 
+                      winner.position === 3 ? 25 : 0;
+
+        // Get current user points
+        const currentUser = await prisma.user.findUnique({
+          where: { id: winner.userId },
+          select: { points: true }
+        });
+
+        const newTotalPoints = (currentUser?.points || 0) + points;
+        const newRank = calculateRank(newTotalPoints);
+
+        // Update user points and rank
+        await prisma.user.update({
+          where: { id: winner.userId },
+          data: {
+            points: newTotalPoints,
+            rank: newRank
+          }
+        });
+      }
+
+      // Update tournament status and return updated data
+      const updatedTournament = await prisma.tournament.update({
+        where: { id },
+        data: { 
+          status: "COMPLETED"
         },
-        winner: {  // Add winner relation
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            username: true,
-            points: true,  // Include points to show their current score
+        include: {
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              username: true,
+            },
           },
-        },
-        participants: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                username: true,
+          winners: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  username: true,
+                  points: true,
+                  rank: true,
+                },
+              },
+            },
+            orderBy: {
+              position: 'asc',
+            },
+          },
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  username: true,
+                },
               },
             },
           },
-          orderBy: {
-            joinedAt: "desc",
-          },
         },
-      },
+      });
+
+      return updatedTournament;
     });
 
-    if (!tournament) {
-      return NextResponse.json(
-        { message: "Tournament not found" },
-        { status: 404 }
-      );
-    }
-
-    // Add computed fields
-    const enrichedTournament = {
-      ...tournament,
-      participantCount: tournament.participants.length,
-      isRegistrationOpen:
-        tournament.participants.length < tournament.maxPlayers &&
-        tournament.status === "UPCOMING" &&
-        new Date() < new Date(tournament.startDate),
-      hasWinner: !!tournament.winner,  // Add boolean flag for winner existence
-    };
-
-    return NextResponse.json(enrichedTournament);
+    return NextResponse.json({ 
+      tournament: result,
+      message: "Winners declared successfully"
+    });
   } catch (error) {
-    console.error("Tournament fetch error:", error);
+    console.error("Declare winners error:", error);
     return NextResponse.json(
-      { message: "Failed to fetch tournament details", error: error.message },
+      { message: "Failed to declare winners", error: error.message },
       { status: 500 }
     );
   }
 }
 
-export async function DELETE(request, context) {
-  try {
-    const resolvedParams = await Promise.resolve(context.params);
-    const tournamentId = resolvedParams.id;
-
-    if (!tournamentId) {
-      return NextResponse.json(
-        { message: "Tournament ID is required" },
-        { status: 400 }
-      );
-    }
-
-    // First check if tournament exists and get creator info
-    const tournament = await prisma.tournament.findUnique({
-      where: { id: tournamentId },
-      include: {
-        createdBy: {
-          select: {
-            id: true,
-            email: true,
-          },
-        },
-      },
-    });
-
-    if (!tournament) {
-      return NextResponse.json(
-        { message: "Tournament not found" },
-        { status: 404 }
-      );
-    }
-
-    // Delete the tournament image if it exists
-    if (tournament.imageUrl) {
-      await deleteTournamentImage(tournament.imageUrl);
-    }
-
-    // Delete the tournament and all related data
-    await prisma.tournament.delete({
-      where: { id: tournamentId },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: "Tournament and associated image successfully deleted",
-    });
-  } catch (error) {
-    console.error("Tournament deletion error:", error);
-    return NextResponse.json(
-      { message: "Failed to delete tournament", error: error.message },
-      { status: 500 }
-    );
-  }
-}
+// Keep existing GET and DELETE handlers the same
+export { GET, DELETE } from './original-route';
