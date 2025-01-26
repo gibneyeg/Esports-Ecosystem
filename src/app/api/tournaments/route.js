@@ -46,6 +46,21 @@ export async function POST(req) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
     }
 
+    // Validate minimum and maximum players
+    const parsedMaxPlayers = parseInt(maxPlayers || 10);
+    if (parsedMaxPlayers < 3) {
+      return NextResponse.json(
+        { message: "Tournament must allow at least 3 participants" },
+        { status: 400 }
+      );
+    }
+    if (parsedMaxPlayers > 128) {
+      return NextResponse.json(
+        { message: "Tournament cannot exceed 128 participants" },
+        { status: 400 }
+      );
+    }
+
     // Validate dates
     const startDateTime = new Date(startDate);
     const endDateTime = new Date(endDate);
@@ -92,7 +107,7 @@ export async function POST(req) {
         endDate: endDateTime,
         registrationCloseDate: registrationCloseDateTime,
         prizePool: parseFloat(prizePool || 0),
-        maxPlayers: parseInt(maxPlayers || 10),
+        maxPlayers: parsedMaxPlayers,
         game,
         userId: session.user.id,
         status: "UPCOMING",
@@ -196,6 +211,7 @@ export async function GET(req) {
     );
   }
 }
+
 export async function DELETE(req, context) {
   try {
     const tournamentId = context.params.id;
