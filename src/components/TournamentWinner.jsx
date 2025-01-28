@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { TournamentStatus } from '@prisma/client';
 
 const TournamentWinner = ({ tournament, onWinnerDeclared }) => {
   const { data: session } = useSession();
@@ -32,11 +33,16 @@ const TournamentWinner = ({ tournament, onWinnerDeclared }) => {
       return;
     }
 
+    if (TournamentStatus.contains["IN_PROGRESS", "COMPLETED"]) {
+      setError('Only in  a progress or completed tournament can winners be declared');
+      return;
+    }
+
     setError('');
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`/api/tournaments/${tournament.id}/winners`, {
+      const response = await fetch(`/api/tournaments/${tournament.id}/winner`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
