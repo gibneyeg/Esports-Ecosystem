@@ -13,6 +13,10 @@ const nextConfig = {
         pathname: "/**",
       },
     ],
+
+    domains: [
+      'cdn.discordapp.com',     // For Discord avatars
+    ]
   },
   // Add cookie and session configurations
   serverRuntimeConfig: {

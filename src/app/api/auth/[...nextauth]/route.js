@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import DiscordProvider from "next-auth/providers/discord";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "../../../../lib/prisma";
@@ -8,6 +9,15 @@ import bcrypt from "bcryptjs";
 const handler = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers: [
+    DiscordProvider({
+      clientId: process.env.DISCORD_CLIENT_ID,
+      clientSecret: process.env.DISCORD_CLIENT_SECRET,
+      authorization: {
+        params: {
+          scope: 'identify email',
+        },
+      },
+    }),
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -97,20 +107,19 @@ const handler = NextAuth({
   callbacks: {
     async signIn({ account, profile }) {
       try {
-        if (account.provider === "google") {
+        if (account.provider === "discord" || account.provider === "google") {
           const existingUser = await prisma.user.findUnique({
             where: { email: profile.email },
             include: { accounts: true },
           });
 
           if (existingUser) {
-            // Check if this email already has a Google account linked
-            const hasGoogleAccount = existingUser.accounts.some(
-              (acc) => acc.provider === "google"
+            // Check if this email already has a provider account linked
+            const hasProviderAccount = existingUser.accounts.some(
+              (acc) => acc.provider === account.provider
             );
 
-            if (!hasGoogleAccount) {
-              // If no Google account is linked, prevent automatic sign-in
+            if (!hasProviderAccount) {
               return `/login?error=Signin`; // Redirect to login with error
             }
 
@@ -121,9 +130,9 @@ const handler = NextAuth({
           await prisma.user.create({
             data: {
               email: profile.email,
-              name: profile.name,
-              username: profile.name,
-              image: profile.picture,
+              name: account.provider === "discord" ? profile.username : profile.name,
+              username: account.provider === "discord" ? profile.username : profile.name,
+              image: account.provider === "discord" ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png` : profile.image,
               rank: "Bronze",
               points: 0,
               emailVerified: new Date(),
@@ -136,7 +145,7 @@ const handler = NextAuth({
                   expires_at: account.expires_at,
                   token_type: account.token_type,
                   scope: account.scope,
-                  id_token: account.id_token,
+                  refresh_token: account.refresh_token,
                 },
               },
             },
