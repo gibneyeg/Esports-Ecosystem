@@ -5,6 +5,8 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Layout from "../../../components/Layout.jsx";
 import GameSelector from "../../../components/GameSelector.jsx";
+import TournamentFormatSelector from "../../../components/TournamentFormatSelector";
+import FormatSettings from "../../../components/FormatSettings";
 
 export default function CreateTournament() {
   const router = useRouter();
@@ -18,6 +20,11 @@ export default function CreateTournament() {
     prizePool: "",
     maxPlayers: "",
     game: "",
+    format: "",
+    seedingType: "RANDOM",
+    rules: "",
+    numberOfRounds: "",
+    groupSize: "",
   });
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -308,6 +315,73 @@ export default function CreateTournament() {
     onChange={(value) => setFormData(prev => ({ ...prev, game: value }))}
     disabled={isSubmitting}
   />
+</div>
+
+<div className="space-y-6">
+  <div>
+    <label className="block mb-2">Tournament Format</label>
+    <TournamentFormatSelector
+      value={formData.format}
+      onChange={(value) => setFormData(prev => ({ ...prev, format: value }))}
+      disabled={isSubmitting}
+    />
+  </div>
+
+  {formData.format && (
+    <FormatSettings
+      format={formData.format}
+      settings={{
+        numberOfRounds: formData.numberOfRounds,
+        groupSize: formData.groupSize,
+        maxPlayers: parseInt(formData.maxPlayers || 0)
+      }}
+      onChange={(newSettings) => {
+        setFormData(prev => ({
+          ...prev,
+          numberOfRounds: newSettings.numberOfRounds,
+          groupSize: newSettings.groupSize
+        }));
+      }}
+      disabled={isSubmitting}
+    />
+  )}
+
+  <div>
+    <label htmlFor="seedingType" className="block mb-2">
+      Seeding Type
+    </label>
+    <select
+      id="seedingType"
+      name="seedingType"
+      value={formData.seedingType}
+      onChange={handleChange}
+      className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
+      disabled={isSubmitting}
+    >
+      <option value="RANDOM">Random</option>
+      <option value="MANUAL">Manual Seeding</option>
+      <option value="SKILL_BASED">Skill-based (Using Player Rankings)</option>
+    </select>
+    <p className="text-sm text-gray-500 mt-1">
+      {formData.seedingType === 'MANUAL' && "You'll be able to set seeds after registration closes"}
+      {formData.seedingType === 'SKILL_BASED' && "Players will be seeded based on their platform ranking"}
+    </p>
+  </div>
+
+  <div>
+    <label htmlFor="rules" className="block mb-2">
+      Tournament Rules
+    </label>
+    <textarea
+      id="rules"
+      name="rules"
+      value={formData.rules}
+      onChange={handleChange}
+      className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 h-32"
+      placeholder="Enter specific tournament rules, guidelines, and requirements..."
+      disabled={isSubmitting}
+    />
+  </div>
 </div>
 
           <button

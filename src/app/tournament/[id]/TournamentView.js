@@ -161,6 +161,21 @@ export default function TournamentView({ tournamentId }) {
     }
   };
 
+  const getFormatIcon = (format) => {
+    switch (format) {
+      case "SINGLE_ELIMINATION":
+        return "🏆";
+      case "DOUBLE_ELIMINATION":
+        return "🔄";
+      case "ROUND_ROBIN":
+        return "🔁";
+      case "SWISS":
+        return "🎯";
+      default:
+        return "🎮";
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -221,13 +236,6 @@ export default function TournamentView({ tournamentId }) {
 
   const currentStatus = getTournamentStatus();
 
-  console.log('Tournament:', {
-    isCreator,
-    currentStatus,
-    tournamentStatus: tournament.status,
-    hasParticipants: tournament.participants?.length > 0
-  });
-
   return (
     <Layout>
       <br></br><br></br>
@@ -273,6 +281,35 @@ export default function TournamentView({ tournamentId }) {
                   <span className="font-medium">Game:</span> {tournament.game}
                 </p>
                 <p>
+                  <span className="font-medium">Format:</span>{" "}
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+                    {getFormatIcon(tournament.format)}{" "}
+                    {tournament.format?.split('_').map(word => 
+                      word.charAt(0) + word.slice(1).toLowerCase()
+                    ).join(' ')}
+                  </span>
+                </p>
+                {tournament.format === 'SWISS' && tournament.formatSettings?.numberOfRounds && (
+                  <p>
+                    <span className="font-medium">Number of Rounds:</span>{" "}
+                    {tournament.formatSettings.numberOfRounds}
+                  </p>
+                )}
+                {tournament.format === 'ROUND_ROBIN' && tournament.formatSettings?.groupSize && (
+                  <p>
+                    <span className="font-medium">Players per Group:</span>{" "}
+                    {tournament.formatSettings.groupSize}
+                  </p>
+                )}
+                <p>
+                  <span className="font-medium">Seeding:</span>{" "}
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                    {tournament.seedingType?.split('_').map(word => 
+                      word.charAt(0) + word.slice(1).toLowerCase()
+                    ).join(' ')}
+                  </span>
+                </p>
+                <p>
                   <span className="font-medium">Registration Closes:</span>{" "}
                   {formatDate(tournament.registrationCloseDate)}
                 </p>
@@ -285,8 +322,7 @@ export default function TournamentView({ tournamentId }) {
                   {formatDate(tournament.endDate)}
                 </p>
                 <p>
-                  <span className="font-medium">Prize Pool:</span> $
-                  {tournament.prizePool}
+                  <span className="font-medium">Prize Pool:</span> ${tournament.prizePool}
                 </p>
                 <p>
                   <span className="font-medium">Status:</span>{" "}
@@ -299,16 +335,23 @@ export default function TournamentView({ tournamentId }) {
                   {tournament.participants?.length || 0}/{tournament.maxPlayers}
                 </p>
                 {tournament.winner && (
-      <p>
-        <span className="font-medium">Winner:</span>{" "}
-        <span className="text-green-600 font-semibold">
-          {getDisplayName(tournament.winner)}
-        </span>
-      </p>
-    )}
-  </div>
-</div>
-      
+                  <p>
+                    <span className="font-medium">Winner:</span>{" "}
+                    <span className="text-green-600 font-semibold">
+                      {getDisplayName(tournament.winner)}
+                    </span>
+                  </p>
+                )}
+                {tournament.rules && (
+                  <div className="mt-4">
+                    <p className="font-medium mb-2">Tournament Rules:</p>
+                    <div className="bg-gray-50 p-3 rounded-md text-sm whitespace-pre-wrap">
+                      {tournament.rules}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
 
             <div>
               <h2 className="text-xl font-semibold mb-4">Participants</h2>
@@ -331,20 +374,21 @@ export default function TournamentView({ tournamentId }) {
               </div>
             </div>
           </div>
+
           {isCreator && (
-  <div className="mt-8">
-    <h2 className="text-xl font-semibold mb-4">Tournament Management</h2>
-    <div className="flex gap-3">
-      <DeclareWinnerButton 
-        tournament={tournament} 
-        onWinnerDeclared={(updatedTournament) => {
-          setTournament(updatedTournament);
-        }}
-      />
-      <TournamentManagement tournamentId={tournament.id} />
-    </div>
-  </div>
-)}
+            <div className="mt-8">
+              <h2 className="text-xl font-semibold mb-4">Tournament Management</h2>
+              <div className="flex gap-3">
+                <DeclareWinnerButton 
+                  tournament={tournament} 
+                  onWinnerDeclared={(updatedTournament) => {
+                    setTournament(updatedTournament);
+                  }}
+                />
+                <TournamentManagement tournamentId={tournament.id} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Layout>

@@ -27,6 +27,7 @@ async function validateSession() {
   return session;
 }
 
+// app/api/tournaments/route.js
 export async function POST(req) {
   try {
     const session = await validateSession();
@@ -40,13 +41,19 @@ export async function POST(req) {
     const prizePool = formData.get("prizePool");
     const maxPlayers = formData.get("maxPlayers");
     const game = formData.get("game");
+    const format = formData.get("format");
+    const seedingType = formData.get("seedingType");
+    const rules = formData.get("rules");
+    const numberOfRounds = formData.get("numberOfRounds");
+    const groupSize = formData.get("groupSize");
     const image = formData.get("image");
 
-    if (!name || !description || !startDate || !endDate || !registrationCloseDate || !game) {
+    // Validate required fields
+    if (!name || !description || !startDate || !endDate || !registrationCloseDate || !game || !format) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
     }
 
-    // Validate minimum and maximum players
+    // Parse and validate maxPlayers
     const parsedMaxPlayers = parseInt(maxPlayers || 10);
     if (parsedMaxPlayers < 3) {
       return NextResponse.json(
@@ -59,6 +66,42 @@ export async function POST(req) {
         { message: "Tournament cannot exceed 128 participants" },
         { status: 400 }
       );
+    }
+
+    // Validate format
+    const validFormats = ["SINGLE_ELIMINATION", "DOUBLE_ELIMINATION", "ROUND_ROBIN", "SWISS"];
+    if (!validFormats.includes(format)) {
+      return NextResponse.json({ message: "Invalid tournament format" }, { status: 400 });
+    }
+
+    // Validate seeding type
+    const validSeedingTypes = ["RANDOM", "MANUAL", "SKILL_BASED"];
+    if (seedingType && !validSeedingTypes.includes(seedingType)) {
+      return NextResponse.json({ message: "Invalid seeding type" }, { status: 400 });
+    }
+
+    // Format-specific validations
+    const formatSettings = {};
+    if (format === "SWISS") {
+      const parsedRounds = parseInt(numberOfRounds);
+      if (!parsedRounds || parsedRounds < 3 || parsedRounds > 10) {
+        return NextResponse.json(
+          { message: "Swiss format requires 3-10 rounds" },
+          { status: 400 }
+        );
+      }
+      formatSettings.numberOfRounds = parsedRounds;
+    }
+
+    if (format === "ROUND_ROBIN") {
+      const parsedGroupSize = parseInt(groupSize);
+      if (!parsedGroupSize || parsedGroupSize < 3 || parsedGroupSize > 8) {
+        return NextResponse.json(
+          { message: "Round Robin groups must have 3-8 players" },
+          { status: 400 }
+        );
+      }
+      formatSettings.groupSize = parsedGroupSize;
     }
 
     // Validate dates
@@ -80,6 +123,7 @@ export async function POST(req) {
       );
     }
 
+    // Handle image upload
     let imageUrl = null;
     if (image) {
       try {
@@ -89,7 +133,7 @@ export async function POST(req) {
 
         const uploadResponse = await cloudinary.uploader.upload(base64Image, {
           folder: "tournament_banners",
-          upload_preset: "tournament_images", // Make sure to create this preset in Cloudinary
+          upload_preset: "tournament_images",
         });
 
         imageUrl = uploadResponse.secure_url;
@@ -99,6 +143,7 @@ export async function POST(req) {
       }
     }
 
+    // Create tournament
     const tournament = await prisma.tournament.create({
       data: {
         name,
@@ -112,6 +157,10 @@ export async function POST(req) {
         userId: session.user.id,
         status: "UPCOMING",
         imageUrl,
+        format,
+        seedingType: seedingType || "RANDOM",
+        rules: rules || "",
+        formatSettings,
       },
       include: {
         createdBy: {

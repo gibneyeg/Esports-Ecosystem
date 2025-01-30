@@ -104,7 +104,13 @@ model Tournament {
   winnerId    String?
   participants TournamentParticipant[]
   brackets    TournamentBracket[]
-    winners     TournamentWinner[]
+  winners     TournamentWinner[]
+  // New fields for tournament format
+  format              String      // SINGLE_ELIMINATION, DOUBLE_ELIMINATION, ROUND_ROBIN, SWISS
+  seedingType         String      @default("RANDOM") // RANDOM, MANUAL, SKILL_BASED
+  rules               String?     @db.Text
+  formatSettings      Json?       // Store format-specific settings like numberOfRounds, groupSize
+  @@map("tournaments")
 }
 
 model TournamentParticipant {
