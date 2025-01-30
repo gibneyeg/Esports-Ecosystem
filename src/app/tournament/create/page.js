@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Layout from "../../../components/Layout.jsx";
+import GameSelector from "../../../components/GameSelector.jsx";
 
 export default function CreateTournament() {
   const router = useRouter();
@@ -299,20 +300,15 @@ export default function CreateTournament() {
           </div>
 
           <div>
-            <label htmlFor="game" className="block mb-2">
-              Game
-            </label>
-            <input
-              id="game"
-              type="text"
-              name="game"
-              value={formData.game}
-              onChange={handleChange}
-              required
-              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
-              disabled={isSubmitting}
-            />
-          </div>
+  <label htmlFor="game" className="block mb-2">
+    Game
+  </label>
+  <GameSelector
+    value={formData.game}
+    onChange={(value) => setFormData(prev => ({ ...prev, game: value }))}
+    disabled={isSubmitting}
+  />
+</div>
 
           <button
             type="submit"
