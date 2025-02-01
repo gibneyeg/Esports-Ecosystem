@@ -25,6 +25,8 @@ export default function CreateTournament() {
     rules: "",
     numberOfRounds: "",
     groupSize: "",
+    streamEmbed: true,  // Default to allowing stream embeds
+    streamUrl: "",      // Optional official stream URL
   });
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -41,6 +43,16 @@ export default function CreateTournament() {
   if (status === "loading" || status === "unauthenticated") {
     return null;
   }
+
+  const validateTwitchUrl = (url) => {
+    if (!url) return true; // Optional field
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname === 'twitch.tv' || urlObj.hostname === 'www.twitch.tv';
+    } catch {
+      return false;
+    }
+  };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -66,9 +78,7 @@ export default function CreateTournament() {
     // Validate dates
     const startTime = new Date(formData.startDate).getTime();
     const endTime = new Date(formData.endDate).getTime();
-    const registrationCloseTime = new Date(
-      formData.registrationCloseDate
-    ).getTime();
+    const registrationCloseTime = new Date(formData.registrationCloseDate).getTime();
 
     if (registrationCloseTime >= startTime) {
       setError("Registration must close before tournament starts");
@@ -78,6 +88,13 @@ export default function CreateTournament() {
 
     if (startTime >= endTime) {
       setError("End date must be after start date");
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Validate Twitch URL if provided
+    if (formData.streamUrl && !validateTwitchUrl(formData.streamUrl)) {
+      setError("Please enter a valid Twitch URL");
       setIsSubmitting(false);
       return;
     }
@@ -112,10 +129,10 @@ export default function CreateTournament() {
   };
 
   const handleChange = (event) => {
-    const { name, value } = event.target;
+    const { name, value, type, checked } = event.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: type === 'checkbox' ? checked : value,
     }));
   };
 
@@ -132,7 +149,7 @@ export default function CreateTournament() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="name" className="block mb-2">
+            <label htmlFor="name" className="block mb-2 font-medium">
               Tournament Name
             </label>
             <input
@@ -148,7 +165,7 @@ export default function CreateTournament() {
           </div>
 
           <div>
-            <label htmlFor="description" className="block mb-2">
+            <label htmlFor="description" className="block mb-2 font-medium">
               Description
             </label>
             <textarea
@@ -163,7 +180,7 @@ export default function CreateTournament() {
           </div>
 
           <div className="mt-4">
-            <label className="block mb-2">Tournament Banner Image</label>
+            <label className="block mb-2 font-medium">Tournament Banner Image</label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
               {imagePreview ? (
                 <div className="space-y-4">
@@ -221,7 +238,7 @@ export default function CreateTournament() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label htmlFor="registrationCloseDate" className="block mb-2">
+              <label htmlFor="registrationCloseDate" className="block mb-2 font-medium">
                 Registration Closes
               </label>
               <input
@@ -237,7 +254,7 @@ export default function CreateTournament() {
             </div>
 
             <div>
-              <label htmlFor="startDate" className="block mb-2">
+              <label htmlFor="startDate" className="block mb-2 font-medium">
                 Start Date
               </label>
               <input
@@ -253,7 +270,7 @@ export default function CreateTournament() {
             </div>
 
             <div>
-              <label htmlFor="endDate" className="block mb-2">
+              <label htmlFor="endDate" className="block mb-2 font-medium">
                 End Date
               </label>
               <input
@@ -271,7 +288,7 @@ export default function CreateTournament() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="prizePool" className="block mb-2">
+              <label htmlFor="prizePool" className="block mb-2 font-medium">
                 Prize Pool ($)
               </label>
               <input
@@ -289,7 +306,7 @@ export default function CreateTournament() {
             </div>
 
             <div>
-              <label htmlFor="maxPlayers" className="block mb-2">
+              <label htmlFor="maxPlayers" className="block mb-2 font-medium">
                 Max Players
               </label>
               <input
@@ -307,82 +324,118 @@ export default function CreateTournament() {
           </div>
 
           <div>
-  <label htmlFor="game" className="block mb-2">
-    Game
-  </label>
-  <GameSelector
-    value={formData.game}
-    onChange={(value) => setFormData(prev => ({ ...prev, game: value }))}
-    disabled={isSubmitting}
-  />
-</div>
+            <label htmlFor="game" className="block mb-2 font-medium">
+              Game
+            </label>
+            <GameSelector
+              value={formData.game}
+              onChange={(value) => setFormData(prev => ({ ...prev, game: value }))}
+              disabled={isSubmitting}
+            />
+          </div>
 
-<div className="space-y-6">
-  <div>
-    <label className="block mb-2">Tournament Format</label>
-    <TournamentFormatSelector
-      value={formData.format}
-      onChange={(value) => setFormData(prev => ({ ...prev, format: value }))}
-      disabled={isSubmitting}
-    />
-  </div>
+          <div className="space-y-6">
+            <div>
+              <label className="block mb-2 font-medium">Tournament Format</label>
+              <TournamentFormatSelector
+                value={formData.format}
+                onChange={(value) => setFormData(prev => ({ ...prev, format: value }))}
+                disabled={isSubmitting}
+              />
+            </div>
 
-  {formData.format && (
-    <FormatSettings
-      format={formData.format}
-      settings={{
-        numberOfRounds: formData.numberOfRounds,
-        groupSize: formData.groupSize,
-        maxPlayers: parseInt(formData.maxPlayers || 0)
-      }}
-      onChange={(newSettings) => {
-        setFormData(prev => ({
-          ...prev,
-          numberOfRounds: newSettings.numberOfRounds,
-          groupSize: newSettings.groupSize
-        }));
-      }}
-      disabled={isSubmitting}
-    />
-  )}
+            {formData.format && (
+              <FormatSettings
+                format={formData.format}
+                settings={{
+                  numberOfRounds: formData.numberOfRounds,
+                  groupSize: formData.groupSize,
+                  maxPlayers: parseInt(formData.maxPlayers || 0)
+                }}
+                onChange={(newSettings) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    numberOfRounds: newSettings.numberOfRounds,
+                    groupSize: newSettings.groupSize
+                  }));
+                }}
+                disabled={isSubmitting}
+              />
+            )}
 
-  <div>
-    <label htmlFor="seedingType" className="block mb-2">
-      Seeding Type
-    </label>
-    <select
-      id="seedingType"
-      name="seedingType"
-      value={formData.seedingType}
-      onChange={handleChange}
-      className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
-      disabled={isSubmitting}
-    >
-      <option value="RANDOM">Random</option>
-      <option value="MANUAL">Manual Seeding</option>
-      <option value="SKILL_BASED">Skill-based (Using Player Rankings)</option>
-    </select>
-    <p className="text-sm text-gray-500 mt-1">
-      {formData.seedingType === 'MANUAL' && "You'll be able to set seeds after registration closes"}
-      {formData.seedingType === 'SKILL_BASED' && "Players will be seeded based on their platform ranking"}
-    </p>
-  </div>
+            <div>
+              <label htmlFor="seedingType" className="block mb-2 font-medium">
+                Seeding Type
+              </label>
+              <select
+                id="seedingType"
+                name="seedingType"
+                value={formData.seedingType}
+                onChange={handleChange}
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
+                disabled={isSubmitting}
+              >
+                <option value="RANDOM">Random</option>
+                <option value="MANUAL">Manual Seeding</option>
+                <option value="SKILL_BASED">Skill-based (Using Player Rankings)</option>
+              </select>
+              <p className="text-sm text-gray-500 mt-1">
+                {formData.seedingType === 'MANUAL' && "You'll be able to set seeds after registration closes"}
+                {formData.seedingType === 'SKILL_BASED' && "Players will be seeded based on their platform ranking"}
+              </p>
+            </div>
 
-  <div>
-    <label htmlFor="rules" className="block mb-2">
-      Tournament Rules
-    </label>
-    <textarea
-      id="rules"
-      name="rules"
-      value={formData.rules}
-      onChange={handleChange}
-      className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 h-32"
-      placeholder="Enter specific tournament rules, guidelines, and requirements..."
-      disabled={isSubmitting}
-    />
-  </div>
-</div>
+            <div>
+              <label htmlFor="rules" className="block mb-2 font-medium">
+                Tournament Rules
+              </label>
+              <textarea
+                id="rules"
+                name="rules"
+                value={formData.rules}
+                onChange={handleChange}
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 h-32"
+                placeholder="Enter specific tournament rules, guidelines, and requirements..."
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Streaming Settings</h3>
+              
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="streamEmbed"
+                  name="streamEmbed"
+                  checked={formData.streamEmbed}
+                  onChange={handleChange}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="streamEmbed" className="ml-2 block text-sm text-gray-900">
+                  Allow stream embedding in tournament page
+                </label>
+              </div>
+
+              <div>
+                <label htmlFor="streamUrl" className="block mb-2 font-medium">
+                  Official Stream URL (optional)
+                </label>
+                <input
+                  type="url"
+                  id="streamUrl"
+                  name="streamUrl"
+                  value={formData.streamUrl}
+                  onChange={handleChange}
+                  placeholder="https://twitch.tv/username"
+                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Enter the Twitch URL for the official tournament stream (if any)
+                </p>
+              </div>
+            </div>
+          </div>
 
           <button
             type="submit"

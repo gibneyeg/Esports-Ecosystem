@@ -7,6 +7,7 @@ import Layout from "../../../components/Layout.jsx";
 import TournamentBracket from "../../../components/TournamentBracket.jsx";
 import TournamentManagement from "../../../components/TournamentManagment.jsx";
 import DeclareWinnerButton from "../../../components/TournamentWinner.jsx";
+import TwitchStream from "../../../components/TournamentStream.jsx";
 
 export default function TournamentView({ tournamentId }) {
   const router = useRouter();
@@ -374,6 +375,20 @@ export default function TournamentView({ tournamentId }) {
               </div>
             </div>
           </div>
+          {tournament && (
+  <div className="mt-8">
+    <TwitchStream 
+      tournament={tournament}
+      isCreator={isCreator}
+      onStreamUpdate={(streams) => {
+        setTournament({
+          ...tournament,
+          featuredStreams: streams
+        });
+      }}
+    />
+  </div>
+)}
 
           {isCreator && (
             <div className="mt-8">

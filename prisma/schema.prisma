@@ -105,6 +105,12 @@ model Tournament {
   participants TournamentParticipant[]
   brackets    TournamentBracket[]
   winners     TournamentWinner[]
+
+  //twitch streaming
+  streamUrl        String?    // Optional Twitch stream URL
+  streamEmbed      Boolean    @default(true) // Whether to embed the stream
+  featuredStreams  TournamentStream[] // Multiple streams for the tournament
+
   // New fields for tournament format
   format              String      // SINGLE_ELIMINATION, DOUBLE_ELIMINATION, ROUND_ROBIN, SWISS
   seedingType         String      @default("RANDOM") // RANDOM, MANUAL, SKILL_BASED
@@ -112,6 +118,7 @@ model Tournament {
   formatSettings      Json?       // Store format-specific settings like numberOfRounds, groupSize
   @@map("tournaments")
 }
+
 
 model TournamentParticipant {
   id           String     @id @default(uuid())
@@ -133,6 +140,18 @@ model TournamentBracket {
   matches      Match[]
 }
 
+model TournamentStream {
+  id           String     @id @default(uuid())
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tournamentId String
+  streamUrl    String     // Twitch stream URL
+  streamerName String     // Name of the streamer
+  isOfficial   Boolean    @default(false) // Whether this is an official tournament stream
+  isLive       Boolean    @default(false) // Stream status
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  @@index([tournamentId])
+}
 model Match {
   id            String     @id @default(uuid())
   bracket       TournamentBracket @relation(fields: [bracketId], references: [id], onDelete: Cascade)
