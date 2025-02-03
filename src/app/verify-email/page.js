@@ -2,8 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
+
 
 export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <VerifyEmailContent />
+    </Suspense>
+  );
+}
+ function VerifyEmailContent() {
   const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('');
   const router = useRouter();
