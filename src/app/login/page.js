@@ -15,7 +15,7 @@ export default function LoginPage() {
   );
 }
 
-function LoginPage() {
+function LoginPageF() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: status } = useSession();
