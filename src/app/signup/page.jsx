@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
-export default function VerifyEmailPage() {
+
+export default function SignUpPage() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <VerifyEmailContent />
@@ -12,7 +13,7 @@ export default function VerifyEmailPage() {
   );
 }
 
-function SignUpPage() {
+function SignUpPageF() {
   const [formData, setFormData] = useState({
     username: "",
     email: "",

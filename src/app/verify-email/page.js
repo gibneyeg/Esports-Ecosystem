@@ -12,7 +12,7 @@ export default function VerifyEmailPage() {
     </Suspense>
   );
 }
- function VerifyEmailPage() {
+ function VerifyEmailContent() {
   const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('');
   const router = useRouter();

@@ -7,7 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Suspense } from "react";
 
-export default function VerifyEmailPage() {
+export default function LoginPage() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <VerifyEmailContent />
