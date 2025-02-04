@@ -3,8 +3,16 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Suspense } from "react";
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <VerifyEmailContent />
+    </Suspense>
+  );
+}
 
-export default function SignUpPage() {
+function SignUpPage() {
   const [formData, setFormData] = useState({
     username: "",
     email: "",
