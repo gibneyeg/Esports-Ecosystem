@@ -13,23 +13,31 @@ const calculateRank = (points) => {
 
 export async function GET() {
   try {
-    // Fetch users with their tournament-related data
+    // More efficient query with only necessary fields
     const users = await prisma.user.findMany({
-      include: {
+      select: {
+        id: true,
+        username: true,
+        name: true,
+        points: true,
+        rank: true,
         tournamentWins: {
-          include: {
+          select: {
+            prizeMoney: true,
             tournament: {
               select: {
                 name: true,
-                game: true,
-                prizePool: true,
-                endDate: true
               }
             }
           }
         },
         tournaments: {
-          include: {
+          where: {
+            tournament: {
+              status: 'COMPLETED'
+            }
+          },
+          select: {
             tournament: {
               select: {
                 id: true,
@@ -38,9 +46,7 @@ export async function GET() {
                 endDate: true,
                 winner: {
                   select: {
-                    id: true,
-                    username: true,
-                    name: true
+                    id: true
                   }
                 }
               }
@@ -50,15 +56,14 @@ export async function GET() {
       }
     });
 
-    // Process user data and calculate ranks
-    const processedUsers = await Promise.all(users.map(async (user) => {
+    // Process users without database updates
+    const processedUsers = users.map((user) => {
       const totalWinnings = user.tournamentWins.reduce((sum, win) => 
         sum + win.prizeMoney, 0
       );
 
       // Get most recent tournament result
       const recentTournament = user.tournaments
-        .filter(t => t.tournament.status === 'COMPLETED')
         .sort((a, b) => 
           new Date(b.tournament.endDate) - new Date(a.tournament.endDate)
         )[0];
@@ -67,16 +72,8 @@ export async function GET() {
         ? `${recentTournament.tournament.winner?.id === user.id ? '1st' : 'Participated'} - ${recentTournament.tournament.name}`
         : null;
 
-      // Calculate new rank based on points
+      // Calculate rank without updating database
       const newRank = calculateRank(user.points);
-
-      // Update user's rank in database if it's different
-      if (newRank !== user.rank) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { rank: newRank }
-        });
-      }
 
       return {
         id: user.id,
@@ -89,7 +86,7 @@ export async function GET() {
         tournaments: user.tournaments.map(t => t.tournament),
         tournamentWins: user.tournamentWins
       };
-    }));
+    });
 
     return NextResponse.json({
       users: processedUsers,
@@ -98,7 +95,7 @@ export async function GET() {
   } catch (error) {
     console.error("Error fetching leaderboard data:", error);
     return NextResponse.json(
-      { error: "Failed to fetch leaderboard data" },
+      { error: "Failed to fetch leaderboard data", details: error.message },
       { status: 500 }
     );
   }

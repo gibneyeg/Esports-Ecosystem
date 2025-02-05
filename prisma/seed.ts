@@ -113,6 +113,7 @@ async function main() {
       prizePool: 1000,
       maxPlayers: 8,
       status: 'UPCOMING' as TournamentStatus,
+      format: 'SINGLE_ELIMINATION',
     },
     {
       name: 'Winter Classic',
@@ -124,6 +125,7 @@ async function main() {
       prizePool: 1500,
       maxPlayers: 16,
       status: 'UPCOMING' as TournamentStatus,
+      format: 'DOUBLE_ELIMINATION',
     },
     {
       name: 'CS2 Pro League',
@@ -135,6 +137,7 @@ async function main() {
       prizePool: 1200,
       maxPlayers: 8,
       status: 'COMPLETED' as TournamentStatus,
+      format: 'SINGLE_ELIMINATION',
     },
     {
       name: 'Valorant Masters',
@@ -146,6 +149,7 @@ async function main() {
       prizePool: 2000,
       maxPlayers: 8,
       status: 'COMPLETED' as TournamentStatus,
+      format: 'SINGLE_ELIMINATION',
     },
     {
       name: 'League Championship',
@@ -157,6 +161,7 @@ async function main() {
       prizePool: 1800,
       maxPlayers: 8,
       status: 'COMPLETED' as TournamentStatus,
+      format: 'SINGLE_ELIMINATION',
     },
     {
       name: 'CS2 Masters Cup',
@@ -168,6 +173,7 @@ async function main() {
       prizePool: 2500,
       maxPlayers: 8,
       status: 'COMPLETED' as TournamentStatus,
+      format: 'DOUBLE_ELIMINATION',
     }
   ]
 
