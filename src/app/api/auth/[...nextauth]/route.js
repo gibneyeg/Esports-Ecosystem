@@ -6,8 +6,9 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "../../../../lib/prisma";
 import bcrypt from "bcryptjs";
 
-const handler = NextAuth({
+export const authOptions = {
   adapter: PrismaAdapter(prisma),
+  debug: true,
   providers: [
     DiscordProvider({
       clientId: process.env.DISCORD_CLIENT_ID,
@@ -50,7 +51,6 @@ const handler = NextAuth({
             throw new Error("Invalid credentials");
           }
 
-          // Check if email is verified for credentials login
           if (!user.emailVerified && user.password) {
             throw new Error("Please verify your email before logging in");
           }
@@ -92,7 +92,6 @@ const handler = NextAuth({
           },
         });
 
-        // Clean up expired sessions
         const now = new Date();
         await prisma.session.deleteMany({
           where: {
@@ -114,19 +113,17 @@ const handler = NextAuth({
           });
 
           if (existingUser) {
-            // Check if this email already has a provider account linked
             const hasProviderAccount = existingUser.accounts.some(
               (acc) => acc.provider === account.provider
             );
 
             if (!hasProviderAccount) {
-              return `/login?error=Signin`; // Redirect to login with error
+              return `/login?error=Signin`;
             }
 
             return true;
           }
 
-          // Create new user if email doesn't exist
           await prisma.user.create({
             data: {
               email: profile.email,
@@ -181,9 +178,8 @@ const handler = NextAuth({
           token.points = dbUser.points;
           token.image = dbUser.image;
 
-          // Set token expiry based on remember me
           if (!user.remember) {
-            token.maxAge = 24 * 60 * 60; // 24 hours if not remembered
+            token.maxAge = 24 * 60 * 60;
           }
         }
       }
@@ -295,21 +291,27 @@ const handler = NextAuth({
   },
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days (max possible session length)
-    updateAge: 24 * 60 * 60, // 24 hours
+    maxAge: 30 * 24 * 60 * 60,
+    updateAge: 24 * 60 * 60,
   },
   cookies: {
     sessionToken: {
-      name: `next-auth.session-token`,
+      name: process.env.NODE_ENV === "production" 
+        ? "__Secure-next-auth.session-token" 
+        : "next-auth.session-token",
       options: {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
         secure: process.env.NODE_ENV === "production",
+        // Remove the .vercel.app domain restriction
+        domain: process.env.NODE_ENV === "production" 
+          ? process.env.NEXTAUTH_URL?.split('://')[1] 
+          : undefined
       },
     },
   },
-});
+};
 
+const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
-export const authOptions = handler;

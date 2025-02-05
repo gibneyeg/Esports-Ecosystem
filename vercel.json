@@ -1,0 +1,6 @@
+{
+    "crons": [{
+      "path": "/api/update-ranks",
+      "schedule": "0 0 * * *"
+    }]
+  }

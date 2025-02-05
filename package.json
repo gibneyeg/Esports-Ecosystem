@@ -31,7 +31,7 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
     "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^22.10.5",
+    "@types/node": "^22.13.1",
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.4.20",
     "cypress": "^13.17.0",
@@ -43,12 +43,13 @@
     "prisma": "^5.21.1",
     "tailwindcss": "^3.4.14",
     "ts-node": "^10.9.2",
+    "typescript": "^5.7.3",
     "vitest": "^2.1.4"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "eslintConfig": {
-  "extends": "next/core-web-vitals"
-}
+    "extends": "next/core-web-vitals"
+  }
 }
