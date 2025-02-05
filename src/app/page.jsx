@@ -1,37 +1,25 @@
+// 1. Homepage (page.jsx)
 "use client";
 import React, { useEffect, useState } from "react";
 import Layout from "../components/Layout.jsx";
 import logo from "../Img/gamers.jpeg";
 import { useRouter } from "next/navigation";
 
-// Global cache at module level
-let cachedStats = null;
-let cacheTimestamp = 0;
-const CACHE_DURATION = 60000; // 1 minute in milliseconds
-
 async function fetchStats() {
-  const now = Date.now();
-  
-  // Return cached data if it's still valid
-  if (cachedStats && (now - cacheTimestamp < CACHE_DURATION)) {
-    return cachedStats;
-  }
-
   try {
-    // Add timestamp to prevent browser caching
-    const response = await fetch(`/api/stats?t=${now}`, {
-      next: { revalidate: 60 }
+    const response = await fetch('/api/stats', {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
     });
     
     if (!response.ok) throw new Error('Failed to fetch');
-    
-    const data = await response.json();
-    cachedStats = data;
-    cacheTimestamp = now;
-    return data;
+    return await response.json();
   } catch (error) {
     console.error("Error fetching stats:", error);
-    return cachedStats || null; // Return cached data if fetch fails
+    return null;
   }
 }
 
@@ -46,10 +34,12 @@ export default function HomePage() {
 
   useEffect(() => {
     let mounted = true;
-    setIsLoading(true);
+    let intervalId;
 
-    // Start fetch immediately
-    fetchStats().then(dbStats => {
+    const updateStats = async () => {
+      setIsLoading(true);
+      const dbStats = await fetchStats();
+      
       if (!mounted || !dbStats) return;
       
       setStats([
@@ -69,16 +59,21 @@ export default function HomePage() {
           label: "Gaming Events",
         },
       ]);
-    })
-    .finally(() => {
-      if (mounted) setIsLoading(false);
-    });
+      setIsLoading(false);
+    };
 
-    // Prefetch signup page while we're at it
+    // Initial fetch
+    updateStats();
+
+    // Set up polling every 30 seconds
+    intervalId = setInterval(updateStats, 30000);
+
+    // Prefetch signup page
     router.prefetch('/signup');
 
     return () => {
       mounted = false;
+      if (intervalId) clearInterval(intervalId);
     };
   }, [router]);
 

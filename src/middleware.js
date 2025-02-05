@@ -5,19 +5,29 @@ export async function middleware(request) {
   const token = await getToken({ req: request });
   const isAuthenticated = !!token;
   const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
-  const isProfileUpload = request.nextUrl.pathname.startsWith(
-    "/api/user/profile-picture"
-  );
+  const isProfileUpload = request.nextUrl.pathname.startsWith("/api/user/profile-picture");
+  const isPublicApiRoute = request.nextUrl.pathname.startsWith("/api/stats") || 
+                          request.nextUrl.pathname.startsWith("/api/leaderboard");
 
-  // Handle authentication first
+  // For public API routes that need cache control but not auth
+  if (isPublicApiRoute) {
+    const response = NextResponse.next();
+    response.headers.set('Cache-Control', 'no-store, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    return response;
+  }
+
+  // Handle authentication
   if (!isAuthenticated) {
-    // For API routes, return 401
+    // For protected API routes, return 401
     if (isApiRoute) {
       return NextResponse.json(
         { message: "Authentication required" },
         { status: 401 }
       );
     }
+    // For protected pages, redirect to login
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
@@ -25,12 +35,14 @@ export async function middleware(request) {
 
   // Handle profile picture upload requests
   if (isProfileUpload) {
-    // Clone the request headers
     const requestHeaders = new Headers(request.headers);
-    // Add upload tracking header
     requestHeaders.set("X-Upload-Request", "true");
-
-    // Return modified request
+    
+    // Add cache control headers for upload requests
+    requestHeaders.set('Cache-Control', 'no-store, must-revalidate');
+    requestHeaders.set('Pragma', 'no-cache');
+    requestHeaders.set('Expires', '0');
+    
     return NextResponse.next({
       request: {
         headers: requestHeaders,
@@ -38,11 +50,21 @@ export async function middleware(request) {
     });
   }
 
+  // For all other authenticated API requests, add cache control headers
+  if (isApiRoute) {
+    const response = NextResponse.next();
+    response.headers.set('Cache-Control', 'no-store, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    return response;
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
+    // Protected routes that need authentication
     "/tournament/create",
     "/tournament/:path*/edit",
     "/tournament/:path*/participate",
@@ -50,6 +72,9 @@ export const config = {
     "/api/tournaments/:id/participate",
     "/api/tournaments/:id/edit",
     "/protected/:path*",
-    "/api/user/profile-picture", // Add this new path
+    "/api/user/profile-picture",
+    // Public API routes that need cache control
+    "/api/stats",
+    "/api/leaderboard",
   ],
 };
