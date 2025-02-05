@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Layout from "/src/components/Layout.jsx";
+import useSWR from 'swr';
 
 const RANKS = ['All', 'Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Master', 'Grandmaster'];
 
@@ -18,28 +19,29 @@ const getRankStyle = (rank) => {
   return styles[rank] || styles['Bronze'];
 };
 
+const fetcher = async (url) => {
+  const res = await fetch(url, {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    },
+  });
+  if (!res.ok) throw new Error('Failed to fetch data');
+  return res.json();
+};
+
 export default function LeaderBoard() {
   const [selectedRank, setSelectedRank] = useState("All");
-  const [users, setUsers] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  
+  const { data, error } = useSWR('/api/leaderboard', fetcher, {
+    refreshInterval: 30000, // Refresh every 30 seconds
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+  });
 
-  useEffect(() => {
-    const fetchLeaderboardData = async () => {
-      try {
-        const response = await fetch('/api/leaderboard');
-        if (response.ok) {
-          const data = await response.json();
-          setUsers(data.users);
-        }
-      } catch (error) {
-        console.error("Error fetching leaderboard data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchLeaderboardData();
-  }, []);
+  const isLoading = !data && !error;
+  const users = data?.users || [];
 
   const getFilteredAndRankedPlayers = () => {
     const filteredUsers = selectedRank === 'All' 

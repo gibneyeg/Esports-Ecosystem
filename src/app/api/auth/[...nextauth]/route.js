@@ -111,19 +111,20 @@ export const authOptions = {
             where: { email: profile.email },
             include: { accounts: true },
           });
-
+    
           if (existingUser) {
             const hasProviderAccount = existingUser.accounts.some(
               (acc) => acc.provider === account.provider
             );
-
+    
             if (!hasProviderAccount) {
               return `/login?error=Signin`;
             }
-
+    
             return true;
           }
-
+    
+          // Create new user
           await prisma.user.create({
             data: {
               email: profile.email,
@@ -147,7 +148,22 @@ export const authOptions = {
               },
             },
           });
-
+    
+          // Force revalidate the leaderboard
+          try {
+            await fetch(`${process.env.NEXTAUTH_URL}/api/revalidate?path=/api/leaderboard`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                secret: process.env.REVALIDATION_TOKEN
+              })
+            });
+          } catch (error) {
+            console.error('Error revalidating leaderboard:', error);
+          }
+    
           return true;
         }
         return true;
