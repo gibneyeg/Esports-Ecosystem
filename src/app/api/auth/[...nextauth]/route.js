@@ -296,13 +296,18 @@ export const authOptions = {
   },
   cookies: {
     sessionToken: {
-      name: `${process.env.NODE_ENV === "production" ? "__Secure-" : ""}next-auth.session-token`,
+      name: process.env.NODE_ENV === "production" 
+        ? "__Secure-next-auth.session-token" 
+        : "next-auth.session-token",
       options: {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
         secure: process.env.NODE_ENV === "production",
-        domain: process.env.NODE_ENV === "production" ? ".vercel.app" : undefined
+        // Remove the .vercel.app domain restriction
+        domain: process.env.NODE_ENV === "production" 
+          ? process.env.NEXTAUTH_URL?.split('://')[1] 
+          : undefined
       },
     },
   },
