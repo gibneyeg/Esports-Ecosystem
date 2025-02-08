@@ -3,16 +3,23 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request) {
   try {
-    const { secret, path } = await request.json();
-
-    if (secret !== process.env.REVALIDATION_TOKEN) {
-      return NextResponse.json({ message: 'Invalid token' }, { status: 401 });
-    }
-
+    const { path } = await request.json();
+    
+    // Revalidate the requested path
     revalidatePath(path);
     
-    return NextResponse.json({ revalidated: true, now: Date.now() });
+    return NextResponse.json({ 
+      revalidated: true, 
+      now: Date.now(),
+      message: `Revalidated ${path}`
+    });
   } catch (err) {
-    return NextResponse.json({ message: 'Error revalidating' }, { status: 500 });
+    console.error('Revalidation error:', err);
+    return NextResponse.json({ 
+      message: 'Error revalidating',
+      error: err.message 
+    }, { 
+      status: 500 
+    });
   }
 }

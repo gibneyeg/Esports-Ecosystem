@@ -130,7 +130,11 @@ export const authOptions = {
               email: profile.email,
               name: account.provider === "discord" ? profile.username : profile.name,
               username: account.provider === "discord" ? profile.username : profile.name,
-              image: account.provider === "discord" ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png` : profile.image,
+              image: account.provider === "discord" 
+              ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png` 
+              : account.provider === "google" 
+                ? profile.picture 
+                : profile.image,
               rank: "Bronze",
               points: 0,
               emailVerified: new Date(),
@@ -151,13 +155,13 @@ export const authOptions = {
     
           // Force revalidate the leaderboard
           try {
-            await fetch(`${process.env.NEXTAUTH_URL}/api/revalidate?path=/api/leaderboard`, {
+            await fetch(`${process.env.NEXTAUTH_URL}/api/revalidate`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                secret: process.env.REVALIDATION_TOKEN
+                path: '/api/leaderboard'
               })
             });
           } catch (error) {
