@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "../../../../../lib/prisma";
 import { authOptions } from "../../../auth/[...nextauth]/route";
-import { validateStream, getStreamInfo } from '../../../../../lib/twitch';
+import { validateStream, getStreamInfo } from "../../../../../../lib/twitch";
 
 export async function POST(request, context) {
   try {
