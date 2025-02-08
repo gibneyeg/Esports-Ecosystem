@@ -121,22 +121,11 @@ export const authOptions = {
               return `/login?error=Signin`;
             }
     
-            // Update the user's image if it's a new login
-            await prisma.user.update({
-              where: { email: profile.email },
-              data: {
-                image: account.provider === "google" 
-                  ? profile.picture 
-                  : account.provider === "discord"
-                    ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
-                    : profile.image
-              }
-            });
-    
+            // Don't update the image for existing users
             return true;
           }
     
-          // Create new user
+          // Only set provider image for new users
           await prisma.user.create({
             data: {
               email: profile.email,
@@ -165,7 +154,6 @@ export const authOptions = {
             },
           });
     
-          // Force revalidate the leaderboard
           try {
             await fetch(`${process.env.NEXTAUTH_URL}/api/revalidate`, {
               method: 'POST',
