@@ -15,6 +15,7 @@ export default function TournamentView({ tournamentId }) {
   const [tournament, setTournament] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('info');
 
   // Function to update tournament status
   const updateTournamentStatus = async (tournament) => {
@@ -274,134 +275,183 @@ export default function TournamentView({ tournamentId }) {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-6 mt-8">
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Tournament Details</h2>
-              <div className="space-y-3">
-                <p>
-                  <span className="font-medium">Game:</span> {tournament.game}
-                </p>
-                <p>
-                  <span className="font-medium">Format:</span>{" "}
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
-                    {getFormatIcon(tournament.format)}{" "}
-                    {tournament.format?.split('_').map(word => 
-                      word.charAt(0) + word.slice(1).toLowerCase()
-                    ).join(' ')}
-                  </span>
-                </p>
-                {tournament.format === 'SWISS' && tournament.formatSettings?.numberOfRounds && (
-                  <p>
-                    <span className="font-medium">Number of Rounds:</span>{" "}
-                    {tournament.formatSettings.numberOfRounds}
-                  </p>
-                )}
-                {tournament.format === 'ROUND_ROBIN' && tournament.formatSettings?.groupSize && (
-                  <p>
-                    <span className="font-medium">Players per Group:</span>{" "}
-                    {tournament.formatSettings.groupSize}
-                  </p>
-                )}
-                <p>
-                  <span className="font-medium">Seeding:</span>{" "}
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
-                    {tournament.seedingType?.split('_').map(word => 
-                      word.charAt(0) + word.slice(1).toLowerCase()
-                    ).join(' ')}
-                  </span>
-                </p>
-                <p>
-                  <span className="font-medium">Registration Closes:</span>{" "}
-                  {formatDate(tournament.registrationCloseDate)}
-                </p>
-                <p>
-                  <span className="font-medium">Start Date:</span>{" "}
-                  {formatDate(tournament.startDate)}
-                </p>
-                <p>
-                  <span className="font-medium">End Date:</span>{" "}
-                  {formatDate(tournament.endDate)}
-                </p>
-                <p>
-                  <span className="font-medium">Prize Pool:</span> ${tournament.prizePool}
-                </p>
-                <p>
-                  <span className="font-medium">Status:</span>{" "}
-                  <span className={getStatusStyle(currentStatus)}>
-                    {currentStatus}
-                  </span>
-                </p>
-                <p>
-                  <span className="font-medium">Players:</span>{" "}
-                  {tournament.participants?.length || 0}/{tournament.maxPlayers}
-                </p>
-                {tournament.winner && (
-                  <p>
-                    <span className="font-medium">Winner:</span>{" "}
-                    <span className="text-green-600 font-semibold">
-                      {getDisplayName(tournament.winner)}
-                    </span>
-                  </p>
-                )}
-                {tournament.rules && (
-                  <div className="mt-4">
-                    <p className="font-medium mb-2">Tournament Rules:</p>
-                    <div className="bg-gray-50 p-3 rounded-md text-sm whitespace-pre-wrap">
-                      {tournament.rules}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Participants</h2>
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {tournament.participants?.length > 0 ? (
-                  tournament.participants.map((participant) => (
-                    <div
-                      key={participant.id}
-                      className="bg-gray-50 p-2 rounded-md flex items-center justify-between"
-                    >
-                      <span>{getParticipantDisplayName(participant)}</span>
-                      <span className="text-sm text-gray-500">
-                        {formatDate(participant.joinedAt)}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500">No participants yet</p>
-                )}
-              </div>
-            </div>
+          {/* Tab Navigation */}
+          <div className="border-b border-gray-200 mt-6">
+            <nav className="flex space-x-8">
+              <button
+                onClick={() => setActiveTab('info')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'info'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Tournament Info
+              </button>
+              <button
+                onClick={() => setActiveTab('bracket')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'bracket'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Bracket
+              </button>
+              <button
+                onClick={() => setActiveTab('streams')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'streams'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Streams
+              </button>
+            </nav>
           </div>
-          {tournament && (
-  <div className="mt-8">
-    <TwitchStream 
-      tournament={tournament}
-      isCreator={isCreator}
-      onStreamUpdate={(streams) => {
-        setTournament({
-          ...tournament,
-          featuredStreams: streams
-        });
-      }}
-    />
-  </div>
-)}
 
-          {isCreator && (
-            <div className="mt-8">
-              <h2 className="text-xl font-semibold mb-4">Tournament Management</h2>
-              <div className="flex gap-3">
-                <DeclareWinnerButton 
-                  tournament={tournament} 
-                  onWinnerDeclared={(updatedTournament) => {
-                    setTournament(updatedTournament);
-                  }}
-                />
-                <TournamentManagement tournamentId={tournament.id} />
+          {/* Tab Content */}
+          {activeTab === 'info' && (
+            <>
+              <div className="grid grid-cols-2 gap-6 mt-8">
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Tournament Details</h2>
+                  <div className="space-y-3">
+                    <p>
+                      <span className="font-medium">Game:</span> {tournament.game}
+                    </p>
+                    <p>
+                      <span className="font-medium">Format:</span>{" "}
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+                        {getFormatIcon(tournament.format)}{" "}
+                        {tournament.format?.split('_').map(word => 
+                          word.charAt(0) + word.slice(1).toLowerCase()
+                        ).join(' ')}
+                      </span>
+                    </p>
+                    {tournament.format === 'SWISS' && tournament.formatSettings?.numberOfRounds && (
+                      <p>
+                        <span className="font-medium">Number of Rounds:</span>{" "}
+                        {tournament.formatSettings.numberOfRounds}
+                      </p>
+                    )}
+                    {tournament.format === 'ROUND_ROBIN' && tournament.formatSettings?.groupSize && (
+                      <p>
+                        <span className="font-medium">Players per Group:</span>{" "}
+                        {tournament.formatSettings.groupSize}
+                      </p>
+                    )}
+                    <p>
+                      <span className="font-medium">Seeding:</span>{" "}
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                        {tournament.seedingType?.split('_').map(word => 
+                          word.charAt(0) + word.slice(1).toLowerCase()
+                        ).join(' ')}
+                      </span>
+                    </p>
+                    <p>
+                      <span className="font-medium">Registration Closes:</span>{" "}
+                      {formatDate(tournament.registrationCloseDate)}
+                    </p>
+                    <p>
+                      <span className="font-medium">Start Date:</span>{" "}
+                      {formatDate(tournament.startDate)}
+                    </p>
+                    <p>
+                      <span className="font-medium">End Date:</span>{" "}
+                      {formatDate(tournament.endDate)}
+                    </p>
+                    <p>
+                      <span className="font-medium">Prize Pool:</span> ${tournament.prizePool}
+                    </p>
+                    <p>
+                      <span className="font-medium">Status:</span>{" "}
+                      <span className={getStatusStyle(currentStatus)}>
+                        {currentStatus}
+                      </span>
+                    </p>
+                    <p>
+                      <span className="font-medium">Players:</span>{" "}
+                      {tournament.participants?.length || 0}/{tournament.maxPlayers}
+                    </p>
+                    {tournament.winner && (
+                      <p>
+                        <span className="font-medium">Winner:</span>{" "}
+                        <span className="text-green-600 font-semibold">
+                          {getDisplayName(tournament.winner)}
+                        </span>
+                      </p>
+                    )}
+                    {tournament.rules && (
+                      <div className="mt-4">
+                        <p className="font-medium mb-2">Tournament Rules:</p>
+                        <div className="bg-gray-50 p-3 rounded-md text-sm whitespace-pre-wrap">
+                          {tournament.rules}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Participants</h2>
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {tournament.participants?.length > 0 ? (
+                      tournament.participants.map((participant) => (
+                        <div
+                          key={participant.id}
+                          className="bg-gray-50 p-2 rounded-md flex items-center justify-between"
+                        >
+                          <span>{getParticipantDisplayName(participant)}</span>
+                          <span className="text-sm text-gray-500">
+                            {formatDate(participant.joinedAt)}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-500">No participants yet</p>
+                    )}
+                  </div>
+                </div>
               </div>
+
+              {isCreator && (
+                <div className="mt-8">
+                  <h2 className="text-xl font-semibold mb-4">Tournament Management</h2>
+                  <div className="flex gap-3">
+                    <DeclareWinnerButton 
+                      tournament={tournament}
+                      onWinnerDeclared={(updatedTournament) => {
+                        setTournament(updatedTournament);
+                      }}
+                    />
+                    <TournamentManagement tournamentId={tournament.id} />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {activeTab === 'bracket' && (
+            <div className="mt-8">
+              <TournamentBracket tournament={tournament} />
+            </div>
+          )}
+
+          {activeTab === 'streams' && (
+            <div className="mt-8">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">Tournament Streams</h2>
+              <TwitchStream 
+                tournament={tournament}
+                isCreator={isCreator}
+                onStreamUpdate={(streams) => {
+                  setTournament({
+                    ...tournament,
+                    featuredStreams: streams
+                  });
+                }}
+              />
             </div>
           )}
         </div>
