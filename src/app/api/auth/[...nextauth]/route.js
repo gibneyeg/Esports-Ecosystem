@@ -121,6 +121,18 @@ export const authOptions = {
               return `/login?error=Signin`;
             }
     
+            // Update the user's image if it's a new login
+            await prisma.user.update({
+              where: { email: profile.email },
+              data: {
+                image: account.provider === "google" 
+                  ? profile.picture 
+                  : account.provider === "discord"
+                    ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
+                    : profile.image
+              }
+            });
+    
             return true;
           }
     
@@ -130,11 +142,11 @@ export const authOptions = {
               email: profile.email,
               name: account.provider === "discord" ? profile.username : profile.name,
               username: account.provider === "discord" ? profile.username : profile.name,
-              image: account.provider === "discord" 
-              ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png` 
-              : account.provider === "google" 
+              image: account.provider === "google" 
                 ? profile.picture 
-                : profile.image,
+                : account.provider === "discord"
+                  ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
+                  : profile.image,
               rank: "Bronze",
               points: 0,
               emailVerified: new Date(),
@@ -299,7 +311,6 @@ export const authOptions = {
 
         session.user.email = token.email;
         session.user.name = token.name;
-        session.user.image = token.image || dbUser?.image;
       }
       return session;
     },
@@ -324,7 +335,6 @@ export const authOptions = {
         sameSite: "lax",
         path: "/",
         secure: process.env.NODE_ENV === "production",
-        // Remove the .vercel.app domain restriction
         domain: process.env.NODE_ENV === "production" 
           ? process.env.NEXTAUTH_URL?.split('://')[1] 
           : undefined
