@@ -76,5 +76,6 @@ export const config = {
     // Public API routes that need cache control
     "/api/stats",
     "/api/leaderboard",
+    "/settings",
   ],
 };

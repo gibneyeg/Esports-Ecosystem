@@ -214,6 +214,12 @@ export default function Header() {
                       >
                         Logout
                       </button>
+                      <Link
+                      href="/settings"
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                      Settings
+                      </Link>
                     </div>
                   )}
 
