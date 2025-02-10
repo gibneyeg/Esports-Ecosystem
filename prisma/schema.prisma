@@ -28,7 +28,7 @@ model User {
   createdTournaments Tournament[] @relation("TournamentCreator")
   wonTournaments    Tournament[] @relation("TournamentWinner")
   tournaments       TournamentParticipant[]
-  tournamentWins    TournamentWinner[]     // Add this line for TournamentWinner relation
+  tournamentWins    TournamentWinner[]    
   
   // Match relations
   player1Matches    Match[] @relation("Player1Matches")

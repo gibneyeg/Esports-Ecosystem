@@ -20,7 +20,6 @@ async function deleteTournamentImage(imageUrl) {
     );
     await fs.access(imagePath);
     await fs.unlink(imagePath);
-    console.log(`Successfully deleted image: ${filename}`);
   } catch (error) {
     console.error("Error deleting tournament image:", error);
   }
