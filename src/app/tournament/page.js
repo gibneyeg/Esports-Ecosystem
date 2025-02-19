@@ -306,37 +306,27 @@ export default function Tournaments() {
 
             </div>
 
-
-
             {!isCompleted ? (
-
-              <div className="pt-1">
-
-                <div className="text-xs text-gray-600">Registration Closes</div>
-
-                <div className="font-medium text-sm text-gray-800">
-
-                  {formatDate(tournament.registrationCloseDate)}
-
-                </div>
-
-              </div>
-
-            ) : (
-
-              <div className="pt-1">
-
-                <div className="text-xs text-gray-600">Tournament Ended</div>
-
-                <div className="font-medium text-sm text-gray-800">
-
-                  {formatDate(tournament.endDate)}
-
-                </div>
-
-              </div>
-
-            )}
+  <div className="pt-1">
+    {/* Registration close date in original gray */}
+    <div className="text-xs text-gray-600">Registration Closes</div>
+    <div className="font-medium text-sm text-gray-800">
+      {formatDate(tournament.registrationCloseDate)}
+    </div>
+    {/* Tournament start date in blue */}
+    <div className="text-xs text-red-600 mt-2">Tournament Starts</div>
+    <div className="font-medium text-sm text-red-700">
+      {formatDate(tournament.startDate)}
+    </div>
+  </div>
+) : (
+  <div className="pt-1">
+    <div className="text-xs text-gray-600">Tournament Ended</div>
+    <div className="font-medium text-sm text-gray-800">
+      {formatDate(tournament.endDate)}
+    </div>
+  </div>
+)}
 
 
 
