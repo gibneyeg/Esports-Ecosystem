@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { TournamentStatus } from '@prisma/client';
 
 const TournamentWinner = ({ tournament, onWinnerDeclared }) => {
   const { data: session } = useSession();
@@ -33,8 +32,9 @@ const TournamentWinner = ({ tournament, onWinnerDeclared }) => {
       return;
     }
 
-    if (TournamentStatus.contains["IN_PROGRESS", "COMPLETED"]) {
-      setError('Only in  a progress or completed tournament can winners be declared');
+    // Check tournament status
+    if (tournament.status !== "IN_PROGRESS" && tournament.status !== "COMPLETED") {
+      setError('Only in-progress or completed tournaments can have winners declared');
       return;
     }
 
@@ -91,7 +91,7 @@ const TournamentWinner = ({ tournament, onWinnerDeclared }) => {
                   {getDisplayName(winner.user)}
                 </span>
                 <span className="text-green-600 font-medium">
-                  ${winner.prizeMoney.toLocaleString()}
+                  ${winner.prizeMoney?.toLocaleString() || '0'}
                 </span>
               </div>
             ))}
@@ -143,9 +143,9 @@ const TournamentWinner = ({ tournament, onWinnerDeclared }) => {
                   required
                 >
                   <option value="">Select player</option>
-                  {tournament.participants.map((participant) => (
-                    <option key={participant.userId} value={participant.userId}>
-                      {participant.user.name || participant.user.username}
+                  {tournament.participants?.map((participant) => (
+                    <option key={participant.user.id} value={participant.user.id}>
+                      {getDisplayName(participant.user)}
                     </option>
                   ))}
                 </select>
@@ -162,9 +162,9 @@ const TournamentWinner = ({ tournament, onWinnerDeclared }) => {
                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 >
                   <option value="">Select player</option>
-                  {tournament.participants.map((participant) => (
-                    <option key={participant.userId} value={participant.userId}>
-                      {participant.user.name || participant.user.username}
+                  {tournament.participants?.map((participant) => (
+                    <option key={participant.user.id} value={participant.user.id}>
+                      {getDisplayName(participant.user)}
                     </option>
                   ))}
                 </select>
@@ -181,9 +181,9 @@ const TournamentWinner = ({ tournament, onWinnerDeclared }) => {
                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 >
                   <option value="">Select player</option>
-                  {tournament.participants.map((participant) => (
-                    <option key={participant.userId} value={participant.userId}>
-                      {participant.user.name || participant.user.username}
+                  {tournament.participants?.map((participant) => (
+                    <option key={participant.user.id} value={participant.user.id}>
+                      {getDisplayName(participant.user)}
                     </option>
                   ))}
                 </select>

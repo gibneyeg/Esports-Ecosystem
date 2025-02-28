@@ -1,32 +1,27 @@
-import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
-import { prisma } from "@prisma/client";
+import { getServerSession } from "next-auth";
+import prisma from "../../../../../lib/prisma";
+import { authOptions } from "../../../auth/[...nextauth]/route";
 
-export async function POST(req, { params }) {
+// Existing POST handler for saving bracket data
+export async function POST(request, context) {
   try {
+    const { id } = context.params;
+    
+    // Get the authenticated user
     const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { message: "Authentication required" },
+        { status: 401 }
+      );
     }
 
-    const { id } = params;
-    const { matchId, position, participantId } = await req.json();
-
-    // Verify tournament exists and user is creator
+    // Get tournament
     const tournament = await prisma.tournament.findUnique({
       where: { id },
       include: {
         createdBy: true,
-        participants: {
-          include: {
-            user: true,
-          },
-        },
-        brackets: {
-          include: {
-            matches: true,
-          },
-        },
       },
     });
 
@@ -37,129 +32,221 @@ export async function POST(req, { params }) {
       );
     }
 
-    // Check if user is tournament creator
-    if (tournament.createdBy.id !== session.user.id) {
+    // Verify that the authenticated user is the tournament creator
+    if (tournament.createdBy.email !== session.user.email) {
       return NextResponse.json(
-        { message: "Only tournament creator can update brackets" },
+        { message: "Only tournament creator can update bracket" },
         { status: 403 }
       );
     }
 
-    // Verify participant exists in tournament
-    const participantExists = tournament.participants.some(
-      (p) => p.id === participantId
-    );
-    if (!participantExists) {
-      return NextResponse.json(
-        { message: "Selected participant is not in this tournament" },
-        { status: 400 }
-      );
-    }
-
-    // Parse matchId to get round and match number
-    const [round, matchNumber] = matchId.split("-").map(Number);
-
-    // Find or create tournament bracket for this round
-    let bracket = await prisma.tournamentBracket.findFirst({
-      where: {
-        tournamentId: id,
-        round,
+    // Parse the request body
+    const bracketData = await request.json();
+    
+    // Clear existing brackets and matches
+    await prisma.match.deleteMany({
+      where: { 
+        bracket: { 
+          tournamentId: id 
+        }
       },
     });
-
-    if (!bracket) {
-      bracket = await prisma.tournamentBracket.create({
+    
+    await prisma.tournamentBracket.deleteMany({
+      where: { 
+        tournamentId: id 
+      },
+    });
+    
+    // Create new brackets and matches
+    for (let roundIndex = 0; roundIndex < bracketData.rounds.length; roundIndex++) {
+      const round = bracketData.rounds[roundIndex];
+      
+      // Create bracket for this round
+      const bracket = await prisma.tournamentBracket.create({
         data: {
           tournamentId: id,
-          round,
-          position: matchNumber,
+          round: roundIndex,
+          position: 0, // Default position
         },
       });
+      
+      // Create matches for this round
+      for (let matchIndex = 0; matchIndex < round.matches.length; matchIndex++) {
+        const match = round.matches[matchIndex];
+        
+        // Determine match status based on if it has a winner
+        const matchStatus = match.winnerId ? "COMPLETED" : "PENDING";
+        
+        await prisma.match.create({
+          data: {
+            bracketId: bracket.id,
+            position: matchIndex,
+            status: matchStatus,
+            player1Id: match.player1?.id || null,
+            player2Id: match.player2?.id || null,
+            winnerId: match.winnerId || null,
+            // If the match is completed, add a completion time and score
+            ...(matchStatus === "COMPLETED" && {
+              completedTime: new Date(),
+              score: "W-L" // Default score format
+            })
+          },
+        });
+      }
     }
-
-    // Find or create match
-    let match = await prisma.match.findFirst({
-      where: {
-        bracketId: bracket.id,
-        position: matchNumber,
-      },
-    });
-
-    if (!match) {
-      match = await prisma.match.create({
+    
+    // If a tournament winner is declared, update the tournament record
+    if (bracketData.tournamentWinnerId) {
+      await prisma.tournament.update({
+        where: { id },
         data: {
-          bracketId: bracket.id,
-          status: "PENDING",
-        },
+          winnerId: bracketData.tournamentWinnerId,
+          status: "COMPLETED"
+        }
       });
     }
-
-    // Update match with participant
-    const updateData =
-      position === "top"
-        ? { player1Id: participantId }
-        : { player2Id: participantId };
-
-    const updatedMatch = await prisma.match.update({
-      where: { id: match.id },
-      data: updateData,
-    });
-
-    // Fetch updated tournament data
+    
+    // Get updated tournament with brackets
     const updatedTournament = await prisma.tournament.findUnique({
       where: { id },
       include: {
-        createdBy: true,
-        participants: {
-          include: {
-            user: true,
-          },
-        },
         brackets: {
           include: {
             matches: {
               include: {
-                player1: true,
-                player2: true,
-                winner: true,
+                player1: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    username: true,
+                  }
+                },
+                player2: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    username: true,
+                  }
+                },
+                winner: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    username: true,
+                  }
+                },
               },
             },
           },
         },
+        winner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+          }
+        }
       },
     });
-
-    return NextResponse.json(updatedTournament);
+    
+    // Flatten matches for easier consumption by frontend
+    const matches = [];
+    
+    updatedTournament.brackets.forEach(bracket => {
+      bracket.matches.forEach(match => {
+        matches.push({
+          id: match.id,
+          round: bracket.round,
+          position: match.position,
+          player1: match.player1,
+          player2: match.player2,
+          winner: match.winner,
+          score: match.score,
+          status: match.status,
+          completedTime: match.completedTime,
+        });
+      });
+    });
+    
+    // Sort matches by round and position
+    matches.sort((a, b) => {
+      if (a.round !== b.round) {
+        return a.round - b.round;
+      }
+      return a.position - b.position;
+    });
+    
+    return NextResponse.json({
+      tournamentId: id,
+      format: updatedTournament.format,
+      rounds: updatedTournament.brackets.length,
+      matches,
+      winner: updatedTournament.winner,
+      status: updatedTournament.status
+    });
   } catch (error) {
-    console.error("Error updating bracket:", error);
+    console.error("Bracket save error:", error);
     return NextResponse.json(
-      { message: "Failed to update bracket" },
+      { message: "Failed to save bracket data", error: error.message },
       { status: 500 }
     );
   }
 }
 
-// Add match result endpoint
-export async function PUT(req, { params }) {
+// New GET handler for retrieving bracket data
+export async function GET(request, context) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
-
-    const { id } = params;
-    const { matchId, winnerId, score } = await req.json();
-
-    // Verify tournament and permissions
+    const { id } = context.params;
+    
+    // Get tournament with brackets and matches
     const tournament = await prisma.tournament.findUnique({
       where: { id },
       include: {
-        createdBy: true,
         brackets: {
           include: {
-            matches: true,
+            matches: {
+              include: {
+                player1: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    username: true,
+                  }
+                },
+                player2: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    username: true,
+                  }
+                },
+                winner: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    username: true,
+                  }
+                },
+              },
+            },
           },
         },
+        winner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+          }
+        }
       },
     });
 
@@ -169,84 +256,58 @@ export async function PUT(req, { params }) {
         { status: 404 }
       );
     }
-
-    if (tournament.createdBy.id !== session.user.id) {
-      return NextResponse.json(
-        { message: "Only tournament creator can update match results" },
-        { status: 403 }
-      );
-    }
-
-    // Update match result
-    const updatedMatch = await prisma.match.update({
-      where: { id: matchId },
-      data: {
-        winnerId,
-        score,
-        status: "COMPLETED",
-        completedTime: new Date(),
-      },
-    });
-
-    // Advance winner to next round if applicable
-    const [currentRound, matchNumber] = matchId.split("-").map(Number);
-    const nextRound = currentRound + 1;
-    const nextMatchNumber = Math.floor(matchNumber / 2);
-
-    if (nextRound < tournament.brackets.length) {
-      const nextBracket = await prisma.tournamentBracket.findFirst({
-        where: {
-          tournamentId: id,
-          round: nextRound,
-        },
+    
+    // If there are no brackets yet, return empty array
+    if (!tournament.brackets || tournament.brackets.length === 0) {
+      return NextResponse.json({
+        tournamentId: id,
+        format: tournament.format,
+        rounds: 0,
+        matches: [],
+        winner: tournament.winner,
+        status: tournament.status
       });
-
-      if (nextBracket) {
-        const position = matchNumber % 2 === 0 ? "top" : "bottom";
-        const updateData =
-          position === "top"
-            ? { player1Id: winnerId }
-            : { player2Id: winnerId };
-
-        await prisma.match.update({
-          where: {
-            bracketId: nextBracket.id,
-            position: nextMatchNumber,
-          },
-          data: updateData,
-        });
-      }
     }
 
-    // Fetch and return updated tournament data
-    const updatedTournament = await prisma.tournament.findUnique({
-      where: { id },
-      include: {
-        createdBy: true,
-        participants: {
-          include: {
-            user: true,
-          },
-        },
-        brackets: {
-          include: {
-            matches: {
-              include: {
-                player1: true,
-                player2: true,
-                winner: true,
-              },
-            },
-          },
-        },
-      },
+    // Flatten matches for easier consumption by frontend
+    const matches = [];
+    
+    tournament.brackets.forEach(bracket => {
+      bracket.matches.forEach(match => {
+        matches.push({
+          id: match.id,
+          round: bracket.round,
+          position: match.position,
+          player1: match.player1,
+          player2: match.player2,
+          winner: match.winner,
+          score: match.score,
+          status: match.status,
+          completedTime: match.completedTime,
+        });
+      });
     });
-
-    return NextResponse.json(updatedTournament);
+    
+    // Sort matches by round and position
+    matches.sort((a, b) => {
+      if (a.round !== b.round) {
+        return a.round - b.round;
+      }
+      return a.position - b.position;
+    });
+    
+    return NextResponse.json({
+      tournamentId: id,
+      format: tournament.format,
+      rounds: tournament.brackets.length,
+      matches,
+      winner: tournament.winner,
+      status: tournament.status
+    });
   } catch (error) {
-    console.error("Error updating match result:", error);
+    console.error("Bracket fetch error:", error);
     return NextResponse.json(
-      { message: "Failed to update match result" },
+      { message: "Failed to fetch bracket data", error: error.message },
       { status: 500 }
     );
   }

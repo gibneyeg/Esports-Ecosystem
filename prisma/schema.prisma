@@ -106,6 +106,8 @@ model Tournament {
   brackets    TournamentBracket[]
   winners     TournamentWinner[]
 
+  hasManualSeeding Boolean @default(false)
+
   //twitch streaming
   streamUrl        String?    // Optional Twitch stream URL
   streamEmbed      Boolean    @default(true) // Whether to embed the stream
@@ -127,7 +129,7 @@ model TournamentParticipant {
   user         User       @relation(fields: [userId], references: [id])
   userId       String
   joinedAt     DateTime   @default(now())
-
+  seedNumber Int?
   @@unique([tournamentId, userId])
 }
 
