@@ -8,7 +8,7 @@ import TournamentBracket from "../../../components/TournamentBracket.jsx";
 import TournamentManagement from "../../../components/TournamentManagment.jsx";
 import DeclareWinnerButton from "../../../components/TournamentWinner.jsx";
 import TwitchStream from "../../../components/TournamentStream.jsx";
-
+import ManualTournamentBracket from "@/components/ManuelTournamentBracket.jsx";
 export default function TournamentView({ tournamentId }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -17,6 +17,7 @@ export default function TournamentView({ tournamentId }) {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('info');
 
+  
   // Function to update tournament status
   const updateTournamentStatus = async (tournament) => {
     const now = new Date();
@@ -133,6 +134,8 @@ export default function TournamentView({ tournamentId }) {
     }
   };
 
+
+
   const getDisplayName = (user) => {
     if (user.name) return user.name;
     if (user.username) return user.username;
@@ -216,8 +219,8 @@ export default function TournamentView({ tournamentId }) {
     );
   }
 
-  const isCreator = session?.user?.id === tournament.createdBy?.id;
-  const isParticipant = tournament.participants?.some(
+  const isCreator = session?.user?.id === tournament.userId;
+    const isParticipant = tournament.participants?.some(
     (p) => p.user.id === session?.user?.id
   );
   const canJoin =
@@ -225,6 +228,7 @@ export default function TournamentView({ tournamentId }) {
     tournament.participants.length < tournament.maxPlayers &&
     tournament.status === "UPCOMING" &&
     new Date() < new Date(tournament.registrationCloseDate);
+  
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString("en-US", {
@@ -237,7 +241,6 @@ export default function TournamentView({ tournamentId }) {
   };
 
   const currentStatus = getTournamentStatus();
-
   return (
     <Layout>
       <br></br><br></br>
@@ -403,7 +406,14 @@ export default function TournamentView({ tournamentId }) {
                           key={participant.id}
                           className="bg-gray-50 p-2 rounded-md flex items-center justify-between"
                         >
-                          <span>{getParticipantDisplayName(participant)}</span>
+                          <div className="flex items-center">
+                            {participant.seedNumber && (
+                              <span className="w-6 h-6 flex items-center justify-center bg-blue-100 text-blue-800 rounded-full text-xs mr-2">
+                                {participant.seedNumber}
+                              </span>
+                            )}
+                            <span>{getParticipantDisplayName(participant)}</span>
+                          </div>
                           <span className="text-sm text-gray-500">
                             {formatDate(participant.joinedAt)}
                           </span>
@@ -433,11 +443,16 @@ export default function TournamentView({ tournamentId }) {
             </>
           )}
 
-          {activeTab === 'bracket' && (
-            <div className="mt-8">
-              <TournamentBracket tournament={tournament} />
-            </div>
-          )}
+
+{activeTab === 'bracket' && (
+  <div className="mt-8">
+    <ManualTournamentBracket 
+      tournament={tournament} 
+      currentUser={session?.user}
+      isOwner={isCreator} // Pass the already calculated value
+    />
+  </div>
+)}
 
           {activeTab === 'streams' && (
             <div className="mt-8">
