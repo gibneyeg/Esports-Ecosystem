@@ -8,7 +8,7 @@ export async function middleware(request) {
   const isProfileUpload = request.nextUrl.pathname.startsWith("/api/user/profile-picture");
   const isPublicApiRoute = request.nextUrl.pathname.startsWith("/api/stats") || 
                           request.nextUrl.pathname.startsWith("/api/leaderboard");
-
+  //const isBracketRoute = request.nextUrl.pathname.startsWith("")
   // For public API routes that need cache control but not auth
   if (isPublicApiRoute) {
     const response = NextResponse.next();
@@ -64,7 +64,6 @@ export async function middleware(request) {
 
 export const config = {
   matcher: [
-    // Protected routes that need authentication
     "/tournament/create",
     "/tournament/:path*/edit",
     "/tournament/:path*/participate",

@@ -7,7 +7,6 @@ export async function POST(request, context) {
   try {
     const { id } = context.params;
     
-    // Get the authenticated user
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json(
@@ -16,7 +15,6 @@ export async function POST(request, context) {
       );
     }
 
-    // Get tournament
     const tournament = await prisma.tournament.findUnique({
       where: { id },
       include: {
@@ -44,15 +42,8 @@ export async function POST(request, context) {
       );
     }
 
-    // Verify that the authenticated user is the tournament creator
-    if (tournament.createdBy.email !== session.user.email) {
-      return NextResponse.json(
-        { message: "Only tournament creator can generate brackets" },
-        { status: 403 }
-      );
-    }
 
-    // Verify tournament has enough participants
+    // check tournament has enough participants
     if (tournament.participants.length < 2) {
       return NextResponse.json(
         { message: "At least 2 participants are required for bracket generation" },
@@ -60,34 +51,105 @@ export async function POST(request, context) {
       );
     }
 
-    // Create bracket based on tournament format
     const format = tournament.format || "SINGLE_ELIMINATION";
-
     let participants = [...tournament.participants];
     
-    // Prepare participants based on seeding type
+    //  seeding based on tournament config
     if (tournament.seedingType === "MANUAL" && tournament.hasManualSeeding) {
-      // Already sorted by seed number in the query above
       console.log("Using manual seeding");
     } else if (tournament.seedingType === "RANDOM") {
-      // Shuffle participants for random seeding
+      console.log("Using random seeding");
+      // Shuffle participants randomly
       for (let i = participants.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [participants[i], participants[j]] = [participants[j], participants[i]];
       }
-    }
-    // For SKILL_BASED, we would need external data source for player skills
-    else if (tournament.seedingType === "SKILL_BASED") {
-      // Sort by user points as a simple implementation
+    } else if (tournament.seedingType === "SKILL_BASED") {
+      console.log("Using skill-based seeding");
       participants.sort((a, b) => b.user.points - a.user.points);
     }
+    
+    // Helper function to advance a winner to the next round
+    const advanceToNextRound = async (bracketIds, currentRound, currentPosition, winnerId) => {
+      const nextRound = currentRound + 1;
+      if (nextRound >= bracketIds.length) return; 
+      
+      const nextPosition = Math.floor(currentPosition / 2);
+      const isPlayer1 = currentPosition % 2 === 0;
+      
+      // Find or create the match in the next round
+      const existingMatch = await prisma.match.findFirst({
+        where: {
+          bracketId: bracketIds[nextRound],
+          position: nextPosition,
+        },
+      });
+      
+      if (existingMatch) {
+        await prisma.match.update({
+          where: { id: existingMatch.id },
+          data: {
+            player1Id: isPlayer1 ? winnerId : existingMatch.player1Id,
+            player2Id: !isPlayer1 ? winnerId : existingMatch.player2Id,
+          },
+        });
+        
+        const updatedMatch = await prisma.match.findUnique({
+          where: { id: existingMatch.id },
+        });
+        
+        if (updatedMatch.player1Id && updatedMatch.player2Id) {
+          // Check if either player was from a bye match
+          const player1Match = await prisma.match.findFirst({
+            where: { 
+              bracketId: bracketIds[currentRound],
+              winnerId: updatedMatch.player1Id,
+              status: "COMPLETED",
+              score: "W-Bye"
+            }
+          });
+          
+          const player2Match = await prisma.match.findFirst({
+            where: { 
+              bracketId: bracketIds[currentRound],
+              winnerId: updatedMatch.player2Id,
+              status: "COMPLETED",
+              score: "W-Bye"
+            }
+          });
+          
+          if (player1Match && player2Match) {
+            await prisma.match.update({
+              where: { id: updatedMatch.id },
+              data: {
+                status: "COMPLETED",
+                score: "W-Bye",
+                winnerId: updatedMatch.player1Id, 
+                completedTime: new Date(),
+              },
+            });
+            
+            await advanceToNextRound(bracketIds, nextRound, nextPosition, updatedMatch.player1Id);
+          }
+        }
+      } else {
+        await prisma.match.create({
+          data: {
+            bracketId: bracketIds[nextRound],
+            position: nextPosition,
+            status: "PENDING",
+            player1Id: isPlayer1 ? winnerId : undefined,
+            player2Id: !isPlayer1 ? winnerId : undefined,
+          },
+        });
+      }
+    };
 
-    // Function to generate standard bracket
+    // Function to generate standard bracket with seeding and byes
     const generateStandardBracket = async (participants) => {
       const numParticipants = participants.length;
       console.log(`Generating bracket for ${numParticipants} participants`);
       
-      // Calculate number of rounds needed
       const numRounds = Math.ceil(Math.log2(numParticipants));
       const perfectBracketSize = Math.pow(2, numRounds);
       const numByes = perfectBracketSize - numParticipants;
@@ -109,50 +171,41 @@ export async function POST(request, context) {
         },
       });
       
-      // Create brackets for each round
       const bracketIds = [];
       for (let round = 0; round < numRounds; round++) {
         const bracket = await prisma.tournamentBracket.create({
           data: {
             tournamentId: id,
             round,
-            position: 0, // Default position since it's required
+            position: 0, 
           },
         });
         bracketIds[round] = bracket.id;
       }
       
-      // Create seeded positions for a standard bracket
-      // This follows the traditional tournament bracket seeding
-      // where #1 and #2 seeds are on opposite sides
-      const seedPositions = [];
       const getRoundPosFromSeed = (seed, totalParticipants) => {
         if (totalParticipants <= 1) return 0;
         
-        // Seed position calculation for power-of-2 brackets
-        if (seed === 1) return 0; // #1 seed at top
-        if (seed === 2) return totalParticipants - 1; // #2 seed at bottom
+        if (seed === 1) return 0;
+        if (seed === 2) return totalParticipants - 1; 
         
         if (seed % 2 === 1) {
-          // Odd seeds go in top half, paired with corresponding even seed
+          // Odd seeds go in top half
           return Math.floor(seed / 2);
         } else {
-          // Even seeds go in bottom half, paired with corresponding odd seed
+          // Even seeds go in bottom half
           return totalParticipants - 1 - Math.floor((seed - 1) / 2);
         }
       };
       
-      // For each participant, get their position in the bracket
-      for (let i = 0; i < perfectBracketSize; i++) {
-        seedPositions[i] = null; // Initialize with null (bye)
-      }
+      const seedPositions = new Array(perfectBracketSize).fill(null);
       
       // Assign participants to their positions
       for (let i = 0; i < participants.length; i++) {
         const seed = i + 1; // 1-based seeding
         const pos = getRoundPosFromSeed(seed, perfectBracketSize);
         seedPositions[pos] = participants[i];
-        console.log(`Seed #${seed} (${participants[i].user.name}) goes to position ${pos}`);
+        console.log(`Seed #${seed} (${participants[i].user.name || participants[i].user.username || participants[i].user.email}) goes to position ${pos}`);
       }
       
       // First round matches
@@ -194,8 +247,8 @@ export async function POST(request, context) {
         }
         
         console.log(`Creating match ${i}:`, {
-          player1: player1 ? player1.user.name : "Bye",
-          player2: player2 ? player2.user.name : "Bye",
+          player1: player1 ? (player1.user.name || player1.user.username || player1.user.email) : "Bye",
+          player2: player2 ? (player2.user.name || player2.user.username || player2.user.email) : "Bye",
           status: matchData.status
         });
         
@@ -205,135 +258,46 @@ export async function POST(request, context) {
         
         matches.push(match);
         
-        // If this is a bye match, advance the player to the next round
         if (matchData.status === "COMPLETED" && matchData.winnerId) {
           await advanceToNextRound(bracketIds, 0, i, matchData.winnerId);
+        }
+      }
+      
+      // Create empty matches for subsequent rounds
+      for (let round = 1; round < numRounds; round++) {
+        const matchCount = Math.pow(2, numRounds - round - 1);
+        
+        for (let position = 0; position < matchCount; position++) {
+          const existingMatch = await prisma.match.findFirst({
+            where: {
+              bracketId: bracketIds[round],
+              position,
+            },
+          });
+          
+          if (!existingMatch) {
+            await prisma.match.create({
+              data: {
+                bracketId: bracketIds[round],
+                position,
+                status: "PENDING",
+              },
+            });
+          }
         }
       }
       
       return matches;
     };
     
-    // Helper function to advance a winner to the next round
-    const advanceToNextRound = async (bracketIds, currentRound, currentPosition, winnerId) => {
-      const nextRound = currentRound + 1;
-      if (nextRound >= bracketIds.length) return; // No more rounds
-      
-      const nextPosition = Math.floor(currentPosition / 2);
-      const isPlayer1 = currentPosition % 2 === 0;
-      
-      // Find or create the match in the next round
-      const existingMatch = await prisma.match.findFirst({
-        where: {
-          bracketId: bracketIds[nextRound],
-          position: nextPosition,
-        },
-      });
-      
-      if (existingMatch) {
-        // Update existing match
-        await prisma.match.update({
-          where: { id: existingMatch.id },
-          data: {
-            player1Id: isPlayer1 ? winnerId : existingMatch.player1Id,
-            player2Id: !isPlayer1 ? winnerId : existingMatch.player2Id,
-          },
-        });
-        
-        // If both players are now set and one was a bye, auto-advance
-        const updatedMatch = await prisma.match.findUnique({
-          where: { id: existingMatch.id },
-        });
-        
-        if (updatedMatch.player1Id && updatedMatch.player2Id) {
-          // Check if either player was from a bye match
-          const player1Match = await prisma.match.findFirst({
-            where: { 
-              bracketId: bracketIds[currentRound],
-              winnerId: updatedMatch.player1Id,
-              status: "COMPLETED",
-              score: "W-Bye"
-            }
-          });
-          
-          const player2Match = await prisma.match.findFirst({
-            where: { 
-              bracketId: bracketIds[currentRound],
-              winnerId: updatedMatch.player2Id,
-              status: "COMPLETED",
-              score: "W-Bye"
-            }
-          });
-          
-          // If both were byes, consider this a bye too and advance
-          if (player1Match && player2Match) {
-            await prisma.match.update({
-              where: { id: updatedMatch.id },
-              data: {
-                status: "COMPLETED",
-                score: "W-Bye",
-                winnerId: updatedMatch.player1Id, // Default to player1
-                completedTime: new Date(),
-              },
-            });
-            
-            await advanceToNextRound(bracketIds, nextRound, nextPosition, updatedMatch.player1Id);
-          }
-        }
-      } else {
-        // Create new match
-        await prisma.match.create({
-          data: {
-            bracketId: bracketIds[nextRound],
-            position: nextPosition,
-            status: "PENDING",
-            player1Id: isPlayer1 ? winnerId : undefined,
-            player2Id: !isPlayer1 ? winnerId : undefined,
-          },
-        });
-      }
-    };
-    
-    // Generate bracket based on format
-    let generatedMatches;
-    
+    // Generate bracket based on format - TODO others
     if (format === "SINGLE_ELIMINATION") {
-      generatedMatches = await generateStandardBracket(participants);
+      await generateStandardBracket(participants);
     } else {
       // Fallback to single elimination for other formats
-      generatedMatches = await generateStandardBracket(participants);
+      await generateStandardBracket(participants);
     }
     
-    // Create empty matches for subsequent rounds
-    for (let round = 1; round < Math.ceil(Math.log2(participants.length)); round++) {
-      const bracketId = (await prisma.tournamentBracket.findFirst({
-        where: { tournamentId: id, round }
-      })).id;
-      
-      const matchCount = Math.pow(2, Math.ceil(Math.log2(participants.length)) - round - 1);
-      
-      for (let position = 0; position < matchCount; position++) {
-        // Check if match already exists
-        const existingMatch = await prisma.match.findFirst({
-          where: {
-            bracketId,
-            position,
-          },
-        });
-        
-        if (!existingMatch) {
-          await prisma.match.create({
-            data: {
-              bracketId,
-              position,
-              status: "PENDING",
-            },
-          });
-        }
-      }
-    }
-    
-    // Get updated tournament with brackets
     const updatedTournament = await prisma.tournament.findUnique({
       where: { id },
       include: {
@@ -369,10 +333,22 @@ export async function POST(request, context) {
             },
           },
         },
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                username: true,
+              }
+            }
+          }
+        }
       },
     });
     
-    // Flatten matches for easier consumption by frontend
+    // Flatten matches for easier use by frontend
     const matches = [];
     
     updatedTournament.brackets.forEach(bracket => {
@@ -404,6 +380,11 @@ export async function POST(request, context) {
       format,
       rounds: updatedTournament.brackets.length,
       matches,
+      participants: updatedTournament.participants.map(p => ({
+        id: p.user.id,
+        name: p.user.name || p.user.username || p.user.email,
+        participantId: p.id
+      }))
     });
   } catch (error) {
     console.error("Bracket generation error:", error);
