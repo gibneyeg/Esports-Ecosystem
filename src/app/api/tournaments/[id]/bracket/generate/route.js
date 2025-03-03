@@ -56,16 +56,13 @@ export async function POST(request, context) {
     
     //  seeding based on tournament config
     if (tournament.seedingType === "MANUAL" && tournament.hasManualSeeding) {
-      console.log("Using manual seeding");
     } else if (tournament.seedingType === "RANDOM") {
-      console.log("Using random seeding");
       // Shuffle participants randomly
       for (let i = participants.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [participants[i], participants[j]] = [participants[j], participants[i]];
       }
     } else if (tournament.seedingType === "SKILL_BASED") {
-      console.log("Using skill-based seeding");
       participants.sort((a, b) => b.user.points - a.user.points);
     }
     

@@ -1,6 +1,4 @@
-
 "use client";
-
 
 import React, { useState, useEffect, useMemo } from 'react';
 
@@ -14,11 +12,12 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState(null);
   const [tournamentWinner, setTournamentWinner] = useState(null);
-  const [runnerUp, setRunnerUp] = useState(null); // 2nd place
-  const [thirdPlace, setThirdPlace] = useState(null); // 3rd place
+  const [runnerUp, setRunnerUp] = useState(null);
+  const [thirdPlace, setThirdPlace] = useState(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [resetNeeded, setResetNeeded] = useState(false);
+  const [tournamentFormat, setTournamentFormat] = useState('SINGLE_ELIMINATION');
 
   const viewOnly = useMemo(() => !isOwner, [isOwner]);
 
@@ -40,25 +39,18 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     }
   };
 
-  // Initialize an empty bracket with the correct number of matches per round for double elimination
-  const initializeBracket = (participantCount) => {
-    // Calculate total rounds for winners bracket
+  const initializeBracket = (participantCount, format = 'SINGLE_ELIMINATION') => {
     const totalWinnersRounds = Math.ceil(Math.log2(participantCount));
     const firstRoundMatches = Math.ceil(participantCount / 2);
     
-    // Initialize winners bracket
     const newWinnersBracket = [];
     const winnersMatchesByRound = [];
-    let totalWinnersMatches = 0;
     
     for (let r = 0; r < totalWinnersRounds; r++) {
-      // Calculate matches for this round
       let matchesInRound = Math.ceil(firstRoundMatches / Math.pow(2, r));
       winnersMatchesByRound.push(matchesInRound);
-      totalWinnersMatches += matchesInRound;
       
       const matches = [];
-      
       for (let m = 0; m < matchesInRound; m++) {
         matches.push({
           id: `winners-${r}-${m}`,
@@ -75,32 +67,35 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       newWinnersBracket.push({
         id: `winners-round-${r}`,
         name: r === 0 ? 'Round 1' : 
-              r === totalWinnersRounds - 1 ? 'Winners Finals' : 
-              `Winners Round ${r + 1}`,
+              r === totalWinnersRounds - 1 ? 'Finals' : 
+              `Round ${r + 1}`,
         matches: matches
       });
     }
     
-
-    const totalLosersRounds = 2 * totalWinnersRounds - 1;
+    if (format === 'SINGLE_ELIMINATION') {
+      return {
+        winnersBracket: newWinnersBracket,
+        losersBracket: [],
+        grandFinals: null,
+        resetMatch: null
+      };
+    }
     
-
-    // Initialize losers bracket structure
+    const totalLosersRounds = 2 * totalWinnersRounds - 1;
     const newLosersBracket = [];
     
-    // Create every round of the losers bracket
     for (let r = 0; r < totalLosersRounds; r++) {
       let matchesInRound;
       
-      if (r % 2 === 0) { // Even rounds (including 0)
+      if (r % 2 === 0) {
         const winnersRound = r / 2;
         if (winnersRound < winnersMatchesByRound.length) {
           matchesInRound = winnersMatchesByRound[winnersRound] / 2;
         } else {
-          matchesInRound = 1; // Finals rounds
+          matchesInRound = 1;
         }
-      } else { // Odd rounds
-        // Odd rounds are "consolidation" rounds that don't add new losers
+      } else {
         const prevRound = r - 1;
         if (prevRound >= 0 && prevRound < newLosersBracket.length) {
           matchesInRound = newLosersBracket[prevRound].matches.length / 2;
@@ -109,10 +104,8 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
         }
       }
       
-      // Ensure we have at least one match per round and handle non-powers of 2
       matchesInRound = Math.max(1, Math.ceil(matchesInRound));
       
-      // For the final round, always use 1 match
       if (r === totalLosersRounds - 1) {
         matchesInRound = 1;
       }
@@ -138,26 +131,18 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       });
     }
     
-
-    const totalLosersMatches = newLosersBracket.reduce(
-      (total, round) => total + round.matches.length, 0
-    );
-
-    
-    // Create Grand Finals match
     const grandFinalsMatch = {
       id: 'grand-finals',
       round: 0,
       position: 0,
       bracketType: 'finals',
       slots: [
-        { id: 'grand-finals-slot-0', participant: null }, // Winners bracket finalist
-        { id: 'grand-finals-slot-1', participant: null }  // Losers bracket finalist
+        { id: 'grand-finals-slot-0', participant: null },
+        { id: 'grand-finals-slot-1', participant: null }
       ]
     };
     
-    // Create potential reset match (if losers bracket winner wins grand finals)
-    const resetMatch = {
+    const resetMatchData = {
       id: 'reset-match',
       round: 0,
       position: 0,
@@ -172,12 +157,11 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       winnersBracket: newWinnersBracket,
       losersBracket: newLosersBracket,
       grandFinals: grandFinalsMatch,
-      resetMatch: resetMatch
+      resetMatch: resetMatchData
     };
   };
 
   useEffect(() => {
-    // Skip if already initialized to prevent re-initialization
     if (isInitialized) return;
     
     let mounted = true;
@@ -185,10 +169,12 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     const initializeTournament = async () => {
       if (!tournament?.participants) return;
       
-      console.log("Initializing double elimination tournament bracket...");
       setIsLoading(true);
       
-      // Map the participants
+      if (tournament.format) {
+        setTournamentFormat(tournament.format);
+      }
+      
       const mappedParticipants = tournament.participants.map(p => ({
         id: p.user.id,
         name: p.user.name || p.user.username || p.user.email?.split('@')[0] || 'Anonymous',
@@ -199,19 +185,13 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       
       if (mounted) setParticipants(mappedParticipants);
       
-      // Initialize bracket based on participant count
       const count = mappedParticipants.length;
       
-      // If there are saved brackets, load them
       const bracketData = await fetchExistingBracket(tournament.id);
       
       if (bracketData && bracketData.matches && bracketData.matches.length > 0) {
-        console.log("Loading existing bracket data:", bracketData);
+        const emptyBracketStructure = initializeBracket(count, tournament.format);
         
-        // Create initial bracket structure
-        const emptyBracketStructure = initializeBracket(count);
-        
-        // Group matches by bracket type and round
         const matchesByBracket = {
           winners: {},
           losers: {},
@@ -220,7 +200,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
         };
         
         bracketData.matches.forEach(match => {
-          // Determine bracket type from match ID
           let bracketType = 'winners';
           if (match.id && match.id.startsWith('losers-')) {
             bracketType = 'losers';
@@ -242,10 +221,8 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
           }
         });
         
-        // Mark which participants are already placed in the bracket
         const placedParticipantIds = new Set();
         
-        // Populate winners bracket
         const updatedWinnersBracket = [...emptyBracketStructure.winnersBracket];
         Object.keys(matchesByBracket.winners).forEach(roundIndex => {
           const roundMatches = matchesByBracket.winners[roundIndex];
@@ -277,7 +254,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
           }
         });
         
-        // Populate losers bracket
         const updatedLosersBracket = [...emptyBracketStructure.losersBracket];
         Object.keys(matchesByBracket.losers).forEach(roundIndex => {
           const roundMatches = matchesByBracket.losers[roundIndex];
@@ -309,9 +285,8 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
           }
         });
         
-        // Populate grand finals
-        const updatedGrandFinals = { ...emptyBracketStructure.grandFinals };
-        if (matchesByBracket.finals) {
+        const updatedGrandFinals = emptyBracketStructure.grandFinals ? { ...emptyBracketStructure.grandFinals } : null;
+        if (matchesByBracket.finals && updatedGrandFinals) {
           if (matchesByBracket.finals.player1) {
             const participant = mappedParticipants.find(p => p.id === matchesByBracket.finals.player1.id);
             if (participant) {
@@ -329,9 +304,8 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
           }
         }
         
-        // Populate reset match if needed
-        const updatedResetMatch = { ...emptyBracketStructure.resetMatch };
-        if (matchesByBracket.reset) {
+        const updatedResetMatch = emptyBracketStructure.resetMatch ? { ...emptyBracketStructure.resetMatch } : null;
+        if (matchesByBracket.reset && updatedResetMatch) {
           if (matchesByBracket.reset.player1) {
             const participant = mappedParticipants.find(p => p.id === matchesByBracket.reset.player1.id);
             if (participant) {
@@ -349,21 +323,17 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
           }
         }
         
-        // Check if reset was needed
-        if (matchesByBracket.reset && 
-            (updatedResetMatch.slots[0].participant || updatedResetMatch.slots[1].participant)) {
+        if (updatedResetMatch && (updatedResetMatch.slots[0].participant || updatedResetMatch.slots[1].participant)) {
           setResetNeeded(true);
         }
         
-        // Update bracket states
         if (mounted) {
           setWinnersBracket(updatedWinnersBracket);
           setLosersBracket(updatedLosersBracket);
-          setGrandFinals(updatedGrandFinals);
-          setResetMatch(updatedResetMatch);
+          if (updatedGrandFinals) setGrandFinals(updatedGrandFinals);
+          if (updatedResetMatch) setResetMatch(updatedResetMatch);
         }
         
-        // Update participant placed status
         const updatedParticipants = mappedParticipants.map(p => ({
           ...p,
           isPlaced: placedParticipantIds.has(p.id)
@@ -371,7 +341,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
         
         if (mounted) setParticipants(updatedParticipants);
         
-        // Set tournament winners
         if (tournament.winners && tournament.winners.length > 0) {
           const sortedWinners = tournament.winners.sort((a, b) => a.position - b.position);
           
@@ -400,7 +369,7 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
           }
         }
       } else {
-        const { winnersBracket, losersBracket, grandFinals, resetMatch } = initializeBracket(count);
+        const { winnersBracket, losersBracket, grandFinals, resetMatch } = initializeBracket(count, tournament.format);
         
         if (mounted) {
           setWinnersBracket(winnersBracket);
@@ -423,17 +392,8 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     };
   }, [tournament, isInitialized]);
 
-  // Find the match in losers bracket where a loser from winners bracket should go
   const getDropToLosersMatch = (winnersRound, winnersPosition) => {
-
-    
-    // Maps winners round to the corresponding losers round where losers should be placed
-    const losersRoundMap = {
-      0: 0, // First round losers go to losers round 1
-      1: 2, // Second round losers go to losers round 3
-      2: 4, // Third round losers go to losers round 5
-
-    };
+    const losersRoundMap = {};
     
     for (let i = 0; i < winnersBracket.length; i++) {
       losersRoundMap[i] = i * 2;
@@ -445,8 +405,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       return null;
     }
     
-    // Calculate appropriate position in the losers bracket
-    // This depends on how the losers bracket is structured
     const matchCountInTargetRound = losersBracket[targetLosersRound].matches.length;
     const loserPos = winnersPosition % matchCountInTargetRound;
     
@@ -454,10 +412,8 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       return null;
     }
     
-    // Check if the target match and slot already has a participant
     const targetMatch = losersBracket[targetLosersRound].matches[loserPos];
     
-    // Find the first empty slot in this match
     let slotIndex = -1;
     for (let i = 0; i < targetMatch.slots.length; i++) {
       if (!targetMatch.slots[i].participant) {
@@ -466,9 +422,7 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       }
     }
     
-    // If no empty slot was found, try the next available match
     if (slotIndex === -1) {
-      // Try to find any match in this round with an empty slot
       for (let m = 0; m < losersBracket[targetLosersRound].matches.length; m++) {
         const match = losersBracket[targetLosersRound].matches[m];
         for (let s = 0; s < match.slots.length; s++) {
@@ -482,7 +436,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
         }
       }
       
-      // If we still couldn't find a slot, create a new match if possible
       if (targetLosersRound + 1 < losersBracket.length) {
         const nextRoundMatch = losersBracket[targetLosersRound + 1].matches[0];
         if (nextRoundMatch && nextRoundMatch.slots[0] && !nextRoundMatch.slots[0].participant) {
@@ -494,7 +447,7 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
         }
       }
       
-      return null; // No available slot found
+      return null;
     }
     
     return {
@@ -504,7 +457,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     };
   };
 
-  // Find next match in losers bracket
   const getNextLosersMatch = (currentRound, currentPosition) => {
     const nextRound = currentRound + 1;
     
@@ -512,7 +464,7 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       return {
         type: 'finals',
         match: grandFinals,
-        slotIndex: 1 // Losers finalist goes to second slot in grand finals
+        slotIndex: 1
       };
     }
 
@@ -520,11 +472,9 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     if (currentRound % 2 === 0) {
       nextPosition = Math.floor(currentPosition / 2);
     } else {
-      // From odd round to even round - might have a different mapping
       const matchesInCurrentRound = losersBracket[currentRound].matches.length;
       const matchesInNextRound = losersBracket[nextRound].matches.length;
       
-      // Map based on total matches in rounds
       if (matchesInCurrentRound === matchesInNextRound) {
         nextPosition = currentPosition;
       } else {
@@ -532,9 +482,7 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       }
     }
     
-    // Validate that the calculated position exists
     if (nextPosition >= losersBracket[nextRound].matches.length) {
-      // Try to find any match with an empty slot
       for (let i = 0; i < losersBracket[nextRound].matches.length; i++) {
         const match = losersBracket[nextRound].matches[i];
         if (!match.slots[0].participant) {
@@ -555,12 +503,9 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       return null;
     }
     
-    // Determine slot
-    // The slot can depend on the structure too
     const isFirstSlot = currentPosition % 2 === 0;
     const targetMatch = losersBracket[nextRound].matches[nextPosition];
     
-    // Check if the target slot already has a participant
     const slotIndex = isFirstSlot ? 0 : 1;
     if (!targetMatch.slots[slotIndex].participant) {
       return {
@@ -570,7 +515,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       };
     }
     
-    // If target slot is occupied, try the other slot
     const otherSlotIndex = slotIndex === 0 ? 1 : 0;
     if (!targetMatch.slots[otherSlotIndex].participant) {
       return {
@@ -580,7 +524,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       };
     }
     
-    // If both slots are occupied, try to find any match with an empty slot
     for (let i = 0; i < losersBracket[nextRound].matches.length; i++) {
       const match = losersBracket[nextRound].matches[i];
       if (!match.slots[0].participant) {
@@ -603,21 +546,19 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
   };
 
   const handleParticipantClick = (participant) => {
-    if (viewOnly) return; // Don't allow changes for non-owners
+    if (viewOnly) return;
     setSelectedParticipant(participant);
   };
 
   const handleSlotClick = (slotId, bracket) => {
-    if (viewOnly) return; // Don't allow changes in view-only mode
+    if (viewOnly) return;
     
     if (!selectedParticipant) {
-      // If no participant is selected, clear the slot if it has a participant
       let participantRemoved = false;
       
       if (bracket === 'winners') {
         const updatedWinnersBracket = [...winnersBracket];
         
-        // Check winners bracket for the slot
         outerLoop: for (let r = 0; r < updatedWinnersBracket.length; r++) {
           for (let m = 0; m < updatedWinnersBracket[r].matches.length; m++) {
             for (let s = 0; s < updatedWinnersBracket[r].matches[m].slots.length; s++) {
@@ -648,7 +589,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       } else if (bracket === 'losers') {
         const updatedLosersBracket = [...losersBracket];
         
-        // Check losers bracket for the slot
         outerLoop: for (let r = 0; r < updatedLosersBracket.length; r++) {
           for (let m = 0; m < updatedLosersBracket[r].matches.length; m++) {
             for (let s = 0; s < updatedLosersBracket[r].matches[m].slots.length; s++) {
@@ -677,7 +617,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
           setLosersBracket(updatedLosersBracket);
         }
       } else if (bracket === 'finals') {
-        // Check grand finals for the slot
         const updatedGrandFinals = { ...grandFinals };
         
         for (let s = 0; s < updatedGrandFinals.slots.length; s++) {
@@ -704,7 +643,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
           setGrandFinals(updatedGrandFinals);
         }
       } else if (bracket === 'reset') {
-        // Check reset match for the slot
         const updatedResetMatch = { ...resetMatch };
         
         for (let s = 0; s < updatedResetMatch.slots.length; s++) {
@@ -735,13 +673,11 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       return;
     }
     
-    // Place the selected participant in the clicked slot
     let participantPlaced = false;
     
     if (bracket === 'winners') {
       const updatedWinnersBracket = [...winnersBracket];
       
-      // Place in winners bracket
       outerLoop: for (let r = 0; r < updatedWinnersBracket.length; r++) {
         for (let m = 0; m < updatedWinnersBracket[r].matches.length; m++) {
           for (let s = 0; s < updatedWinnersBracket[r].matches[m].slots.length; s++) {
@@ -762,7 +698,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     } else if (bracket === 'losers') {
       const updatedLosersBracket = [...losersBracket];
       
-      // Place in losers bracket
       outerLoop: for (let r = 0; r < updatedLosersBracket.length; r++) {
         for (let m = 0; m < updatedLosersBracket[r].matches.length; m++) {
           for (let s = 0; s < updatedLosersBracket[r].matches[m].slots.length; s++) {
@@ -783,7 +718,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     } else if (bracket === 'finals') {
       const updatedGrandFinals = { ...grandFinals };
       
-      // Place in grand finals
       for (let s = 0; s < updatedGrandFinals.slots.length; s++) {
         const slot = updatedGrandFinals.slots[s];
         
@@ -800,7 +734,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     } else if (bracket === 'reset') {
       const updatedResetMatch = { ...resetMatch };
       
-      // Place in reset match
       for (let s = 0; s < updatedResetMatch.slots.length; s++) {
         const slot = updatedResetMatch.slots[s];
         
@@ -831,17 +764,18 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     }
   };
 
-  // Find the next match a participant needs to advance to in winners bracket
   const getNextWinnersMatch = (currentRound, currentPosition) => {
     const nextRound = currentRound + 1;
     
     if (nextRound >= winnersBracket.length) {
-      // We're advancing to grand finals
-      return {
-        type: 'finals',
-        match: grandFinals,
-        slotIndex: 0 // Winners finalist goes to first slot in grand finals
-      };
+      if (tournamentFormat === 'DOUBLE_ELIMINATION') {
+        return {
+          type: 'finals',
+          match: grandFinals,
+          slotIndex: 0
+        };
+      }
+      return null;
     }
     
     const nextPosition = Math.floor(currentPosition / 2);
@@ -858,11 +792,9 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     };
   };
 
-  // Handle advancing a participant in winners bracket
   const handleWinnersAdvance = (match, participant, isLoser = false) => {
     if (!participant) return;
-    
-    // Find the match in the bracket array
+
     let matchRound = -1;
     let matchPosition = -1;
     
@@ -875,43 +807,36 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       }
     }
     
-    if (matchRound === -1) return; // Match not found
+    if (matchRound === -1) return;
     
-    if (isLoser) {
-      // Move loser to losers bracket
+    if (isLoser && tournamentFormat === 'DOUBLE_ELIMINATION') {
       const loserDest = getDropToLosersMatch(matchRound, matchPosition);
       
       if (loserDest) {
         if (loserDest.type === 'losers') {
-          // Make a deep copy of the losers bracket to avoid messing up state
           const updatedLosersBracket = JSON.parse(JSON.stringify(losersBracket));
           
-          // Find the match by round and position
           for (let r = 0; r < updatedLosersBracket.length; r++) {
             for (let m = 0; m < updatedLosersBracket[r].matches.length; m++) {
               const currentMatch = updatedLosersBracket[r].matches[m];
               
               if (currentMatch.id === loserDest.match.id) {
-                // Make sure we don't overwrite an existing participant
                 if (!currentMatch.slots[loserDest.slotIndex].participant) {
                   currentMatch.slots[loserDest.slotIndex].participant = participant;
                   setLosersBracket(updatedLosersBracket);
-                  return; // Exit after placing
+                  return;
                 } else {
-                  // Try other slot if available
                   const otherSlot = loserDest.slotIndex === 0 ? 1 : 0;
                   if (!currentMatch.slots[otherSlot].participant) {
                     currentMatch.slots[otherSlot].participant = participant;
                     setLosersBracket(updatedLosersBracket);
-                    return; // Exit after placing
+                    return;
                   }
                 }
               }
             }
           }
           
-          // If we're here, we couldn't place the loser in the exact destination
-          // Look for any empty slot in that round
           const targetRound = loserDest.match.round;
           for (let m = 0; m < updatedLosersBracket[targetRound].matches.length; m++) {
             const currentMatch = updatedLosersBracket[targetRound].matches[m];
@@ -919,17 +844,13 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
               if (!currentMatch.slots[s].participant) {
                 currentMatch.slots[s].participant = participant;
                 setLosersBracket(updatedLosersBracket);
-                return; // Exit after placing
+                return;
               }
             }
           }
-          
-          // If we still couldn't place, log an error
-          console.error("Could not place loser in losers bracket - no empty slots found");
         }
       }
     } else {
-      // Advance winner
       const winnerDest = getNextWinnersMatch(matchRound, matchPosition);
       
       if (winnerDest) {
@@ -937,7 +858,7 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
           const updatedWinnersBracket = [...winnersBracket];
           updatedWinnersBracket[winnerDest.match.round].matches[winnerDest.match.position].slots[winnerDest.slotIndex].participant = participant;
           setWinnersBracket(updatedWinnersBracket);
-        } else if (winnerDest.type === 'finals') {
+        } else if (winnerDest.type === 'finals' && tournamentFormat === 'DOUBLE_ELIMINATION') {
           const updatedGrandFinals = { ...grandFinals };
           updatedGrandFinals.slots[winnerDest.slotIndex].participant = participant;
           setGrandFinals(updatedGrandFinals);
@@ -946,11 +867,9 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     }
   };
   
-  // Handle advancing a participant in losers bracket
   const handleLosersAdvance = (match, participant, isLoser = false) => {
     if (!participant) return;
     
-    // Find the match in the bracket array
     let matchRound = -1;
     let matchPosition = -1;
     
@@ -963,36 +882,29 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       }
     }
     
-    if (matchRound === -1) return; // Match not found
+    if (matchRound === -1) return;
     
     if (isLoser) {
-      // In losers bracket, losers are eliminated
-      // Nothing to do here
+      // Nothing to do for losers in losers bracket
     } else {
-      // Advance winner
       const winnerDest = getNextLosersMatch(matchRound, matchPosition);
       
-      // Check if this is the losers finals (last round of losers bracket)
       const isLosersFinals = matchRound === losersBracket.length - 1;
       
       if (isLosersFinals) {
-        // The loser of losers finals gets 3rd place
         const loser = match.slots.find(s => 
           s.participant && s.participant.id !== participant.id
         )?.participant;
         
         if (loser) {
           setThirdPlace(loser);
-          console.log(`Set ${loser.name} as 3rd place (loser of losers finals)`);
         }
       }
       
       if (winnerDest) {
         if (winnerDest.type === 'losers') {
-          // Create a deep copy to avoid state issues
           const updatedLosersBracket = JSON.parse(JSON.stringify(losersBracket));
           
-          // Find the exact match in our copy
           let targetMatch = null;
           let targetRound = -1;
           let targetPosition = -1;
@@ -1014,63 +926,41 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
             return;
           }
           
-          // Set the participant in the slot
           targetMatch.slots[winnerDest.slotIndex].participant = participant;
-          
-          // Update the state
           setLosersBracket(updatedLosersBracket);
-          
-          // Log advancement for debugging
-          console.log(`Advanced ${participant.name} from Losers R${matchRound+1}M${matchPosition+1} to Losers R${targetRound+1}M${targetPosition+1} slot ${winnerDest.slotIndex+1}`);
         } else if (winnerDest.type === 'finals') {
           const updatedGrandFinals = { ...grandFinals };
           updatedGrandFinals.slots[winnerDest.slotIndex].participant = participant;
           setGrandFinals(updatedGrandFinals);
-          
-          // Log advancement for debugging
-          console.log(`Advanced ${participant.name} from Losers R${matchRound+1}M${matchPosition+1} to Grand Finals slot ${winnerDest.slotIndex+1}`);
         }
-      } else {
-        console.error(`No valid destination found for ${participant.name} from Losers R${matchRound+1}M${matchPosition+1}`);
       }
     }
   };
 
-  // Handle results of grand finals
   const handleGrandFinalsResult = (winnerIndex) => {
     if (!grandFinals.slots[0].participant || !grandFinals.slots[1].participant) {
-      return; // Both participants must be set
+      return;
     }
     
     const winner = grandFinals.slots[winnerIndex].participant;
     const loser = grandFinals.slots[winnerIndex === 0 ? 1 : 0].participant;
     
     if (winnerIndex === 1) {
-      // If losers bracket winner wins grand finals, we need a reset match
       setResetNeeded(true);
       
-      // Create reset match with same participants
       const updatedResetMatch = { ...resetMatch };
       updatedResetMatch.slots[0].participant = grandFinals.slots[0].participant;
       updatedResetMatch.slots[1].participant = grandFinals.slots[1].participant;
       setResetMatch(updatedResetMatch);
     } else {
-      // If winners bracket winner wins grand finals, tournament is over
       setTournamentWinner(winner);
       setRunnerUp(loser);
-      
-      // Third place should already be set from losers finals
-      // If not set for some reason, we don't have a clear way to determine it at this point
-      if (!thirdPlace) {
-        console.warn("Third place not set - should have been determined in losers finals");
-      }
     }
   };
   
-  // Handle reset match result
   const handleResetMatchResult = (winnerIndex) => {
     if (!resetMatch.slots[0].participant || !resetMatch.slots[1].participant) {
-      return; // Both participants must be set
+      return;
     }
     
     const winner = resetMatch.slots[winnerIndex].participant;
@@ -1078,20 +968,12 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     
     setTournamentWinner(winner);
     setRunnerUp(loser);
-    
-    // Third place should already be set from losers finals
-    // If not set for some reason, we don't have a clear way to determine it at this point
-    if (!thirdPlace) {
-      console.warn("Third place not set - should have been determined in losers finals");
-    }
   };
 
-  // Check if a participant is already placed
   const isParticipantPlaced = (participant) => {
     return participant.isPlaced;
   };
 
-  // Render a participant in the sidebar
   const renderParticipant = (participant) => {
     const isPlaced = isParticipantPlaced(participant);
     const isSelected = selectedParticipant && selectedParticipant.id === participant.id;
@@ -1116,7 +998,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     );
   };
 
-  // Render a bracket slot
   const renderSlot = (slot, bracket) => {
     const isHighlighted = selectedParticipant && !slot.participant;
     
@@ -1138,9 +1019,7 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     );
   };
 
-  // Render a match in winners bracket
   const renderWinnersMatch = (match) => {
-    // Find next match in bracket to check if this participant has advanced
     let hasAdvanced = false;
     let advancedParticipant = null;
     let matchRound = -1;
@@ -1156,16 +1035,13 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     }
     
     if (matchRound !== -1) {
-      // Check the next round (or grand finals) to see if any participant from this match has advanced
       const nextRound = matchRound + 1;
       
       if (nextRound < winnersBracket.length) {
-        // Check next winners round
         const nextMatchPos = Math.floor(matchPosition / 2);
         if (nextMatchPos < winnersBracket[nextRound].matches.length) {
           const nextMatch = winnersBracket[nextRound].matches[nextMatchPos];
           
-          // Check if any participant from this match is in next match
           for (const slot of nextMatch.slots) {
             if (slot.participant && match.slots.some(currentSlot => 
                 currentSlot.participant && currentSlot.participant.id === slot.participant.id)) {
@@ -1175,8 +1051,7 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
             }
           }
         }
-      } else if (matchRound === winnersBracket.length - 1) {
-        // Check grand finals for winners bracket finalist
+      } else if (matchRound === winnersBracket.length - 1 && tournamentFormat === 'DOUBLE_ELIMINATION') {
         if (grandFinals.slots[0].participant && 
             match.slots.some(slot => 
               slot.participant && slot.participant.id === grandFinals.slots[0].participant.id)) {
@@ -1187,16 +1062,69 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     }
     
     const isFinal = matchRound === winnersBracket.length - 1;
-    
-    // Special case for final match of winners bracket
-    if (isFinal) {
+
+    if (isFinal && tournamentFormat === 'SINGLE_ELIMINATION') {
+      const finalRoundName = "Finals";
+      return (
+        <div key={match.id} className="border-2 border-yellow-400 rounded-md overflow-hidden mb-4">
+          <h4 className="bg-yellow-100 text-yellow-800 font-semibold p-2 text-center">{finalRoundName}</h4>
+          {match.slots.map(slot => renderSlot(slot, 'winners'))}
+          
+          {!hasAdvanced && !viewOnly && (
+            <>
+              {match.slots[0].participant && match.slots[1].participant && (
+                <div className="flex justify-between bg-yellow-50 p-2">
+                  <button 
+                    onClick={() => {
+                      setTournamentWinner(match.slots[0].participant);
+                      setRunnerUp(match.slots[1].participant);
+                    }}
+                    className="text-xs bg-yellow-600 text-white px-2 py-1 rounded hover:bg-yellow-700"
+                  >
+                    {match.slots[0].participant?.name} won
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setTournamentWinner(match.slots[1].participant);
+                      setRunnerUp(match.slots[0].participant);
+                    }}
+                    className="text-xs bg-yellow-600 text-white px-2 py-1 rounded hover:bg-yellow-700"
+                  >
+                    {match.slots[1].participant?.name} won
+                  </button>
+                </div>
+              )}
+              
+              {((match.slots[0].participant && !match.slots[1].participant) || 
+                (!match.slots[0].participant && match.slots[1].participant)) && (
+                <div className="bg-yellow-50 p-2 text-center">
+                  <button 
+                    onClick={() => {
+                      setTournamentWinner(match.slots[0].participant || match.slots[1].participant);
+                    }}
+                    className="text-xs bg-yellow-600 text-white px-2 py-1 rounded hover:bg-yellow-700"
+                  >
+                    {match.slots[0].participant?.name || match.slots[1].participant?.name || 'Player'} wins (walkover)
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+          
+          {hasAdvanced && (
+            <div className="bg-yellow-100 p-2 text-center text-yellow-800 text-sm font-medium">
+              {(advancedParticipant ? advancedParticipant.name : 'Winner') + ' advances'}
+            </div>
+          )}
+        </div>
+      );
+    } else if (isFinal && tournamentFormat === 'DOUBLE_ELIMINATION') {
       return (
         <div key={match.id} className="border-2 border-blue-400 rounded-md overflow-hidden mb-4">
           {match.slots.map(slot => renderSlot(slot, 'winners'))}
           
           {!hasAdvanced && !viewOnly && (
             <>
-              {/* Only show advance buttons if both slots have participants */}
               {match.slots[0].participant && match.slots[1].participant && (
                 <div className="flex justify-between bg-blue-50 p-2">
                   <button 
@@ -1220,7 +1148,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
                 </div>
               )}
               
-              {/* For matches with only one participant (bye), show just one advance button */}
               {((match.slots[0].participant && !match.slots[1].participant) || 
                 (!match.slots[0].participant && match.slots[1].participant)) && (
                 <div className="bg-blue-50 p-2 text-center">
@@ -1235,7 +1162,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
             </>
           )}
           
-          {/* Show who advanced */}
           {hasAdvanced && advancedParticipant && (
             <div className="bg-blue-100 p-2 text-center text-blue-800 text-sm font-medium">
               {advancedParticipant.name} advanced to grand finals
@@ -1251,13 +1177,14 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
         
         {!hasAdvanced && !viewOnly && (
           <>
-            {/* Only show advance buttons if both slots have participants */}
             {match.slots[0].participant && match.slots[1].participant && (
               <div className="flex justify-between bg-blue-50 p-2">
                 <button 
                   onClick={() => {
                     handleWinnersAdvance(match, match.slots[0].participant);
-                    handleWinnersAdvance(match, match.slots[1].participant, true);
+                    if (tournamentFormat === 'DOUBLE_ELIMINATION') {
+                      handleWinnersAdvance(match, match.slots[1].participant, true);
+                    }
                   }}
                   className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
                 >
@@ -1266,7 +1193,9 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
                 <button 
                   onClick={() => {
                     handleWinnersAdvance(match, match.slots[1].participant);
-                    handleWinnersAdvance(match, match.slots[0].participant, true);
+                    if (tournamentFormat === 'DOUBLE_ELIMINATION') {
+                      handleWinnersAdvance(match, match.slots[0].participant, true);
+                    }
                   }}
                   className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
                 >
@@ -1275,7 +1204,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
               </div>
             )}
             
-            {/* For matches with only one participant (bye), show just one advance button */}
             {((match.slots[0].participant && !match.slots[1].participant) || 
               (!match.slots[0].participant && match.slots[1].participant)) && (
               <div className="bg-blue-50 p-2 text-center">
@@ -1290,7 +1218,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
           </>
         )}
         
-        {/* Show who advanced */}
         {hasAdvanced && advancedParticipant && (
           <div className="bg-blue-100 p-2 text-center text-blue-800 text-sm font-medium">
             {advancedParticipant.name} advanced
@@ -1306,9 +1233,7 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     );
   };
   
-  // Render a match in losers bracket
   const renderLosersMatch = (match) => {
-    // Find if this match's winner has advanced to the next round
     let hasAdvanced = false;
     let matchRound = -1;
     let matchPosition = -1;
@@ -1323,11 +1248,9 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     }
     
     if (matchRound !== -1) {
-      // Check all possible next matches to see if either participant has advanced
       const nextLosersRound = matchRound + 1;
       
       if (nextLosersRound < losersBracket.length) {
-        // Check if any participant from this match is in the next round
         for (const nextMatch of losersBracket[nextLosersRound].matches) {
           for (const slot of nextMatch.slots) {
             if (slot.participant && 
@@ -1341,7 +1264,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
         }
       }
       
-      // Also check grand finals if no advancement found and we're in the final losers round
       if (!hasAdvanced && matchRound === losersBracket.length - 1) {
         for (const slot of grandFinals.slots) {
           if (slot.participant && 
@@ -1354,12 +1276,10 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       }
     }
     
-    // Find which participant has advanced (if any)
     let advancedParticipant = null;
     if (hasAdvanced && match.slots[0].participant && match.slots[1].participant) {
       const nextRound = matchRound + 1;
       
-      // Check next losers round
       if (nextRound < losersBracket.length) {
         for (const nextMatch of losersBracket[nextRound].matches) {
           for (const slot of nextMatch.slots) {
@@ -1377,7 +1297,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
         }
       }
       
-      // Check grand finals if needed
       if (!advancedParticipant && matchRound === losersBracket.length - 1) {
         for (const slot of grandFinals.slots) {
           if (slot.participant) {
@@ -1392,7 +1311,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
         }
       }
     } else if (hasAdvanced) {
-      // If only one participant, they must be the one who advanced
       advancedParticipant = match.slots[0].participant || match.slots[1].participant;
     }
     
@@ -1402,7 +1320,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
         
         {!hasAdvanced && !viewOnly && (
           <>
-            {/* Only show advance buttons if both slots have participants */}
             {match.slots[0].participant && match.slots[1].participant && (
               <div className="flex justify-between bg-red-50 p-2">
                 <button 
@@ -1424,7 +1341,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
               </div>
             )}
             
-            {/* For matches with only one participant (bye), show just one advance button */}
             {((match.slots[0].participant && !match.slots[1].participant) || 
               (!match.slots[0].participant && match.slots[1].participant)) && (
               <div className="bg-red-50 p-2 text-center">
@@ -1439,7 +1355,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
           </>
         )}
         
-        {/* Show who advanced */}
         {hasAdvanced && advancedParticipant && (
           <div className="bg-red-100 p-2 text-center text-red-800 text-sm font-medium">
             {advancedParticipant.name} advanced
@@ -1454,8 +1369,7 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       </div>
     );
   };
-  
-  // Render grand finals match
+
   const renderGrandFinals = () => {
     const bothParticipantsPresent = grandFinals.slots[0].participant && grandFinals.slots[1].participant;
     const hasWinner = tournamentWinner && bothParticipantsPresent;
@@ -1497,7 +1411,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     );
   };
   
-  // Render reset match
   const renderResetMatch = () => {
     if (!resetNeeded) {
       return null;
@@ -1530,26 +1443,34 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     );
   };
 
-  // Render a bracket section
   const renderWinnersBracket = () => {
     return (
       <div className="mb-8">
-        <h3 className="text-xl font-semibold mb-4 text-blue-700">Winners Bracket</h3>
+        <h3 className="text-xl font-semibold mb-4 text-blue-700">
+          {tournamentFormat === 'DOUBLE_ELIMINATION' ? 'Winners Bracket' : 'Tournament Bracket'}
+        </h3>
         <div className="flex space-x-6 overflow-x-auto pb-4">
-          {winnersBracket.map((round) => (
-            <div key={round.id} className="flex-none w-64">
-              <h4 className="text-center font-semibold mb-4">{round.name}</h4>
-              <div className="space-y-4">
+          {winnersBracket.map((round) => {
+            let roundName = round.name;
+            if (tournamentFormat === 'SINGLE_ELIMINATION' && 
+                round.id === `winners-round-${winnersBracket.length - 1}`) {
+              roundName = 'Finals';
+            }
+            
+            return (
+              <div key={round.id} className="flex-none w-64">
+                <h4 className="text-center font-semibold mb-4">{roundName}</h4>
+                <div className="space-y-4">
                 {round.matches.map(match => renderWinnersMatch(match))}
+                                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
   };
   
-  // Render losers bracket
   const renderLosersBracket = () => {
     return (
       <div className="mb-8">
@@ -1568,7 +1489,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     );
   };
   
-  // Render finals section
   const renderFinals = () => {
     return (
       <div className="mb-8">
@@ -1581,7 +1501,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     );
   };
 
-  // Render winner display and placements
   const renderWinnerDisplay = () => {
     if (!tournamentWinner) return null;
     
@@ -1607,7 +1526,7 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
             </div>
           )}
           
-          {thirdPlace && (
+          {thirdPlace && tournamentFormat === 'DOUBLE_ELIMINATION' && (
             <div className="flex items-center justify-between">
               <span className="flex items-center">
                 <span className="text-xl mr-2">🥉</span>
@@ -1617,15 +1536,16 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
             </div>
           )}
 
-          <div className="mt-2 text-sm text-gray-500">
-            <p>In double elimination format, 3rd place is awarded to the loser of the losers bracket finals.</p>
-          </div>
+          {tournamentFormat === 'DOUBLE_ELIMINATION' && (
+            <div className="mt-2 text-sm text-gray-500">
+              <p>In double elimination format, 3rd place is awarded to the loser of the losers bracket finals.</p>
+            </div>
+          )}
         </div>
       </div>
     );
   };
 
-  // Render loading skeleton
   const renderBracketSkeleton = () => {
     return (
       <div>
@@ -1649,182 +1569,174 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
     );
   };
 
-// Save tournament bracket data
-// Save tournament bracket data
-const saveBracket = async () => {
-  setSaving(true);
-  setSaveMessage(null);
-  
-  try {
-    // Initialize rounds array - the backend expects this format
-    const rounds = [];
+  const saveBracket = async () => {
+    setSaving(true);
+    setSaveMessage(null);
     
-    // Process winners bracket
-    winnersBracket.forEach((roundData, roundIndex) => {
-      const matches = roundData.matches.map((match, matchIndex) => {
-        return {
-          id: match.id,
-          position: matchIndex,
-          player1: match.slots[0].participant ? {
-            id: match.slots[0].participant.id,
-            participantId: match.slots[0].participant.participantId
-          } : null,
-          player2: match.slots[1].participant ? {
-            id: match.slots[1].participant.id,
-            participantId: match.slots[1].participant.participantId
-          } : null,
-          winnerId: null // We track winners separately
-        };
-      });
+    try {
+      const rounds = [];
       
-      rounds.push({
-        id: roundData.id,
-        name: roundData.name,
-        matches: matches
-      });
-    });
-    
-    // Process losers bracket - add as additional rounds
-    losersBracket.forEach((roundData, roundIndex) => {
-      const matches = roundData.matches.map((match, matchIndex) => {
-        return {
-          id: match.id,
-          position: matchIndex,
-          player1: match.slots[0].participant ? {
-            id: match.slots[0].participant.id,
-            participantId: match.slots[0].participant.participantId
-          } : null,
-          player2: match.slots[1].participant ? {
-            id: match.slots[1].participant.id,
-            participantId: match.slots[1].participant.participantId
-          } : null,
-          winnerId: null
-        };
-      });
-      
-      rounds.push({
-        id: roundData.id,
-        name: roundData.name,
-        matches: matches
-      });
-    });
-    
-    // Add grand finals as a separate round
-    if (grandFinals) {
-      rounds.push({
-        id: "grand-finals-round",
-        name: "Grand Finals",
-        matches: [{
-          id: "grand-finals",
-          position: 0,
-          player1: grandFinals.slots[0].participant ? {
-            id: grandFinals.slots[0].participant.id,
-            participantId: grandFinals.slots[0].participant.participantId
-          } : null,
-          player2: grandFinals.slots[1].participant ? {
-            id: grandFinals.slots[1].participant.id,
-            participantId: grandFinals.slots[1].participant.participantId
-          } : null,
-          winnerId: null
-        }]
-      });
-    }
-    
-    // Add reset match if needed
-    if (resetNeeded && resetMatch) {
-      rounds.push({
-        id: "reset-match-round",
-        name: "Reset Match",
-        matches: [{
-          id: "reset-match",
-          position: 0,
-          player1: resetMatch.slots[0].participant ? {
-            id: resetMatch.slots[0].participant.id,
-            participantId: resetMatch.slots[0].participant.participantId
-          } : null,
-          player2: resetMatch.slots[1].participant ? {
-            id: resetMatch.slots[1].participant.id,
-            participantId: resetMatch.slots[1].participant.participantId
-          } : null,
-          winnerId: null
-        }]
-      });
-    }
-    
-    // Format data for API
-    const bracketData = {
-      rounds: rounds,
-      tournamentWinnerId: tournamentWinner ? tournamentWinner.id : null
-    };
-    
-    const response = await fetch(`/api/tournaments/${tournament.id}/bracket`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(bracketData),
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to save bracket');
-    }
-    
-    let winnersSaved = false;
-    if (tournamentWinner) {
-      try {
-        // Prepare the winners array
-        const winners = [
-          { userId: tournamentWinner.id, position: 1 }
-        ];
-        
-        // Add 2nd place 
-        if (runnerUp) {
-          winners.push({ userId: runnerUp.id, position: 2 });
-        }
-        
-        // Add 3rd place 
-        if (thirdPlace) {
-          winners.push({ userId: thirdPlace.id, position: 3 });
-        }
-        
-        const winnerResponse = await fetch(`/api/tournaments/${tournament.id}/winner`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ winners }),
+      winnersBracket.forEach((roundData, roundIndex) => {
+        const matches = roundData.matches.map((match, matchIndex) => {
+          return {
+            id: match.id,
+            position: matchIndex,
+            player1: match.slots[0].participant ? {
+              id: match.slots[0].participant.id,
+              participantId: match.slots[0].participant.participantId
+            } : null,
+            player2: match.slots[1].participant ? {
+              id: match.slots[1].participant.id,
+              participantId: match.slots[1].participant.participantId
+            } : null,
+            winnerId: null
+          };
         });
         
-        if (winnerResponse.ok) {
-          winnersSaved = true;
+        rounds.push({
+          id: roundData.id,
+          name: roundData.name,
+          matches: matches
+        });
+      });
+      
+      if (tournamentFormat === 'DOUBLE_ELIMINATION') {
+        losersBracket.forEach((roundData, roundIndex) => {
+          const matches = roundData.matches.map((match, matchIndex) => {
+            return {
+              id: match.id,
+              position: matchIndex,
+              player1: match.slots[0].participant ? {
+                id: match.slots[0].participant.id,
+                participantId: match.slots[0].participant.participantId
+              } : null,
+              player2: match.slots[1].participant ? {
+                id: match.slots[1].participant.id,
+                participantId: match.slots[1].participant.participantId
+              } : null,
+              winnerId: null
+            };
+          });
+          
+          rounds.push({
+            id: roundData.id,
+            name: roundData.name,
+            matches: matches
+          });
+        });
+        
+        if (grandFinals) {
+          rounds.push({
+            id: "grand-finals-round",
+            name: "Grand Finals",
+            matches: [{
+              id: "grand-finals",
+              position: 0,
+              player1: grandFinals.slots[0].participant ? {
+                id: grandFinals.slots[0].participant.id,
+                participantId: grandFinals.slots[0].participant.participantId
+              } : null,
+              player2: grandFinals.slots[1].participant ? {
+                id: grandFinals.slots[1].participant.id,
+                participantId: grandFinals.slots[1].participant.participantId
+              } : null,
+              winnerId: null
+            }]
+          });
         }
-      } catch (error) {
-        console.error("Error saving tournament winners:", error);
+        
+        if (resetNeeded && resetMatch) {
+          rounds.push({
+            id: "reset-match-round",
+            name: "Reset Match",
+            matches: [{
+              id: "reset-match",
+              position: 0,
+              player1: resetMatch.slots[0].participant ? {
+                id: resetMatch.slots[0].participant.id,
+                participantId: resetMatch.slots[0].participant.participantId
+              } : null,
+              player2: resetMatch.slots[1].participant ? {
+                id: resetMatch.slots[1].participant.id,
+                participantId: resetMatch.slots[1].participant.participantId
+              } : null,
+              winnerId: null
+            }]
+          });
+        }
       }
+      
+      const bracketData = {
+        rounds: rounds,
+        tournamentWinnerId: tournamentWinner ? tournamentWinner.id : null
+      };
+      
+      const response = await fetch(`/api/tournaments/${tournament.id}/bracket`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(bracketData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save bracket');
+      }
+      
+      let winnersSaved = false;
+      if (tournamentWinner) {
+        try {
+          const winners = [
+            { userId: tournamentWinner.id, position: 1 }
+          ];
+          
+          if (runnerUp) {
+            winners.push({ userId: runnerUp.id, position: 2 });
+          }
+          
+          if (thirdPlace && tournamentFormat === 'DOUBLE_ELIMINATION') {
+            winners.push({ userId: thirdPlace.id, position: 3 });
+          }
+          
+          const winnerResponse = await fetch(`/api/tournaments/${tournament.id}/winner`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ winners }),
+          });
+          
+          if (winnerResponse.ok) {
+            winnersSaved = true;
+          }
+        } catch (error) {
+          console.error("Error saving tournament winners:", error);
+        }
+      }
+      
+      setSaveMessage({ 
+        type: 'success', 
+        text: winnersSaved 
+          ? 'Bracket and winners saved successfully!' 
+          : 'Bracket saved successfully!'
+      });
+    } catch (error) {
+      console.error('Error saving bracket:', error);
+      setSaveMessage({ type: 'error', text: error.message });
+    } finally {
+      setSaving(false);
     }
-    
-    setSaveMessage({ 
-      type: 'success', 
-      text: winnersSaved 
-        ? 'Bracket and winners saved successfully!' 
-        : 'Bracket saved successfully!'
-    });
-  } catch (error) {
-    console.error('Error saving bracket:', error);
-    setSaveMessage({ type: 'error', text: error.message });
-  } finally {
-    setSaving(false);
-  }
-};
-
-
+  };
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">Double Elimination Tournament Bracket</h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-4">
+        {tournamentFormat === 'DOUBLE_ELIMINATION' 
+          ? 'Double Elimination Tournament Bracket' 
+          : 'Single Elimination Tournament Bracket'}
+      </h2>
       
-      {/* Winner display at the top when there's a champion */}
       {tournamentWinner && renderWinnerDisplay()}
       
       <div className="flex flex-col md:flex-row gap-6">
@@ -1852,14 +1764,13 @@ const saveBracket = async () => {
           ) : (
             <div className="space-y-8">
               {renderWinnersBracket()}
-              {renderLosersBracket()}
-              {renderFinals()}
+              {tournamentFormat === 'DOUBLE_ELIMINATION' && renderLosersBracket()}
+              {tournamentFormat === 'DOUBLE_ELIMINATION' && renderFinals()}
             </div>
           )}
         </div>
       </div>
       
-      {/* Save Button and Message */}
       {!viewOnly && (
         <div className="mt-6">
           <button 
@@ -1880,6 +1791,5 @@ const saveBracket = async () => {
     </div>
   );
 };
-
 
 export default ManualTournamentBracket;
