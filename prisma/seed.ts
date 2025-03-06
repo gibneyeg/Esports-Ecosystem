@@ -1,4 +1,3 @@
-// prisma/seed.ts
 import { PrismaClient, TournamentStatus, User } from '@prisma/client'
 const bcrypt = require('bcryptjs')
 const prisma = new PrismaClient()

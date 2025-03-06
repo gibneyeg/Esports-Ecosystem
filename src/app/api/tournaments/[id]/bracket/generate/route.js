@@ -145,13 +145,11 @@ export async function POST(request, context) {
     // Function to generate standard bracket with seeding and byes
     const generateStandardBracket = async (participants) => {
       const numParticipants = participants.length;
-      console.log(`Generating bracket for ${numParticipants} participants`);
       
       const numRounds = Math.ceil(Math.log2(numParticipants));
       const perfectBracketSize = Math.pow(2, numRounds);
       const numByes = perfectBracketSize - numParticipants;
       
-      console.log(`Rounds needed: ${numRounds}, Perfect bracket size: ${perfectBracketSize}, Byes: ${numByes}`);
       
       // Clear existing brackets and matches
       await prisma.match.deleteMany({
@@ -202,7 +200,6 @@ export async function POST(request, context) {
         const seed = i + 1; // 1-based seeding
         const pos = getRoundPosFromSeed(seed, perfectBracketSize);
         seedPositions[pos] = participants[i];
-        console.log(`Seed #${seed} (${participants[i].user.name || participants[i].user.username || participants[i].user.email}) goes to position ${pos}`);
       }
       
       // First round matches
@@ -243,11 +240,6 @@ export async function POST(request, context) {
           }
         }
         
-        console.log(`Creating match ${i}:`, {
-          player1: player1 ? (player1.user.name || player1.user.username || player1.user.email) : "Bye",
-          player2: player2 ? (player2.user.name || player2.user.username || player2.user.email) : "Bye",
-          status: matchData.status
-        });
         
         const match = await prisma.match.create({
           data: matchData,
