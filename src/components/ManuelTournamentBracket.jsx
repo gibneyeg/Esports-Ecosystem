@@ -22,28 +22,28 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
 
   useEffect(() => {
     if (isInitialized) return;
-    
+
     let mounted = true;
-    
+
     const initializeTournament = async () => {
       if (!tournament?.participants) return;
-      
+
       setIsLoading(true);
-      
+
       if (tournament.format) {
         setTournamentFormat(tournament.format);
       }
-      
+
       const mappedParticipants = initializeParticipants(tournament.participants);
-      
+
       if (mounted) setParticipants(mappedParticipants);
-      
+
       setIsInitialized(true);
       setIsLoading(false);
     };
-    
+
     initializeTournament();
-    
+
     return () => {
       mounted = false;
     };
@@ -61,14 +61,13 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
   const renderParticipant = (participant) => {
     const isPlaced = isParticipantPlaced(participant);
     const isSelected = selectedParticipant && selectedParticipant.id === participant.id;
-    
+
     return (
       <div
         key={participant.id}
-        className={`p-2 mb-2 border rounded ${
-          isPlaced ? 'bg-gray-200 text-gray-600' :
+        className={`p-2 mb-2 border rounded ${isPlaced ? 'bg-gray-200 text-gray-600' :
           isSelected ? 'bg-blue-200 border-blue-600 border-2' : 'bg-blue-50 hover:bg-blue-100'
-        } cursor-pointer`}
+          } cursor-pointer`}
         onClick={() => !isPlaced && handleParticipantClick(participant)}
       >
         {participant.seedNumber && (
@@ -108,7 +107,7 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
   const saveBracket = async (bracketData) => {
     setSaving(true);
     setSaveMessage(null);
-    
+
     try {
       const response = await fetch(`/api/tournaments/${tournament.id}/bracket`, {
         method: 'POST',
@@ -117,27 +116,28 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
         },
         body: JSON.stringify(bracketData),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to save bracket');
       }
-      
+
       let winnersSaved = false;
       if (tournamentWinner) {
         try {
           const winners = [
             { userId: tournamentWinner.id, position: 1 }
           ];
-          
+
           if (runnerUp) {
             winners.push({ userId: runnerUp.id, position: 2 });
           }
-          
-          if (thirdPlace && tournamentFormat === 'DOUBLE_ELIMINATION') {
+
+          // Add third place winner if available
+          if (thirdPlace) {
             winners.push({ userId: thirdPlace.id, position: 3 });
           }
-          
+
           const winnerResponse = await fetch(`/api/tournaments/${tournament.id}/winner`, {
             method: 'POST',
             headers: {
@@ -145,7 +145,7 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
             },
             body: JSON.stringify({ winners }),
           });
-          
+
           if (winnerResponse.ok) {
             winnersSaved = true;
           }
@@ -153,11 +153,11 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
           console.error("Error saving tournament winners:", error);
         }
       }
-      
-      setSaveMessage({ 
-        type: 'success', 
-        text: winnersSaved 
-          ? 'Bracket and winners saved successfully!' 
+
+      setSaveMessage({
+        type: 'success',
+        text: winnersSaved
+          ? 'Bracket and winners saved successfully!'
           : 'Bracket saved successfully!'
       });
     } catch (error) {
@@ -170,7 +170,7 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
 
   const renderWinnerDisplay = () => {
     if (!tournamentWinner) return null;
-    
+
     return (
       <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
         <h3 className="text-xl font-bold text-yellow-800 mb-4">Tournament Results</h3>
@@ -182,7 +182,7 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
             </span>
             <span className="text-yellow-600 font-medium">${(tournament.prizePool * 0.5).toLocaleString()}</span>
           </div>
-          
+
           {runnerUp && (
             <div className="flex items-center justify-between">
               <span className="flex items-center">
@@ -192,8 +192,8 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
               <span className="text-yellow-600">${(tournament.prizePool * 0.3).toLocaleString()}</span>
             </div>
           )}
-          
-          {thirdPlace && tournamentFormat === 'DOUBLE_ELIMINATION' && (
+
+          {thirdPlace && (
             <div className="flex items-center justify-between">
               <span className="flex items-center">
                 <span className="text-xl mr-2">🥉</span>
@@ -203,11 +203,13 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
             </div>
           )}
 
-          {tournamentFormat === 'DOUBLE_ELIMINATION' && (
-            <div className="mt-2 text-sm text-gray-500">
+          <div className="mt-2 text-sm text-gray-500">
+            {tournamentFormat === 'DOUBLE_ELIMINATION' ? (
               <p>In double elimination format, 3rd place is awarded to the loser of the losers bracket finals.</p>
-            </div>
-          )}
+            ) : (
+              <p>In single elimination format, 3rd place is determined through a separate third place match.</p>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -216,13 +218,13 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-800 mb-4">
-        {tournamentFormat === 'DOUBLE_ELIMINATION' 
-          ? 'Double Elimination Tournament Bracket' 
+        {tournamentFormat === 'DOUBLE_ELIMINATION'
+          ? 'Double Elimination Tournament Bracket'
           : 'Single Elimination Tournament Bracket'}
       </h2>
-      
+
       {tournamentWinner && renderWinnerDisplay()}
-      
+
       <div className="flex flex-col md:flex-row gap-6">
         {!viewOnly && (
           <div className="md:w-1/4">
@@ -239,7 +241,7 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
             </div>
           </div>
         )}
-        
+
         <div className={`${viewOnly ? 'w-full' : 'md:w-3/4'} overflow-x-auto`}>
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
@@ -248,27 +250,34 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
           ) : (
             <>
               {tournamentFormat === 'SINGLE_ELIMINATION' ? (
-                <SingleEliminationBracket 
+                <SingleEliminationBracket
                   tournament={tournament}
                   participants={participants}
                   setParticipants={setParticipants}
                   selectedParticipant={selectedParticipant}
                   setSelectedParticipant={setSelectedParticipant}
                   setTournamentWinner={setTournamentWinner}
+                  tournamentWinner={tournamentWinner}
                   setRunnerUp={setRunnerUp}
+                  runnerUp={runnerUp}
+                  setThirdPlace={setThirdPlace}
+                  thirdPlace={thirdPlace}
                   viewOnly={viewOnly}
                   saveBracket={saveBracket}
                 />
               ) : (
-                <DoubleEliminationBracket 
+                <DoubleEliminationBracket
                   tournament={tournament}
                   participants={participants}
                   setParticipants={setParticipants}
                   selectedParticipant={selectedParticipant}
                   setSelectedParticipant={setSelectedParticipant}
                   setTournamentWinner={setTournamentWinner}
+                  tournamentWinner={tournamentWinner}
                   setRunnerUp={setRunnerUp}
+                  runnerUp={runnerUp}
                   setThirdPlace={setThirdPlace}
+                  thirdPlace={thirdPlace}
                   viewOnly={viewOnly}
                   saveBracket={saveBracket}
                 />
@@ -277,20 +286,20 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
           )}
         </div>
       </div>
-      
+
       {!viewOnly && (
         <div className="mt-6">
-          <button 
-            onClick={() => tournamentFormat === 'SINGLE_ELIMINATION' 
-              ? document.dispatchEvent(new CustomEvent('saveSingleEliminationBracket')) 
+          <button
+            onClick={() => tournamentFormat === 'SINGLE_ELIMINATION'
+              ? document.dispatchEvent(new CustomEvent('saveSingleEliminationBracket'))
               : document.dispatchEvent(new CustomEvent('saveDoubleEliminationBracket'))
-            } 
+            }
             disabled={saving || isLoading}
             className={`px-4 py-2 rounded-md text-white font-medium ${(saving || isLoading) ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`}
           >
             {saving ? 'Saving...' : 'Save Bracket'}
           </button>
-          
+
           {saveMessage && (
             <div className={`mt-2 px-4 py-2 rounded ${saveMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
               {saveMessage.text}

@@ -1889,100 +1889,51 @@ const DoubleEliminationBracket = ({
     );
   };
 
-
-
   return (
-
     <div className="space-y-8">
-
       {winnersBracket && winnersBracket.length > 0 && (
-
         <div>
-
           <h3 className="text-xl font-semibold mb-4 text-blue-700">Winners Bracket</h3>
-
           <div className="flex space-x-6 overflow-x-auto pb-4">
-
             {winnersBracket.map((round) => (
-
               <div key={round.id} className="flex-none w-64">
-
                 <h4 className="text-center font-semibold mb-4">{round.name}</h4>
-
                 <div className="space-y-4">
-
                   {round.matches.map(match => renderWinnersMatch(match))}
-
                 </div>
-
               </div>
-
             ))}
-
           </div>
-
         </div>
-
       )}
-
-
 
       {losersBracket && losersBracket.length > 0 && (
-
         <div>
-
           <h3 className="text-xl font-semibold mb-4 text-red-700">Losers Bracket</h3>
-
           <div className="flex space-x-6 overflow-x-auto pb-4">
-
             {losersBracket.map((round) => (
-
               <div key={round.id} className="flex-none w-64">
-
                 <h4 className="text-center font-semibold mb-4">{round.name}</h4>
-
                 <div className="space-y-4">
-
                   {round.matches.map(match => renderLosersMatch(match))}
-
                 </div>
-
               </div>
-
             ))}
-
           </div>
-
         </div>
-
       )}
-
-
 
       {grandFinals && (
-
         <div>
-
           <h3 className="text-xl font-semibold mb-4 text-yellow-700">Finals</h3>
-
           <div className="w-64 mx-auto">
-
             {renderGrandFinals()}
-
             {resetNeeded && resetMatch && renderResetMatch()}
-
           </div>
-
         </div>
-
       )}
-
     </div>
-
   );
-
 };
-
-
 
 export default DoubleEliminationBracket;
