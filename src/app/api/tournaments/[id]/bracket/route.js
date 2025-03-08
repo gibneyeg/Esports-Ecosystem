@@ -3,11 +3,12 @@ import { getServerSession } from "next-auth";
 import prisma from "../../../../../lib/prisma";
 import { authOptions } from "../../../auth/[...nextauth]/route";
 
-// Existing POST handler for saving bracket data
+// Updated POST function for tournament bracket route.js
+
 export async function POST(request, context) {
   try {
     const { id } = context.params;
-    
+
     // Get the authenticated user
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -42,26 +43,34 @@ export async function POST(request, context) {
 
     // Parse the request body
     const bracketData = await request.json();
-    
+    console.log("Received bracket data:", JSON.stringify(bracketData, null, 2));
+
     // Clear existing brackets and matches
     await prisma.match.deleteMany({
-      where: { 
-        bracket: { 
-          tournamentId: id 
+      where: {
+        bracket: {
+          tournamentId: id
         }
       },
     });
-    
+
     await prisma.tournamentBracket.deleteMany({
-      where: { 
-        tournamentId: id 
+      where: {
+        tournamentId: id
       },
     });
-    
+
     // Create new brackets and matches
     for (let roundIndex = 0; roundIndex < bracketData.rounds.length; roundIndex++) {
       const round = bracketData.rounds[roundIndex];
-      
+
+      // Skip rounds with no matches
+      if (!round.matches || round.matches.length === 0) {
+        continue;
+      }
+
+      console.log(`Creating bracket for round ${roundIndex}: ${round.name}`);
+
       // Create bracket for this round
       const bracket = await prisma.tournamentBracket.create({
         data: {
@@ -70,18 +79,20 @@ export async function POST(request, context) {
           position: 0, // Default position
         },
       });
-      
+
       // Create matches for this round
       for (let matchIndex = 0; matchIndex < round.matches.length; matchIndex++) {
         const match = round.matches[matchIndex];
-        
+
         // Determine match status based on if it has a winner
         const matchStatus = match.winnerId ? "COMPLETED" : "PENDING";
-        
+
+        console.log(`Creating match in round ${roundIndex}, position ${match.position}`);
+
         await prisma.match.create({
           data: {
             bracketId: bracket.id,
-            position: matchIndex,
+            position: match.position,
             status: matchStatus,
             player1Id: match.player1?.id || null,
             player2Id: match.player2?.id || null,
@@ -95,7 +106,7 @@ export async function POST(request, context) {
         });
       }
     }
-    
+
     // If a tournament winner is declared, update the tournament record
     if (bracketData.tournamentWinnerId) {
       await prisma.tournament.update({
@@ -106,7 +117,7 @@ export async function POST(request, context) {
         }
       });
     }
-    
+
     // Get updated tournament with brackets
     const updatedTournament = await prisma.tournament.findUnique({
       where: { id },
@@ -153,10 +164,10 @@ export async function POST(request, context) {
         }
       },
     });
-    
+
     // Flatten matches for easier consumption by frontend
     const matches = [];
-    
+
     updatedTournament.brackets.forEach(bracket => {
       bracket.matches.forEach(match => {
         matches.push({
@@ -172,7 +183,7 @@ export async function POST(request, context) {
         });
       });
     });
-    
+
     // Sort matches by round and position
     matches.sort((a, b) => {
       if (a.round !== b.round) {
@@ -180,7 +191,9 @@ export async function POST(request, context) {
       }
       return a.position - b.position;
     });
-    
+
+    console.log(`Returning ${matches.length} matches for the frontend`);
+
     return NextResponse.json({
       tournamentId: id,
       format: updatedTournament.format,
@@ -197,12 +210,11 @@ export async function POST(request, context) {
     );
   }
 }
-
 // New GET handler for retrieving bracket data
 export async function GET(request, context) {
   try {
     const { id } = context.params;
-    
+
     // Get tournament with brackets and matches
     const tournament = await prisma.tournament.findUnique({
       where: { id },
@@ -256,7 +268,7 @@ export async function GET(request, context) {
         { status: 404 }
       );
     }
-    
+
     // If there are no brackets yet, return empty array
     if (!tournament.brackets || tournament.brackets.length === 0) {
       return NextResponse.json({
@@ -271,7 +283,7 @@ export async function GET(request, context) {
 
     // Flatten matches for easier consumption by frontend
     const matches = [];
-    
+
     tournament.brackets.forEach(bracket => {
       bracket.matches.forEach(match => {
         matches.push({
@@ -287,7 +299,7 @@ export async function GET(request, context) {
         });
       });
     });
-    
+
     // Sort matches by round and position
     matches.sort((a, b) => {
       if (a.round !== b.round) {
@@ -295,7 +307,7 @@ export async function GET(request, context) {
       }
       return a.position - b.position;
     });
-    
+
     return NextResponse.json({
       tournamentId: id,
       format: tournament.format,
