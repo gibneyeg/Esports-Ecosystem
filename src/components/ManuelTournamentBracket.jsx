@@ -1,8 +1,8 @@
 "use client";
-
 import React, { useState, useEffect, useMemo } from 'react';
 import SingleEliminationBracket from './SingleEliminationBracket';
 import DoubleEliminationBracket from './DoubleEliminationBracket';
+import RoundRobinBracket from './RoundRobinBracket';
 import { fetchExistingBracket } from '@/utils/bracketApi';
 import { initializeParticipants } from '@/utils/participantUtils';
 
@@ -206,7 +206,10 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
           <div className="mt-2 text-sm text-gray-500">
             {tournamentFormat === 'DOUBLE_ELIMINATION' ? (
               <p>In double elimination format, 3rd place is awarded to the loser of the losers bracket finals.</p>
-            ) : (
+            ) : tournamentFormat === 'ROUND_ROBIN' ? (
+              <p>In round robin format, winners are determined by total points earned across all matches.</p>) : tournamentFormat === 'ROUND_ROBIN' ? (
+                <p>In round robin format, 3rd place is determined by the participant with the third highest points.</p>
+              ) : (
               <p>In single elimination format, 3rd place is determined through a separate third place match.</p>
             )}
           </div>
@@ -220,7 +223,9 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       <h2 className="text-2xl font-bold text-gray-800 mb-4">
         {tournamentFormat === 'DOUBLE_ELIMINATION'
           ? 'Double Elimination Tournament Bracket'
-          : 'Single Elimination Tournament Bracket'}
+          : tournamentFormat === 'ROUND_ROBIN'
+            ? 'Round Robin Tournament'
+            : 'Single Elimination Tournament Bracket'}
       </h2>
 
       {tournamentWinner && renderWinnerDisplay()}
@@ -265,6 +270,22 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
                   viewOnly={viewOnly}
                   saveBracket={saveBracket}
                 />
+              ) : tournamentFormat === 'ROUND_ROBIN' ? (
+                <RoundRobinBracket
+                  tournament={tournament}
+                  participants={participants}
+                  setParticipants={setParticipants}
+                  selectedParticipant={selectedParticipant}
+                  setSelectedParticipant={setSelectedParticipant}
+                  setTournamentWinner={setTournamentWinner}
+                  tournamentWinner={tournamentWinner}
+                  setRunnerUp={setRunnerUp}
+                  runnerUp={runnerUp}
+                  setThirdPlace={setThirdPlace}
+                  thirdPlace={thirdPlace}
+                  viewOnly={viewOnly}
+                  saveBracket={saveBracket}
+                />
               ) : (
                 <DoubleEliminationBracket
                   tournament={tournament}
@@ -290,10 +311,15 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       {!viewOnly && (
         <div className="mt-6">
           <button
-            onClick={() => tournamentFormat === 'SINGLE_ELIMINATION'
-              ? document.dispatchEvent(new CustomEvent('saveSingleEliminationBracket'))
-              : document.dispatchEvent(new CustomEvent('saveDoubleEliminationBracket'))
-            }
+            onClick={() => {
+              if (tournamentFormat === 'SINGLE_ELIMINATION') {
+                document.dispatchEvent(new CustomEvent('saveSingleEliminationBracket'));
+              } else if (tournamentFormat === 'ROUND_ROBIN') {
+                document.dispatchEvent(new CustomEvent('saveRoundRobinBracket'));
+              } else {
+                document.dispatchEvent(new CustomEvent('saveDoubleEliminationBracket'));
+              }
+            }}
             disabled={saving || isLoading}
             className={`px-4 py-2 rounded-md text-white font-medium ${(saving || isLoading) ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`}
           >
@@ -311,4 +337,4 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
   );
 };
 
-export default ManualTournamentBracket;
+export default ManualTournamentBracket

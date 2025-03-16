@@ -169,6 +169,7 @@ model Match {
   position      Int
   scheduledTime DateTime?
   completedTime DateTime?
+  roundRobinData String?
 }
 enum TournamentStatus {
   UPCOMING
