@@ -46,6 +46,7 @@ export async function GET(request, context) {
             name: true,
             email: true,
             username: true,
+            image: true, // Added image field
           },
         },
         winner: {
@@ -55,6 +56,7 @@ export async function GET(request, context) {
             email: true,
             username: true,
             points: true,
+            image: true, // Added image field
           },
         },
         winners: {
@@ -66,6 +68,7 @@ export async function GET(request, context) {
                 email: true,
                 username: true,
                 points: true,
+                image: true, // Added image field
               },
             },
           },
@@ -81,6 +84,7 @@ export async function GET(request, context) {
                 name: true,
                 email: true,
                 username: true,
+                image: true, // Added image field
               },
             },
           },
@@ -167,10 +171,10 @@ export async function POST(request, context) {
       });
 
       for (const winner of winners) {
-        const prizePercentage = winner.position === 1 ? 0.5 : 
-                               winner.position === 2 ? 0.3 : 
-                               winner.position === 3 ? 0.2 : 0;
-        
+        const prizePercentage = winner.position === 1 ? 0.5 :
+          winner.position === 2 ? 0.3 :
+            winner.position === 3 ? 0.2 : 0;
+
         const prizeMoney = tournament.prizePool * prizePercentage;
 
         await prisma.tournamentWinner.create({
@@ -182,9 +186,9 @@ export async function POST(request, context) {
           },
         });
 
-        const points = winner.position === 1 ? 100 : 
-                      winner.position === 2 ? 50 : 
-                      winner.position === 3 ? 25 : 0;
+        const points = winner.position === 1 ? 100 :
+          winner.position === 2 ? 50 :
+            winner.position === 3 ? 25 : 0;
 
         const currentUser = await prisma.user.findUnique({
           where: { id: winner.userId },
@@ -203,7 +207,7 @@ export async function POST(request, context) {
 
       const updatedTournament = await prisma.tournament.update({
         where: { id },
-        data: { 
+        data: {
           status: "COMPLETED"
         },
         include: {
@@ -213,6 +217,7 @@ export async function POST(request, context) {
               name: true,
               email: true,
               username: true,
+              image: true, // Added image field
             },
           },
           winners: {
@@ -224,6 +229,7 @@ export async function POST(request, context) {
                   email: true,
                   username: true,
                   points: true,
+                  image: true, // Added image field
                 },
               },
             },
@@ -239,6 +245,7 @@ export async function POST(request, context) {
                   name: true,
                   email: true,
                   username: true,
+                  image: true, // Added image field
                 },
               },
             },
@@ -249,7 +256,7 @@ export async function POST(request, context) {
       return updatedTournament;
     });
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       tournament: result,
       message: "Winners declared successfully"
     });
