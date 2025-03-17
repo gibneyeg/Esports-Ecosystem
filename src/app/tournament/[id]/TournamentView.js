@@ -9,6 +9,8 @@ import TournamentManagement from "../../../components/TournamentManagment.jsx";
 import DeclareWinnerButton from "../../../components/TournamentWinner.jsx";
 import TwitchStream from "../../../components/TournamentStream.jsx";
 import ManualTournamentBracket from "@/components/ManuelTournamentBracket.jsx";
+import ProfilePicture from "@/components/ProfilePicture";
+
 export default function TournamentView({ tournamentId }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -17,7 +19,7 @@ export default function TournamentView({ tournamentId }) {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('info');
 
-  
+
   // Function to update tournament status
   const updateTournamentStatus = async (tournament) => {
     const now = new Date();
@@ -220,7 +222,7 @@ export default function TournamentView({ tournamentId }) {
   }
 
   const isCreator = session?.user?.id === tournament.userId;
-    const isParticipant = tournament.participants?.some(
+  const isParticipant = tournament.participants?.some(
     (p) => p.user.id === session?.user?.id
   );
   const canJoin =
@@ -228,7 +230,7 @@ export default function TournamentView({ tournamentId }) {
     tournament.participants.length < tournament.maxPlayers &&
     tournament.status === "UPCOMING" &&
     new Date() < new Date(tournament.registrationCloseDate);
-  
+
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString("en-US", {
@@ -239,6 +241,8 @@ export default function TournamentView({ tournamentId }) {
       minute: "2-digit",
     });
   };
+
+
 
   const currentStatus = getTournamentStatus();
   return (
@@ -283,31 +287,28 @@ export default function TournamentView({ tournamentId }) {
             <nav className="flex space-x-8">
               <button
                 onClick={() => setActiveTab('info')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'info'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'info'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 Tournament Info
               </button>
               <button
                 onClick={() => setActiveTab('bracket')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'bracket'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'bracket'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 Bracket
               </button>
               <button
                 onClick={() => setActiveTab('streams')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'streams'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'streams'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 Streams
               </button>
@@ -328,7 +329,7 @@ export default function TournamentView({ tournamentId }) {
                       <span className="font-medium">Format:</span>{" "}
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
                         {getFormatIcon(tournament.format)}{" "}
-                        {tournament.format?.split('_').map(word => 
+                        {tournament.format?.split('_').map(word =>
                           word.charAt(0) + word.slice(1).toLowerCase()
                         ).join(' ')}
                       </span>
@@ -348,7 +349,7 @@ export default function TournamentView({ tournamentId }) {
                     <p>
                       <span className="font-medium">Seeding:</span>{" "}
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
-                        {tournament.seedingType?.split('_').map(word => 
+                        {tournament.seedingType?.split('_').map(word =>
                           word.charAt(0) + word.slice(1).toLowerCase()
                         ).join(' ')}
                       </span>
@@ -401,24 +402,46 @@ export default function TournamentView({ tournamentId }) {
                   <h2 className="text-xl font-semibold mb-4">Participants</h2>
                   <div className="space-y-2 max-h-[300px] overflow-y-auto">
                     {tournament.participants?.length > 0 ? (
-                      tournament.participants.map((participant) => (
-                        <div
-                          key={participant.id}
-                          className="bg-gray-50 p-2 rounded-md flex items-center justify-between"
-                        >
-                          <div className="flex items-center">
-                            {participant.seedNumber && (
-                              <span className="w-6 h-6 flex items-center justify-center bg-blue-100 text-blue-800 rounded-full text-xs mr-2">
-                                {participant.seedNumber}
-                              </span>
-                            )}
-                            <span>{getParticipantDisplayName(participant)}</span>
+                      tournament.participants.map((participant) => {
+                        const displayName = getParticipantDisplayName(participant);
+                        const firstLetter = displayName.charAt(0).toUpperCase();
+
+                        return (
+                          <div
+                            key={participant.id}
+                            className="bg-gray-50 p-2 rounded-md flex items-center justify-between"
+                          >
+                            <div className="flex items-center">
+                              {/* Profile Picture/Avatar */}
+                              <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 mr-3">
+                                {participant.user?.image ? (
+                                  <img
+                                    src={participant.user.image}
+                                    alt={displayName}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-blue-100 text-blue-800 font-medium">
+                                    {firstLetter}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex items-center">
+                                {participant.seedNumber && (
+                                  <span className="w-6 h-6 flex items-center justify-center bg-blue-100 text-blue-800 rounded-full text-xs mr-2">
+                                    {participant.seedNumber}
+                                  </span>
+                                )}
+                                <span>{displayName}</span>
+                              </div>
+                            </div>
+                            <span className="text-sm text-gray-500">
+                              {formatDate(participant.joinedAt)}
+                            </span>
                           </div>
-                          <span className="text-sm text-gray-500">
-                            {formatDate(participant.joinedAt)}
-                          </span>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <p className="text-gray-500">No participants yet</p>
                     )}
@@ -430,7 +453,7 @@ export default function TournamentView({ tournamentId }) {
                 <div className="mt-8">
                   <h2 className="text-xl font-semibold mb-4">Tournament Management</h2>
                   <div className="flex gap-3">
-                    <DeclareWinnerButton 
+                    <DeclareWinnerButton
                       tournament={tournament}
                       onWinnerDeclared={(updatedTournament) => {
                         setTournament(updatedTournament);
@@ -443,21 +466,20 @@ export default function TournamentView({ tournamentId }) {
             </>
           )}
 
-
-{activeTab === 'bracket' && (
-  <div className="mt-8">
-    <ManualTournamentBracket 
-      tournament={tournament} 
-      currentUser={session?.user}
-      isOwner={isCreator} // Pass the already calculated value
-    />
-  </div>
-)}
+          {activeTab === 'bracket' && (
+            <div className="mt-8">
+              <ManualTournamentBracket
+                tournament={tournament}
+                currentUser={session?.user}
+                isOwner={isCreator} // Pass the already calculated value
+              />
+            </div>
+          )}
 
           {activeTab === 'streams' && (
             <div className="mt-8">
               <h2 className="text-2xl font-bold text-gray-800 mb-6">Tournament Streams</h2>
-              <TwitchStream 
+              <TwitchStream
                 tournament={tournament}
                 isCreator={isCreator}
                 onStreamUpdate={(streams) => {
