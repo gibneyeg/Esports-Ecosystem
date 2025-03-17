@@ -217,7 +217,7 @@ export async function POST(request, context) {
               name: true,
               email: true,
               username: true,
-              image: true, // Added image field
+              image: true,
             },
           },
           winners: {
@@ -229,7 +229,7 @@ export async function POST(request, context) {
                   email: true,
                   username: true,
                   points: true,
-                  image: true, // Added image field
+                  image: true,
                 },
               },
             },

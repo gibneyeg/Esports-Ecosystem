@@ -158,6 +158,7 @@ const RoundRobinBracket = ({
     };
     useEffect(() => {
         const isInitialized = groups.length > 0 && matches.length > 0;
+        let isMounted = true;
 
         if (isInitialized) return;
 
@@ -165,8 +166,6 @@ const RoundRobinBracket = ({
             const winnerObj = participants.find(p => p.id === tournament.winnerId);
             if (winnerObj) setTournamentWinner(winnerObj);
         }
-
-
 
         const initializeTournament = async () => {
             try {
@@ -265,7 +264,6 @@ const RoundRobinBracket = ({
                         if (savedMatch.winner) {
                             winner = participants.find(p => p.id === savedMatch.winner.id);
                         }
-
 
                         let isDraw = savedMatch.isDraw || false;
 
@@ -366,8 +364,6 @@ const RoundRobinBracket = ({
                         }
                     }
 
-
-
                     // Update standings based on matches
                     const updatedGroups = updateGroupStandings(newGroups, newMatches);
                     newGroups = updatedGroups;
@@ -402,19 +398,26 @@ const RoundRobinBracket = ({
                     }
                 }
 
-                setGroups(newGroups);
-                setMatches(newMatches);
+                // Check if component is still mounted before updating state
+                if (isMounted) {
+                    setGroups(newGroups);
+                    setMatches(newMatches);
+                    setIsLoading(false);
+                }
             } catch (error) {
                 console.error("Error initializing round robin groups:", error);
-            } finally {
-                setIsLoading(false);
+                // Check if component is still mounted before updating state
+                if (isMounted) {
+                    setIsLoading(false);
+                }
             }
         };
 
         initializeTournament();
 
+        // Cleanup function - properly references the isMounted variable 
         return () => {
-            mounted = false;
+            isMounted = false;
         };
     }, [tournament, participants, groupSize, setTournamentWinner, setRunnerUp, setThirdPlace]);
     // Update group standings based on match results
