@@ -4,12 +4,10 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Layout from "../../../components/Layout.jsx";
-import TournamentBracket from "../../../components/TournamentBracket.jsx";
 import TournamentManagement from "../../../components/TournamentManagment.jsx";
 import DeclareWinnerButton from "../../../components/TournamentWinner.jsx";
 import TwitchStream from "../../../components/TournamentStream.jsx";
 import ManualTournamentBracket from "@/components/ManuelTournamentBracket.jsx";
-import ProfilePicture from "@/components/ProfilePicture";
 
 export default function TournamentView({ tournamentId }) {
   const router = useRouter();

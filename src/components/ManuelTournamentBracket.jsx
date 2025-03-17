@@ -1,340 +1,393 @@
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
-import SingleEliminationBracket from './SingleEliminationBracket';
-import DoubleEliminationBracket from './DoubleEliminationBracket';
+
+import React, { useState, useEffect } from 'react';
+import { initializeParticipants, loadParticipantsFromBracket } from '@/utils/participantUtils';
+import { initializeBracket } from '@/utils/bracketUtils';
+import { fetchExistingBracket, prepareBracketDataForSave } from '@/utils/bracketApi';
 import RoundRobinBracket from './RoundRobinBracket';
-import { fetchExistingBracket } from '@/utils/bracketApi';
-import { initializeParticipants } from '@/utils/participantUtils';
 
 const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [selectedParticipant, setSelectedParticipant] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState(null);
+  const [bracket, setBracket] = useState(null);
   const [tournamentWinner, setTournamentWinner] = useState(null);
   const [runnerUp, setRunnerUp] = useState(null);
   const [thirdPlace, setThirdPlace] = useState(null);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [tournamentFormat, setTournamentFormat] = useState('SINGLE_ELIMINATION');
+  const [saving, setSaving] = useState(false);
+  const [savedMessage, setSavedMessage] = useState("");
 
-  const viewOnly = useMemo(() => !isOwner, [isOwner]);
-
+  // Initialize the participants and bracket
   useEffect(() => {
-    if (isInitialized) return;
+    const loadBracket = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-    let mounted = true;
+        // Map participants for bracket usage
+        const mappedParticipants = initializeParticipants(tournament.participants);
 
-    const initializeTournament = async () => {
-      if (!tournament?.participants) return;
+        // Check for existing winners from tournament data
+        if (tournament.winners && tournament.winners.length > 0) {
+          // Sort winners by position (1=first, 2=second, 3=third)
+          const sortedWinners = tournament.winners.sort((a, b) => a.position - b.position);
 
-      setIsLoading(true);
+          // Find first place winner
+          const firstPlace = sortedWinners.find(w => w.position === 1);
+          if (firstPlace) {
+            const winner = mappedParticipants.find(p => p.id === firstPlace.user.id);
+            if (winner) setTournamentWinner(winner);
+          }
 
-      if (tournament.format) {
-        setTournamentFormat(tournament.format);
+          // Find second place
+          const secondPlace = sortedWinners.find(w => w.position === 2);
+          if (secondPlace) {
+            const runnerUp = mappedParticipants.find(p => p.id === secondPlace.user.id);
+            if (runnerUp) setRunnerUp(runnerUp);
+          }
+
+          // Find third place
+          const thirdPlace = sortedWinners.find(w => w.position === 3);
+          if (thirdPlace) {
+            const third = mappedParticipants.find(p => p.id === thirdPlace.user.id);
+            if (third) setThirdPlace(third);
+          }
+        }
+        // If no winners in tournament.winners but tournament has a winner property
+        else if (tournament.winner) {
+          const winnerObj = mappedParticipants.find(p => p.id === tournament.winner.id);
+          if (winnerObj) setTournamentWinner(winnerObj);
+        }
+
+        // Try to fetch existing bracket data
+        const existingBracket = await fetchExistingBracket(tournament.id);
+
+        // If we have existing bracket data, update participant placement status
+        if (existingBracket) {
+          const updatedParticipants = loadParticipantsFromBracket(
+            mappedParticipants,
+            existingBracket
+          );
+          setParticipants(updatedParticipants);
+        } else {
+          setParticipants(mappedParticipants);
+        }
+
+        // Initialize bracket based on tournament format and participant count
+        const participantCount = tournament.participants.length;
+        const initialBracket = initializeBracket(participantCount, tournament.format);
+        setBracket(initialBracket);
+
+        setLoading(false);
+      } catch (err) {
+        console.error("Error loading bracket:", err);
+        setError("Failed to load bracket data");
+        setLoading(false);
+      }
+    };
+
+    if (tournament?.participants) {
+      loadBracket();
+    }
+  }, [tournament]);
+
+  // Save the bracket data
+  const saveBracket = async (bracketData) => {
+    try {
+      setSaving(true);
+      setSavedMessage("");
+
+      if (!isOwner) {
+        throw new Error("Only tournament owner can save bracket");
       }
 
-      const mappedParticipants = initializeParticipants(tournament.participants);
+      // Add winners to bracket data if available
+      if (tournamentWinner) {
+        bracketData.tournamentWinnerId = tournamentWinner.id;
+      }
 
-      if (mounted) setParticipants(mappedParticipants);
-
-      setIsInitialized(true);
-      setIsLoading(false);
-    };
-
-    initializeTournament();
-
-    return () => {
-      mounted = false;
-    };
-  }, [tournament, isInitialized]);
-
-  const handleParticipantClick = (participant) => {
-    if (viewOnly) return;
-    setSelectedParticipant(participant);
-  };
-
-  const isParticipantPlaced = (participant) => {
-    return participant.isPlaced;
-  };
-
-  const renderParticipant = (participant) => {
-    const isPlaced = isParticipantPlaced(participant);
-    const isSelected = selectedParticipant && selectedParticipant.id === participant.id;
-
-    return (
-      <div
-        key={participant.id}
-        className={`p-2 mb-2 border rounded ${isPlaced ? 'bg-gray-200 text-gray-600' :
-          isSelected ? 'bg-blue-200 border-blue-600 border-2' : 'bg-blue-50 hover:bg-blue-100'
-          } cursor-pointer`}
-        onClick={() => !isPlaced && handleParticipantClick(participant)}
-      >
-        {participant.seedNumber && (
-          <span className="inline-block w-5 h-5 bg-gray-100 text-xs text-center rounded-full mr-1">
-            {participant.seedNumber}
-          </span>
-        )}
-        {participant.name}
-        {isSelected && " ✓"}
-      </div>
-    );
-  };
-
-  const renderBracketSkeleton = () => {
-    return (
-      <div>
-        <div className="h-6 bg-gray-200 rounded w-48 mb-6 mx-auto"></div>
-        <div className="flex space-x-6 pb-4">
-          {[1, 2, 3].map((roundIdx) => (
-            <div key={roundIdx} className="flex-none w-64">
-              <div className="h-6 bg-gray-200 rounded w-24 mx-auto mb-4"></div>
-              <div className="space-y-4">
-                {[1, 2, 3, 4].map((matchIdx) => (
-                  <div key={`${roundIdx}-${matchIdx}`} className="border rounded-md overflow-hidden mb-4">
-                    <div className="p-2 min-h-[40px] border-b bg-gray-100 animate-pulse"></div>
-                    <div className="p-2 min-h-[40px] border-b bg-gray-100 animate-pulse"></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  const saveBracket = async (bracketData) => {
-    setSaving(true);
-    setSaveMessage(null);
-
-    try {
       const response = await fetch(`/api/tournaments/${tournament.id}/bracket`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(bracketData),
+        credentials: 'include',
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save bracket');
+        const data = await response.json();
+        throw new Error(data.message || "Failed to save bracket");
       }
 
-      let winnersSaved = false;
-      if (tournamentWinner) {
-        try {
-          const winners = [
-            { userId: tournamentWinner.id, position: 1 }
-          ];
-
-          if (runnerUp) {
-            winners.push({ userId: runnerUp.id, position: 2 });
-          }
-
-          // Add third place winner if available
-          if (thirdPlace) {
-            winners.push({ userId: thirdPlace.id, position: 3 });
-          }
-
-          const winnerResponse = await fetch(`/api/tournaments/${tournament.id}/winner`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ winners }),
-          });
-
-          if (winnerResponse.ok) {
-            winnersSaved = true;
-          }
-        } catch (error) {
-          console.error("Error saving tournament winners:", error);
-        }
+      // After successfully saving the bracket, also save tournament winners
+      if (tournamentWinner || runnerUp || thirdPlace) {
+        await saveWinners();
       }
 
-      setSaveMessage({
-        type: 'success',
-        text: winnersSaved
-          ? 'Bracket and winners saved successfully!'
-          : 'Bracket saved successfully!'
-      });
-    } catch (error) {
-      console.error('Error saving bracket:', error);
-      setSaveMessage({ type: 'error', text: error.message });
+      setSavedMessage("Bracket saved successfully!");
+      setTimeout(() => setSavedMessage(""), 3000);
+    } catch (err) {
+      console.error("Error saving bracket:", err);
+      setError(err.message);
     } finally {
       setSaving(false);
     }
   };
 
-  const renderWinnerDisplay = () => {
-    if (!tournamentWinner) return null;
+  // Function to save tournament winners to the database
+  const saveWinners = async () => {
+    try {
+      const winners = [];
+
+      if (tournamentWinner) {
+        winners.push({
+          userId: tournamentWinner.id,
+          position: 1,
+          prizeMoney: tournament.prizePool * 0.5 // 50% to 1st place
+        });
+      }
+
+      if (runnerUp) {
+        winners.push({
+          userId: runnerUp.id,
+          position: 2,
+          prizeMoney: tournament.prizePool * 0.3 // 30% to 2nd place
+        });
+      }
+
+      if (thirdPlace) {
+        winners.push({
+          userId: thirdPlace.id,
+          position: 3,
+          prizeMoney: tournament.prizePool * 0.2 // 20% to 3rd place
+        });
+      }
+
+      if (winners.length > 0) {
+        const response = await fetch(`/api/tournaments/${tournament.id}/winners`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ winners }),
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to save tournament winners");
+        }
+      }
+    } catch (err) {
+      console.error("Error saving winners:", err);
+      // Don't throw here, as we still want to save the bracket
+    }
+  };
+
+  // Handle save for bracket with different formats
+  const handleSaveSingleEliminationBracket = () => {
+    if (!bracket || !bracket.winnersBracket) return;
+
+    // Prepare bracket data for saving
+    const bracketData = prepareBracketDataForSave(
+      bracket.winnersBracket,
+      [],
+      null,
+      null,
+      tournamentWinner
+    );
+
+    saveBracket(bracketData);
+  };
+
+  const handleSaveDoubleEliminationBracket = () => {
+    if (!bracket) return;
+
+    // Prepare bracket data for saving
+    const bracketData = prepareBracketDataForSave(
+      bracket.winnersBracket,
+      bracket.losersBracket,
+      bracket.grandFinals,
+      bracket.resetMatch,
+      tournamentWinner
+    );
+
+    saveBracket(bracketData);
+  };
+
+  // Render participants list for bracket assignment
+  const renderParticipantsList = () => {
+    // Check if there are participants to display
+    if (!participants || participants.length === 0) {
+      return (
+        <div className="p-4 border rounded-md bg-gray-50">
+          <p className="text-gray-500">No participants in this tournament yet.</p>
+        </div>
+      );
+    }
+
+    const unplacedParticipants = participants.filter(p => !p.isPlaced);
 
     return (
-      <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-        <h3 className="text-xl font-bold text-yellow-800 mb-4">Tournament Results</h3>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center">
-              <span className="text-2xl mr-2">🥇</span>
-              <span className="font-semibold">{tournamentWinner.name}</span>
-            </span>
-            <span className="text-yellow-600 font-medium">${(tournament.prizePool * 0.5).toLocaleString()}</span>
+      <div className="bg-white p-4 border rounded-md shadow-sm">
+        <h3 className="text-lg font-medium mb-3">Participants</h3>
+        {unplacedParticipants.length === 0 ? (
+          <p className="text-green-600">
+            All participants have been placed in the bracket
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+            {participants.map(participant => (
+              <div
+                key={participant.id}
+                className={`border p-2 rounded-md cursor-pointer 
+                  ${participant.isPlaced ? "bg-gray-200" : "hover:bg-blue-50"} 
+                  ${selectedParticipant?.id === participant.id ? "bg-blue-100 border-blue-400" : ""}`}
+                onClick={() => !participant.isPlaced && setSelectedParticipant(participant)}
+              >
+                <div className="flex items-center">
+                  {participant.seedNumber && (
+                    <span className="w-6 h-6 flex items-center justify-center bg-blue-100 text-blue-800 rounded-full text-xs mr-2">
+                      {participant.seedNumber}
+                    </span>
+                  )}
+                  <span className={participant.isPlaced ? "line-through text-gray-500" : ""}>
+                    {participant.name}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
-
-          {runnerUp && (
-            <div className="flex items-center justify-between">
-              <span className="flex items-center">
-                <span className="text-xl mr-2">🥈</span>
-                <span>{runnerUp.name}</span>
-              </span>
-              <span className="text-yellow-600">${(tournament.prizePool * 0.3).toLocaleString()}</span>
-            </div>
-          )}
-
-          {thirdPlace && (
-            <div className="flex items-center justify-between">
-              <span className="flex items-center">
-                <span className="text-xl mr-2">🥉</span>
-                <span>{thirdPlace.name}</span>
-              </span>
-              <span className="text-yellow-600">${(tournament.prizePool * 0.2).toLocaleString()}</span>
-            </div>
-          )}
-
-          <div className="mt-2 text-sm text-gray-500">
-            {tournamentFormat === 'DOUBLE_ELIMINATION' ? (
-              <p>In double elimination format, 3rd place is awarded to the loser of the losers bracket finals.</p>
-            ) : tournamentFormat === 'ROUND_ROBIN' ? (
-              <p>In round robin format, winners are determined by total points earned across all matches.</p>) : tournamentFormat === 'ROUND_ROBIN' ? (
-                <p>In round robin format, 3rd place is determined by the participant with the third highest points.</p>
-              ) : (
-              <p>In single elimination format, 3rd place is determined through a separate third place match.</p>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     );
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 border-l-4 border-red-500 bg-red-50 text-red-700">
+        <p className="font-medium">Error loading bracket</p>
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  // If there are no participants yet, show a message
+  if (!tournament.participants || tournament.participants.length === 0) {
+    return (
+      <div className="p-6 border rounded-md bg-gray-50 text-center">
+        <p className="text-lg text-gray-600">
+          No participants have joined this tournament yet. Check back later.
+        </p>
+      </div>
+    );
+  }
+
+  // If there are fewer participants than required, show a warning
+  if (tournament.participants.length < 3) {
+    return (
+      <div className="p-6 border rounded-md bg-yellow-50 text-center">
+        <p className="text-lg text-yellow-700">
+          This tournament needs at least 3 participants to generate a bracket.
+          Current count: {tournament.participants.length}
+        </p>
+      </div>
+    );
+  }
+
+  // Saved message notification
+  const savedNotification = savedMessage ? (
+    <div className="fixed bottom-4 right-4 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-md">
+      {savedMessage}
+    </div>
+  ) : null;
+
+  // Render bracket based on tournament format
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">
-        {tournamentFormat === 'DOUBLE_ELIMINATION'
-          ? 'Double Elimination Tournament Bracket'
-          : tournamentFormat === 'ROUND_ROBIN'
-            ? 'Round Robin Tournament'
-            : 'Single Elimination Tournament Bracket'}
-      </h2>
+    <div className="space-y-6">
+      {isOwner && <div className="mb-6">{renderParticipantsList()}</div>}
 
-      {tournamentWinner && renderWinnerDisplay()}
-
-      <div className="flex flex-col md:flex-row gap-6">
-        {!viewOnly && (
-          <div className="md:w-1/4">
-            <h3 className="font-semibold mb-2">Participants</h3>
-            <p className="text-sm text-gray-500 mb-2">
-              Click a participant, then click a bracket slot to place them.
-            </p>
-            <div className="border rounded p-3 bg-gray-50 max-h-[600px] overflow-y-auto">
-              {participants.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No participants found</p>
-              ) : (
-                participants.map(participant => renderParticipant(participant))
-              )}
-            </div>
+      {/* Tournament Results */}
+      <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4">
+        <h3 className="text-lg font-semibold mb-2">Tournament Results</h3>
+        <div className="space-y-2">
+          <div className="flex items-center">
+            <span className="text-2xl mr-2">🏆</span>
+            <span className="font-medium">First Place:</span>
+            <span className="ml-2">{tournamentWinner ? tournamentWinner.name : "Not decided"}</span>
+            {tournamentWinner && <span className="ml-2 text-green-600">${(tournament.prizePool * 0.5).toFixed(2)}</span>}
           </div>
-        )}
-
-        <div className={`${viewOnly ? 'w-full' : 'md:w-3/4'} overflow-x-auto`}>
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              {renderBracketSkeleton()}
-            </div>
-          ) : (
-            <>
-              {tournamentFormat === 'SINGLE_ELIMINATION' ? (
-                <SingleEliminationBracket
-                  tournament={tournament}
-                  participants={participants}
-                  setParticipants={setParticipants}
-                  selectedParticipant={selectedParticipant}
-                  setSelectedParticipant={setSelectedParticipant}
-                  setTournamentWinner={setTournamentWinner}
-                  tournamentWinner={tournamentWinner}
-                  setRunnerUp={setRunnerUp}
-                  runnerUp={runnerUp}
-                  setThirdPlace={setThirdPlace}
-                  thirdPlace={thirdPlace}
-                  viewOnly={viewOnly}
-                  saveBracket={saveBracket}
-                />
-              ) : tournamentFormat === 'ROUND_ROBIN' ? (
-                <RoundRobinBracket
-                  tournament={tournament}
-                  participants={participants}
-                  setParticipants={setParticipants}
-                  selectedParticipant={selectedParticipant}
-                  setSelectedParticipant={setSelectedParticipant}
-                  setTournamentWinner={setTournamentWinner}
-                  tournamentWinner={tournamentWinner}
-                  setRunnerUp={setRunnerUp}
-                  runnerUp={runnerUp}
-                  setThirdPlace={setThirdPlace}
-                  thirdPlace={thirdPlace}
-                  viewOnly={viewOnly}
-                  saveBracket={saveBracket}
-                />
-              ) : (
-                <DoubleEliminationBracket
-                  tournament={tournament}
-                  participants={participants}
-                  setParticipants={setParticipants}
-                  selectedParticipant={selectedParticipant}
-                  setSelectedParticipant={setSelectedParticipant}
-                  setTournamentWinner={setTournamentWinner}
-                  tournamentWinner={tournamentWinner}
-                  setRunnerUp={setRunnerUp}
-                  runnerUp={runnerUp}
-                  setThirdPlace={setThirdPlace}
-                  thirdPlace={thirdPlace}
-                  viewOnly={viewOnly}
-                  saveBracket={saveBracket}
-                />
-              )}
-            </>
-          )}
+          <div className="flex items-center">
+            <span className="text-2xl mr-2">🥈</span>
+            <span className="font-medium">Second Place:</span>
+            <span className="ml-2">{runnerUp ? runnerUp.name : "Not decided"}</span>
+            {runnerUp && <span className="ml-2 text-green-600">${(tournament.prizePool * 0.3).toFixed(2)}</span>}
+          </div>
+          <div className="flex items-center">
+            <span className="text-2xl mr-2">🥉</span>
+            <span className="font-medium">Third Place:</span>
+            <span className="ml-2">{thirdPlace ? thirdPlace.name : "Not decided"}</span>
+            {thirdPlace && <span className="ml-2 text-green-600">${(tournament.prizePool * 0.2).toFixed(2)}</span>}
+          </div>
         </div>
+        <p className="mt-3 text-sm text-gray-600">
+          In round robin format, winners are determined by total points earned across all matches.
+        </p>
       </div>
 
-      {!viewOnly && (
-        <div className="mt-6">
+      {/* Render the appropriate bracket type based on tournament format */}
+      {tournament.format === 'ROUND_ROBIN' && (
+        <RoundRobinBracket
+          tournament={tournament}
+          participants={participants}
+          setParticipants={setParticipants}
+          selectedParticipant={selectedParticipant}
+          setSelectedParticipant={setSelectedParticipant}
+          setTournamentWinner={setTournamentWinner}
+          tournamentWinner={tournamentWinner}
+          setRunnerUp={setRunnerUp}
+          runnerUp={runnerUp}
+          setThirdPlace={setThirdPlace}
+          thirdPlace={thirdPlace}
+          viewOnly={!isOwner}
+          saveBracket={saveBracket}
+        />
+      )}
+
+      {/* Save Button for tournament organizer */}
+      {isOwner && (
+        <div className="flex justify-end mt-6">
           <button
             onClick={() => {
-              if (tournamentFormat === 'SINGLE_ELIMINATION') {
-                document.dispatchEvent(new CustomEvent('saveSingleEliminationBracket'));
-              } else if (tournamentFormat === 'ROUND_ROBIN') {
-                document.dispatchEvent(new CustomEvent('saveRoundRobinBracket'));
-              } else {
-                document.dispatchEvent(new CustomEvent('saveDoubleEliminationBracket'));
+              if (tournament.format === 'SINGLE_ELIMINATION') {
+                handleSaveSingleEliminationBracket();
+              } else if (tournament.format === 'DOUBLE_ELIMINATION') {
+                handleSaveDoubleEliminationBracket();
               }
+              // Round robin format handles saving internally
             }}
-            disabled={saving || isLoading}
-            className={`px-4 py-2 rounded-md text-white font-medium ${(saving || isLoading) ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`}
+            disabled={saving || tournament.format === 'ROUND_ROBIN'}
+            className={`px-6 py-2 rounded-md ${saving ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
+              } text-white font-medium transition-colors ${tournament.format === 'ROUND_ROBIN' ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
           >
             {saving ? 'Saving...' : 'Save Bracket'}
           </button>
-
-          {saveMessage && (
-            <div className={`mt-2 px-4 py-2 rounded ${saveMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-              {saveMessage.text}
-            </div>
-          )}
         </div>
       )}
+
+      {savedNotification}
     </div>
   );
 };
 
-export default ManualTournamentBracket
+export default ManualTournamentBracket;
