@@ -65,7 +65,7 @@ export async function POST(request, context) {
     }
 
     // Create participant
-    const participant = await prisma.tournamentParticipant.create({
+    await prisma.tournamentParticipant.create({
       data: {
         tournament: {
           connect: { id: tournamentId },

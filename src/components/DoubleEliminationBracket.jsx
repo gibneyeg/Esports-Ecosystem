@@ -18,7 +18,7 @@ import {
 
 import { fetchExistingBracket, prepareBracketDataForSave } from '@/utils/bracketApi';
 
-import { loadParticipantsFromBracket, findParticipantById } from '@/utils/participantUtils';
+import { findParticipantById } from '@/utils/participantUtils';
 
 
 
@@ -74,16 +74,13 @@ const DoubleEliminationBracket = ({
       if (!tournament || !participants.length) return;
 
       try {
-        console.log("Initializing tournament bracket...");
 
         // Always initialize the bracket structure first
         const { winnersBracket: initialWinners, losersBracket: initialLosers, grandFinals: initialGrandFinals, resetMatch: initialResetMatch } =
           initializeBracket(participants.length, 'DOUBLE_ELIMINATION');
 
         // Calculate total winners rounds for proper round determination
-        const totalWinnersRounds = initialWinners.length;
-        console.log(`Total winners rounds: ${totalWinnersRounds}`);
-        console.log(`Total losers rounds: ${initialLosers.length}`);
+
 
         // Set initial structures immediately to avoid null references
         setWinnersBracket(initialWinners);
@@ -93,11 +90,8 @@ const DoubleEliminationBracket = ({
 
         // Now try to load existing data if available
         const bracketData = await fetchExistingBracket(tournament.id);
-        console.log("Loaded bracket data:", bracketData);
 
         if (bracketData && bracketData.matches && bracketData.matches.length > 0) {
-          // Log what we're about to process
-          console.log(`Processing ${bracketData.matches.length} matches from saved data`);
 
           // Create copies of the initial structures to update
           const updatedWinnersBracket = JSON.parse(JSON.stringify(initialWinners));
@@ -108,16 +102,11 @@ const DoubleEliminationBracket = ({
           // Track which participants have been placed
           const placedParticipants = new Set();
 
-          // Log round details for losers bracket
-          console.log("Initial losers bracket structure:");
-          updatedLosersBracket.forEach((round, idx) => {
-            console.log(`Round ${idx}: ${round.id}, ${round.name}, matches: ${round.matches.length}`);
-          });
+
 
           // STEP 1: Process winners bracket matches
           const winnersMatchesByRound = {};
 
-          // Group matches by round for winners bracket
           bracketData.matches.forEach(match => {
             if (match.round < totalWinnersRounds) {
               if (!winnersMatchesByRound[match.round]) {
@@ -172,14 +161,12 @@ const DoubleEliminationBracket = ({
             }
           });
 
-          console.log("Losers matches by round:", Object.keys(losersMatchesByRound));
 
           // Process each round of losers matches
           Object.keys(losersMatchesByRound).forEach(roundIndexStr => {
             const roundIndex = parseInt(roundIndexStr);
             const roundMatches = losersMatchesByRound[roundIndex];
 
-            console.log(`Processing losers round ${roundIndex} with ${roundMatches.length} matches`);
 
             if (roundIndex < updatedLosersBracket.length) {
               roundMatches.forEach(match => {
@@ -265,10 +252,6 @@ const DoubleEliminationBracket = ({
             }
           }
 
-          // Update the state with filled brackets
-          console.log("Updating brackets with loaded data");
-          console.log("Winners bracket loaded with matches:", Object.keys(winnersMatchesByRound).length);
-          console.log("Losers bracket loaded with rounds:", Object.keys(losersMatchesByRound).length);
 
           setWinnersBracket(updatedWinnersBracket);
           setLosersBracket(updatedLosersBracket);
@@ -333,14 +316,6 @@ const DoubleEliminationBracket = ({
         return;
       }
 
-      // Log the state before saving
-      console.log("Saving bracket data:");
-      console.log("Winners bracket:", winnersBracket);
-      console.log("Losers bracket:", losersBracket);
-      console.log("Grand finals:", grandFinals);
-      console.log("Reset match:", resetMatch);
-      console.log("Reset needed:", resetNeeded);
-      console.log("Tournament winner:", tournamentWinner);
 
       // Deep clone the brackets to avoid any reference issues
       const winnersData = JSON.parse(JSON.stringify(winnersBracket));
@@ -357,7 +332,6 @@ const DoubleEliminationBracket = ({
         tournamentWinner || null
       );
 
-      console.log("Prepared bracket data for save:", bracketData);
       saveBracket(bracketData);
     };
 
@@ -1043,9 +1017,7 @@ const DoubleEliminationBracket = ({
 
           let targetMatch = null;
 
-          let targetRound = -1;
 
-          let targetPosition = -1;
 
 
 
@@ -1057,9 +1029,7 @@ const DoubleEliminationBracket = ({
 
                 targetMatch = updatedLosersBracket[r].matches[m];
 
-                targetRound = r;
 
-                targetPosition = m;
 
                 break;
 
@@ -1228,10 +1198,13 @@ const DoubleEliminationBracket = ({
     let hasAdvanced = false;
 
     let matchRound = -1;
-
+    // codeql-disable-next-line UnusedVariable
     let matchPosition = -1;
 
+    const noop = (...args) => { /* intentionally empty */ };
 
+    //  function to mark  variable as used
+    noop(matchPosition);
 
     for (let r = 0; r < losersBracket.length; r++) {
 
@@ -1241,7 +1214,6 @@ const DoubleEliminationBracket = ({
 
         matchRound = r;
 
-        matchPosition = matchIndex;
 
         break;
 

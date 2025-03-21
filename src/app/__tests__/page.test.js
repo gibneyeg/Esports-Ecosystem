@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from "vitest";
-import React from "react";
 import HomePage from "../page.jsx";
 // Mock next/navigation
 vi.mock("next/navigation", () => ({

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -24,7 +24,6 @@ function SignUpPageF() {
   const [loading, setLoading] = useState(false);
   const [isSignedUp, setIsSignedUp] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
-  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
 
@@ -112,11 +111,11 @@ function SignUpPageF() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
               </svg>
             </div>
-            
+
             <h1 className="text-2xl font-bold text-gray-900 mb-4">
               Account Created Successfully!
             </h1>
-            
+
             <div className="mb-6">
               <p className="text-gray-600 mb-2">
                 Please check your email
@@ -128,13 +127,13 @@ function SignUpPageF() {
                 The verification link will expire in 24 hours.
               </p>
             </div>
-  
+
             {error && (
               <div className="p-3 mb-4 text-sm text-green-500 bg-green-50 border border-green-200 rounded-md">
                 {error}
               </div>
             )}
-  
+
             <div className="space-y-3">
               <button
                 onClick={handleResendVerification}
@@ -153,7 +152,7 @@ function SignUpPageF() {
                   "Resend Verification Email"
                 )}
               </button>
-              
+
               <Link
                 href="/login"
                 className="block w-full bg-gray-100 text-gray-700 py-3 rounded-md hover:bg-gray-200 text-center transition-colors font-medium"
@@ -252,9 +251,8 @@ function SignUpPageF() {
         <p className="mt-4 text-center text-sm text-gray-600">
           Already have an account?{" "}
           <Link
-            href={`/login${
-              callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""
-            }`}
+            href={`/login${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""
+              }`}
             className="text-blue-500 hover:underline"
           >
             Sign in

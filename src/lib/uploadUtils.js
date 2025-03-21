@@ -1,8 +1,6 @@
-import { getSession } from "next-auth/react";
 
 export async function uploadProfilePicture(file) {
   try {
-    const session = await getSession();
     const compressedImage = await compressImageToBase64(file);
 
     const response = await fetch("/api/upload-profile-picture", {

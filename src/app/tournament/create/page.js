@@ -10,7 +10,7 @@ import FormatSettings from "../../../components/FormatSettings";
 
 export default function CreateTournament() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: status } = useSession();
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -25,8 +25,8 @@ export default function CreateTournament() {
     rules: "",
     numberOfRounds: "",
     groupSize: "",
-    streamEmbed: true,  // Default to allowing stream embeds
-    streamUrl: "",      // Optional official stream URL
+    streamEmbed: true,
+    streamUrl: "",
   });
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -402,7 +402,7 @@ export default function CreateTournament() {
 
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Streaming Settings</h3>
-              
+
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -440,11 +440,10 @@ export default function CreateTournament() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className={`w-full py-2 px-4 rounded font-medium text-white ${
-              isSubmitting
-                ? "bg-blue-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700"
-            } transition-colors`}
+            className={`w-full py-2 px-4 rounded font-medium text-white ${isSubmitting
+              ? "bg-blue-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
+              } transition-colors`}
           >
             {isSubmitting ? "Creating Tournament..." : "Create Tournament"}
           </button>

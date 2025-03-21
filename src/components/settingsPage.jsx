@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { useSession } from 'next-auth/react';
 
 const SettingsPage = () => {
-  const { data: session, update } = useSession();
   const [activeTab, setActiveTab] = useState('notifications');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', content: '' });
@@ -66,7 +64,7 @@ const SettingsPage = () => {
       });
 
       if (!response.ok) throw new Error('Failed to update password');
-      
+
       setMessage({ type: 'success', content: 'Password updated successfully' });
       setFormData(prev => ({
         ...prev,
@@ -86,37 +84,34 @@ const SettingsPage = () => {
   return (
     <div className="container mx-auto p-6 max-w-4xl">
       <h1 className="text-3xl font-bold mb-8">Settings</h1>
-      
+
       {/* Tabs */}
       <div className="mb-6">
         <div className="flex border-b">
           <button
             onClick={() => setActiveTab('notifications')}
-            className={`px-4 py-2 font-medium ${
-              activeTab === 'notifications'
+            className={`px-4 py-2 font-medium ${activeTab === 'notifications'
                 ? 'text-blue-600 border-b-2 border-blue-600'
                 : 'text-gray-500 hover:text-gray-700'
-            }`}
+              }`}
           >
             Notifications
           </button>
           <button
             onClick={() => setActiveTab('privacy')}
-            className={`px-4 py-2 font-medium ${
-              activeTab === 'privacy'
+            className={`px-4 py-2 font-medium ${activeTab === 'privacy'
                 ? 'text-blue-600 border-b-2 border-blue-600'
                 : 'text-gray-500 hover:text-gray-700'
-            }`}
+              }`}
           >
             Privacy
           </button>
           <button
             onClick={() => setActiveTab('account')}
-            className={`px-4 py-2 font-medium ${
-              activeTab === 'account'
+            className={`px-4 py-2 font-medium ${activeTab === 'account'
                 ? 'text-blue-600 border-b-2 border-blue-600'
                 : 'text-gray-500 hover:text-gray-700'
-            }`}
+              }`}
           >
             Account
           </button>
@@ -138,7 +133,7 @@ const SettingsPage = () => {
               />
               <span>Email Notifications</span>
             </label>
-            
+
             <label className="flex items-center space-x-2">
               <input
                 type="checkbox"
@@ -161,7 +156,7 @@ const SettingsPage = () => {
               <span>Match Results</span>
             </label>
 
-           
+
           </div>
         </div>
       )}
@@ -214,17 +209,16 @@ const SettingsPage = () => {
       {activeTab === 'account' && (
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-4">Change Password</h2>
-          
+
           {message.content && (
-            <div className={`p-4 mb-4 rounded ${
-              message.type === 'error' 
-                ? 'bg-red-50 text-red-700 border border-red-200' 
+            <div className={`p-4 mb-4 rounded ${message.type === 'error'
+                ? 'bg-red-50 text-red-700 border border-red-200'
                 : 'bg-green-50 text-green-700 border border-green-200'
-            }`}>
+              }`}>
               {message.content}
             </div>
           )}
-          
+
           <form onSubmit={handlePasswordChange} className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1">Current Password</label>

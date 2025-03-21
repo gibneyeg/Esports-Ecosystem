@@ -282,7 +282,7 @@ export default function GamesPage() {
             </div>
 
             {/* No Results */}
-            {!loading && games.length === 0 && (
+            {games.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-gray-500 text-lg">No games found matching your search.</p>
               </div>

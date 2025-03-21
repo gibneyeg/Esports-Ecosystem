@@ -16,12 +16,11 @@ export default function Header() {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState("");
 
-  // Only show loading state for logged in users
-  const isLoading = status === "loading" && session?.user;
+
 
   useEffect(() => {
     if (!showProfileMenu) return; // Only add listener if menu is shown
-    
+
     const handleClickOutside = (event) => {
       if (!event.target.closest(".profile-menu-container")) {
         setShowProfileMenu(false);
@@ -54,7 +53,9 @@ export default function Header() {
         return;
       }
       setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
+      // Create safe object URL
+      const safePreviewUrl = URL.createObjectURL(file);
+      setPreviewUrl(safePreviewUrl);
       setError("");
     }
   };
@@ -110,11 +111,30 @@ export default function Header() {
     }
   };
 
+  // Validate image URL to prevent XSS
+  const validateImageUrl = (url) => {
+    if (!url) return false;
+
+    // Only allow http/https URLs or blob URLs (for previews)
+    return (
+      (url.startsWith('http://') ||
+        url.startsWith('https://') ||
+        url.startsWith('blob:')) &&
+      !url.includes('javascript:')
+    );
+  };
+
   return (
     <header className="bg-black">
       <nav className="flex justify-between items-center px-4 lg:px-6 py-2.5 h-16">
         <Link href="/" className={`flex items-center ${styles.logo}`}>
-          <img src={logo.src} className="h-6 sm:h-9" alt="Logo" />
+          <Image
+            src={logo.src}
+            alt="Logo"
+            width={36}
+            height={36}
+            className="h-6 sm:h-9 w-auto"
+          />
         </Link>
         <div className="flex-grow flex justify-center -ml-20">
           <ul className="flex space-x-8">
@@ -159,7 +179,7 @@ export default function Header() {
                     className="flex items-center gap-2 text-white hover:bg-gray-800 px-3 py-2 rounded-lg transition-colors h-10"
                   >
                     <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-700">
-                      {session.user.image ? (
+                      {session.user.image && validateImageUrl(session.user.image) ? (
                         <Image
                           src={session.user.image}
                           alt="Profile"
@@ -209,10 +229,10 @@ export default function Header() {
                         Change Profile Picture
                       </button>
                       <Link
-                      href="/settings"
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        href="/settings"
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       >
-                      Settings
+                        Settings
                       </Link>
                       <button
                         onClick={handleLogout}
@@ -228,13 +248,14 @@ export default function Header() {
                     <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg p-4 z-50">
                       <div className="flex flex-col items-center gap-4">
                         <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-gray-200">
-                          {previewUrl ? (
-                            <img
-                              src={previewUrl}
-                              alt="Preview"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : session.user.image ? (
+                          {previewUrl && validateImageUrl(previewUrl) ? (
+                            <div className="relative w-full h-full">
+                              {/* Special handling for blob URLs from file preview */}
+                              <div className="w-full h-full bg-cover bg-center"
+                                style={{ backgroundImage: `url('${previewUrl}')` }}>
+                              </div>
+                            </div>
+                          ) : session.user.image && validateImageUrl(session.user.image) ? (
                             <Image
                               src={session.user.image}
                               alt="Current profile"

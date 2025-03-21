@@ -5,14 +5,14 @@ export async function PUT(request, context) {
   try {
     const { id } = context.params;
     const { status } = await request.json();
-    
+
     if (!id || !status) {
       return NextResponse.json(
         { message: "Tournament ID and status are required" },
         { status: 400 }
       );
     }
-    
+
     const validStatuses = ["UPCOMING", "ONGOING", "COMPLETED", "CANCELLED"];
     if (!validStatuses.includes(status)) {
       return NextResponse.json(
@@ -20,7 +20,7 @@ export async function PUT(request, context) {
         { status: 400 }
       );
     }
-    
+
     const updatedTournament = await prisma.tournament.update({
       where: { id },
       data: { status },
@@ -47,7 +47,7 @@ export async function PUT(request, context) {
         },
       },
     });
-    
+
     return NextResponse.json(updatedTournament);
   } catch (error) {
     console.error("Error updating tournament status:", error);
@@ -63,16 +63,16 @@ export async function updateTournamentStatus(tournament) {
   const now = new Date();
   const startDate = new Date(tournament.startDate);
   const endDate = new Date(tournament.endDate);
-  let newStatus = tournament.status;
-  
+  let newStatus;
+
   if (endDate < now) {
     newStatus = "COMPLETED";
   } else if (now >= startDate && now <= endDate) {
-    newStatus = "ONGOING"; 
+    newStatus = "ONGOING";
   } else {
     newStatus = "UPCOMING";
   }
-  
+
   if (newStatus !== tournament.status) {
     const response = await fetch(`/api/tournaments/${tournament.id}/status`, {
       method: 'PUT',
@@ -81,13 +81,13 @@ export async function updateTournamentStatus(tournament) {
       },
       body: JSON.stringify({ status: newStatus }),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to update tournament status');
     }
-    
+
     return await response.json();
   }
-  
+
   return tournament;
 }

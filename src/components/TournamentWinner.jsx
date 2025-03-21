@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { useSession } from 'next-auth/react';
 
 const TournamentWinner = ({ tournament, onWinnerDeclared }) => {
-  const { data: session } = useSession();
   const [showModal, setShowModal] = useState(false);
   const [winners, setWinners] = useState({
     first: '',

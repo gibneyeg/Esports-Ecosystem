@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { initializeBracket } from '@/utils/bracketUtils';
 import { fetchExistingBracket } from '@/utils/bracketApi';
 import { prepareBracketDataForSave } from '@/utils/bracketApi';
-import { loadParticipantsFromBracket, findParticipantById } from '@/utils/participantUtils';
+import { findParticipantById } from '@/utils/participantUtils';
 
 const SingleEliminationBracket = ({
   tournament,
@@ -604,11 +604,6 @@ const SingleEliminationBracket = ({
 
     // Get the winner and loser
     const winner = thirdPlaceMatch.slots[winnerIndex].participant;
-
-    // Store both participants in the third place match
-    // This ensures we keep track of both participants, not just the winner
-    const loserIndex = winnerIndex === 0 ? 1 : 0;
-    const loser = thirdPlaceMatch.slots[loserIndex].participant;
 
     // Set third place winner but preserve both participants in the match
     setThirdPlace(winner);

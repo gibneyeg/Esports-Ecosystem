@@ -52,7 +52,7 @@ export async function POST(request, context) {
         // Start a transaction to update everything
         const result = await prisma.$transaction(async (prisma) => {
             // Update bracket data
-            const updatedBracket = await prisma.tournamentBracket.upsert({
+            await prisma.tournamentBracket.upsert({
                 where: {
                     tournamentId: id
                 },

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Layout from "/src/components/Layout.jsx";
 import SearchBar from "../../../../components/GameSearch";

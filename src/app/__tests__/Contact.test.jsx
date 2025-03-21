@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from "vitest";
-import React from "react";
 import { createElement } from "react";
 import Contact from "../Contact/page";
 

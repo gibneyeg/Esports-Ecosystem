@@ -35,13 +35,11 @@ const GameList = ({ games, onGameSelect, selectedGame, loading }) => {
           <div key={game.id} className="w-full">
             <button
               onClick={() => onGameSelect(game.name)}
-              className={`w-full flex flex-col ${
-                selectedGame === game.name ? 'scale-105 transition-transform duration-200' : ''
-              }`}
+              className={`w-full flex flex-col ${selectedGame === game.name ? 'scale-105 transition-transform duration-200' : ''
+                }`}
             >
-              <div className={`w-full aspect-[3/4] rounded-lg overflow-hidden border-2 transition-colors duration-200 ${
-                selectedGame === game.name ? 'border-blue-500' : 'border-transparent'
-              }`}>
+              <div className={`w-full aspect-[3/4] rounded-lg overflow-hidden border-2 transition-colors duration-200 ${selectedGame === game.name ? 'border-blue-500' : 'border-transparent'
+                }`}>
                 <img
                   src={game.image}
                   alt={game.name}
@@ -49,9 +47,8 @@ const GameList = ({ games, onGameSelect, selectedGame, loading }) => {
                 />
               </div>
               <div className="mt-2 space-y-1">
-                <span className={`block text-sm truncate ${
-                  selectedGame === game.name ? 'text-blue-500 font-medium' : ''
-                }`}>
+                <span className={`block text-sm truncate ${selectedGame === game.name ? 'text-blue-500 font-medium' : ''
+                  }`}>
                   {game.name}
                 </span>
                 {game.genres?.length > 0 && (
@@ -72,7 +69,7 @@ export default function SearchBar({ searchQuery, setSearchQuery, filterTournamen
   const [games, setGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState('');
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [refreshing] = useState(false);
 
   const fetchRandomGames = async () => {
     try {
@@ -154,31 +151,31 @@ export default function SearchBar({ searchQuery, setSearchQuery, filterTournamen
                 className="text-blue-600 hover:text-blue-700 disabled:text-blue-300 p-1.5 rounded-full hover:bg-blue-50 transition-colors"
                 title="Show different games"
               >
-                <svg 
-                  className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} 
-                  fill="none" 
-                  stroke="currentColor" 
+                <svg
+                  className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth="2" 
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                   />
                 </svg>
               </button>
             </div>
-            <Link 
-              href="/games" 
+            <Link
+              href="/games"
               className="text-blue-600 hover:text-blue-700 text-sm"
             >
               See all
             </Link>
           </div>
-          <GameList 
+          <GameList
             games={games}
-            onGameSelect={handleGameSelect} 
+            onGameSelect={handleGameSelect}
             selectedGame={selectedGame}
             loading={loading}
           />

@@ -8,6 +8,7 @@ import TournamentManagement from "../../../components/TournamentManagment.jsx";
 import DeclareWinnerButton from "../../../components/TournamentWinner.jsx";
 import TwitchStream from "../../../components/TournamentStream.jsx";
 import ManualTournamentBracket from "@/components/ManuelTournamentBracket.jsx";
+import Image from "next/image"; // Import Image for secure rendering
 
 export default function TournamentView({ tournamentId }) {
   const router = useRouter();
@@ -17,14 +18,14 @@ export default function TournamentView({ tournamentId }) {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('info');
 
-
   // Function to update tournament status
   const updateTournamentStatus = async (tournament) => {
     const now = new Date();
     const startDate = new Date(tournament.startDate);
     const endDate = new Date(tournament.endDate);
 
-    let newStatus = tournament.status;
+    // Fixed: Don't set an initial value that will be overwritten
+    let newStatus;
 
     if (endDate < now) {
       newStatus = "COMPLETED";
@@ -134,23 +135,23 @@ export default function TournamentView({ tournamentId }) {
     }
   };
 
-
-
   const getDisplayName = (user) => {
+    if (!user) return "Unknown User";
     if (user.name) return user.name;
     if (user.username) return user.username;
     if (user.email) {
+      // Only show first part of email for privacy
       return user.email.split("@")[0];
     }
     return "Anonymous User";
   };
 
   const getParticipantDisplayName = (participant) => {
-    return getDisplayName(participant.user);
+    return participant && participant.user ? getDisplayName(participant.user) : "Unknown Participant";
   };
 
   const getTournamentStatus = () => {
-    return tournament.status;
+    return tournament ? tournament.status : "UNKNOWN";
   };
 
   const getStatusStyle = (status) => {
@@ -179,6 +180,18 @@ export default function TournamentView({ tournamentId }) {
       default:
         return "🎮";
     }
+  };
+
+  // Validate image URL to prevent XSS
+  const validateImageUrl = (url) => {
+    if (!url) return false;
+
+    // Only allow http/https URLs
+    return (
+      (url.startsWith('http://') ||
+        url.startsWith('https://')) &&
+      !url.includes('javascript:')
+    );
   };
 
   if (loading) {
@@ -229,24 +242,26 @@ export default function TournamentView({ tournamentId }) {
     tournament.status === "UPCOMING" &&
     new Date() < new Date(tournament.registrationCloseDate);
 
-
   const formatDate = (date) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    if (!date) return "Date not specified";
+    try {
+      return new Date(date).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (err) {
+      console.error("Date formatting error:", err);
+      return "Invalid date";
+    }
   };
-
-
 
   const currentStatus = getTournamentStatus();
   return (
     <Layout>
-      <br></br><br></br>
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-6 mt-8">
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="flex justify-between items-start">
             <div>
@@ -270,11 +285,13 @@ export default function TournamentView({ tournamentId }) {
             )}
           </div>
 
-          {tournament.imageUrl && (
+          {tournament.imageUrl && validateImageUrl(tournament.imageUrl) && (
             <div className="mt-4 mb-6">
-              <img
+              <Image
                 src={tournament.imageUrl}
                 alt={tournament.name}
+                width={800}
+                height={400}
                 className="w-full h-64 object-cover rounded-lg shadow-md"
               />
             </div>
@@ -316,7 +333,7 @@ export default function TournamentView({ tournamentId }) {
           {/* Tab Content */}
           {activeTab === 'info' && (
             <>
-              <div className="grid grid-cols-2 gap-6 mt-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
                 <div>
                   <h2 className="text-xl font-semibold mb-4">Tournament Details</h2>
                   <div className="space-y-3">
@@ -412,10 +429,12 @@ export default function TournamentView({ tournamentId }) {
                             <div className="flex items-center">
                               {/* Profile Picture/Avatar */}
                               <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 mr-3">
-                                {participant.user?.image ? (
-                                  <img
+                                {participant.user?.image && validateImageUrl(participant.user.image) ? (
+                                  <Image
                                     src={participant.user.image}
                                     alt={displayName}
+                                    width={32}
+                                    height={32}
                                     className="w-full h-full object-cover"
                                   />
                                 ) : (
