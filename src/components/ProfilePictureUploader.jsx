@@ -104,7 +104,7 @@ const ProfilePictureUploader = () => {
       // Reset states
       setSelectedFile(null);
       setPreviewUrl(null);
-      
+
       router.refresh();
     } catch (err) {
       setError(err.message || "Failed to upload image");

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '/src/components/Layout';
+import Link from 'next/link';
 
 const LoadingSpinner = () => (
   <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent" />
@@ -18,7 +19,7 @@ export default function GamesPage() {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [total, setTotal] = useState(0);
-  
+
   const GAMES_PER_PAGE = 30;
 
   const fetchGames = async (query, newOffset, append = false) => {
@@ -26,11 +27,11 @@ export default function GamesPage() {
       const response = await fetch(
         `/api/games?search=${encodeURIComponent(query)}&offset=${newOffset}&limit=${GAMES_PER_PAGE}`
       );
-      
+
       if (!response.ok) throw new Error('Failed to fetch games');
-      
+
       const data = await response.json();
-      
+
       setGames(prev => append ? [...prev, ...data.games] : data.games);
       setHasMore(data.hasMore);
       setTotal(data.total);
@@ -94,7 +95,7 @@ export default function GamesPage() {
 
   const handleShowMore = async () => {
     if (loadingMore || !hasMore) return;
-    
+
     setLoadingMore(true);
     try {
       const newOffset = offset + GAMES_PER_PAGE;
@@ -161,13 +162,11 @@ export default function GamesPage() {
                 <div key={game.id} className="relative">
                   <button
                     onClick={() => handleGameClick(game)}
-                    className={`w-full text-left ${
-                      selectedGame?.id === game.id ? 'transform scale-105' : ''
-                    }`}
+                    className={`w-full text-left ${selectedGame?.id === game.id ? 'transform scale-105' : ''
+                      }`}
                   >
-                    <div className={`aspect-[3/4] rounded-lg overflow-hidden border-2 transition-all duration-200 ${
-                      selectedGame?.id === game.id ? 'border-blue-500' : 'border-transparent'
-                    }`}>
+                    <div className={`aspect-[3/4] rounded-lg overflow-hidden border-2 transition-all duration-200 ${selectedGame?.id === game.id ? 'border-blue-500' : 'border-transparent'
+                      }`}>
                       <img
                         src={game.image}
                         alt={game.name}
@@ -175,9 +174,8 @@ export default function GamesPage() {
                       />
                     </div>
                     <div className="mt-2 space-y-1">
-                      <h3 className={`font-medium ${
-                        selectedGame?.id === game.id ? 'text-blue-500' : ''
-                      }`}>
+                      <h3 className={`font-medium ${selectedGame?.id === game.id ? 'text-blue-500' : ''
+                        }`}>
                         {game.name}
                       </h3>
                       {game.genres?.length > 0 && (
@@ -220,7 +218,7 @@ export default function GamesPage() {
                             </svg>
                           </button>
                         </div>
-                        
+
                         {tournaments[game.name] ? (
                           tournaments[game.name].length > 0 ? (
                             <div className="space-y-4">
@@ -263,12 +261,12 @@ export default function GamesPage() {
                           ) : (
                             <div className="text-center py-8">
                               <p className="text-gray-500 mb-4">No tournaments available for this game.</p>
-                              <a
+                              <Link
                                 href="/tournament/create"
                                 className="inline-block bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
                               >
                                 Create Tournament
-                              </a>
+                              </Link>
                             </div>
                           )
                         ) : (
