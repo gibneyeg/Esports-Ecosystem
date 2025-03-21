@@ -3,9 +3,6 @@
 import React, { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-const router = useRouter();
-
-
 
 const ProfilePictureUploader = () => {
   const { data: session, update } = useSession();
