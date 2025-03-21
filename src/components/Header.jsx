@@ -158,6 +158,7 @@ export default function Header() {
               <Link
                 href="/tournament"
                 className="block py-2 text-gray-400 hover:text-white text-base"
+                data-testid="nav-tournaments"
               >
                 Tournaments
               </Link>

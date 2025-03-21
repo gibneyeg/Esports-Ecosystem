@@ -1,6 +1,12 @@
 {
-    "crons": [{
-      "path": "/api/update-ranks",
-      "schedule": "0 0 * * *"
-    }]
+  "version": 2,
+  "github": {
+    "enabled": true,
+    "silent": true
+  },
+  "git": {
+    "deploymentEnabled": {
+      "main": false
+    }
   }
+}
