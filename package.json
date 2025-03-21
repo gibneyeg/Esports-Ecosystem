@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-        "test": "vitest --run",
+    "test": "vitest --run",
     "prepare": "husky install"
   },
   "dependencies": {
@@ -38,6 +38,7 @@
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.4.20",
     "cypress": "^13.17.0",
+    "esbuild": "^0.25.1",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.0.0",
     "husky": "^8.0.3",
@@ -47,7 +48,9 @@
     "tailwindcss": "^3.4.14",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3",
-    "vitest": "^2.1.4"
+    "vite": "^6.2.2",
+    "vite-node": "^3.0.9",
+    "vitest": "^3.0.9"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
