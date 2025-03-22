@@ -127,13 +127,15 @@ export default function Header() {
   return (
     <header className="bg-black">
       <nav className="flex justify-between items-center px-4 lg:px-6 py-2.5 h-16">
-        <Link href="/" className={`flex items-center ${styles.logo}`}>
+        <Link href="/" className={`flex items-center pl-4 lg:pl-6 ${styles.logo}`}>
           <Image
-            src={logo.src}
+            src={logo}
             alt="Logo"
-            width={36}
-            height={36}
-            className="h-6 sm:h-9 w-auto"
+            width={150}  // Increase from 120 to 150
+            height={50}  // Increase proportionally
+            quality={100}
+            priority
+            className="h-auto w-auto"
           />
         </Link>
         <div className="flex-grow flex justify-center -ml-20">
