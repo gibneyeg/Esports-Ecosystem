@@ -131,8 +131,8 @@ export default function Header() {
           <Image
             src={logo}
             alt="Logo"
-            width={150}  // Increase from 120 to 150
-            height={50}  // Increase proportionally
+            width={150}  
+            height={50}  
             quality={100}
             priority
             className="h-auto w-auto"
