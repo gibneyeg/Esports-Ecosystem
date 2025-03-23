@@ -111,28 +111,28 @@ export const authOptions = {
             where: { email: profile.email },
             include: { accounts: true },
           });
-
+    
           if (existingUser) {
             const hasProviderAccount = existingUser.accounts.some(
               (acc) => acc.provider === account.provider
             );
-
+    
             if (!hasProviderAccount) {
               return `/login?error=Signin`;
             }
-
+    
             // Don't update the image for existing users
             return true;
           }
-
+    
           // Only set provider image for new users
           await prisma.user.create({
             data: {
               email: profile.email,
               name: account.provider === "discord" ? profile.username : profile.name,
               username: account.provider === "discord" ? profile.username : profile.name,
-              image: account.provider === "google"
-                ? profile.picture
+              image: account.provider === "google" 
+                ? profile.picture 
                 : account.provider === "discord"
                   ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
                   : profile.image,
@@ -153,7 +153,7 @@ export const authOptions = {
               },
             },
           });
-
+    
           try {
             await fetch(`${process.env.NEXTAUTH_URL}/api/revalidate`, {
               method: 'POST',
@@ -167,7 +167,7 @@ export const authOptions = {
           } catch (error) {
             console.error('Error revalidating leaderboard:', error);
           }
-
+    
           return true;
         }
         return true;
@@ -227,7 +227,7 @@ export const authOptions = {
 
       return token;
     },
-
+    
     async session({ session, token }) {
       if (session?.user) {
         const dbUser = await prisma.user.findUnique({
@@ -315,16 +315,16 @@ export const authOptions = {
   },
   cookies: {
     sessionToken: {
-      name: process.env.NODE_ENV === "production"
-        ? "__Secure-next-auth.session-token"
+      name: process.env.NODE_ENV === "production" 
+        ? "__Secure-next-auth.session-token" 
         : "next-auth.session-token",
       options: {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
         secure: process.env.NODE_ENV === "production",
-        domain: process.env.NODE_ENV === "production"
-          ? process.env.NEXTAUTH_URL?.split('://')[1]
+        domain: process.env.NODE_ENV === "production" 
+          ? process.env.NEXTAUTH_URL?.split('://')[1] 
           : undefined
       },
     },
