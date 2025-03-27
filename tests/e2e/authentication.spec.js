@@ -6,6 +6,7 @@ test.describe('Authentication', () => {
         test('login page has correct elements', async ({ page }) => {
             // Navigate to the login page
             await page.goto('/login');
+
             // Wait for the page to load completely
             await page.waitForLoadState('networkidle');
             // Check that the page has the expected form elements
@@ -14,9 +15,11 @@ test.describe('Authentication', () => {
             await expect(page.locator('label', { hasText: 'Remember me' })).toBeVisible();
             await expect(page.locator('button[type="submit"]')).toBeVisible();
             await expect(page.locator('button[type="submit"]')).toContainText('Sign In');
+
             // Check for social login options
             await expect(page.locator('button', { hasText: 'Sign in with Google' })).toBeVisible();
             await expect(page.locator('button', { hasText: 'Sign in with Discord' })).toBeVisible();
+
             // Check for the registration link
             await expect(page.locator('a', { hasText: /Don't have an account\?/ })).toBeVisible();
         });
@@ -27,6 +30,7 @@ test.describe('Authentication', () => {
         test('failed login shows error message', async ({ page, context }) => {
             // Force clean context
             await context.clearCookies();
+
             await page.goto('/login');
             await page.waitForLoadState('networkidle');
             // Fill in the form with incorrect credentials
@@ -36,6 +40,7 @@ test.describe('Authentication', () => {
             await page.locator('button[type="submit"]').click();
             // Wait for the error message to appear
             await expect(page.locator('.p-4.text-sm.bg-red-50, .p-3.text-sm.bg-red-50')).toBeVisible({ timeout: 10000 });
+
             // Check that an error message is displayed
             await expect(page.locator('.p-4.text-sm.bg-red-50, .p-3.text-sm.bg-red-50')).toContainText(/Something went wrong|Invalid credentials/i);
         });
@@ -100,3 +105,4 @@ test.describe('Authentication', () => {
         });
     });
 });
+
