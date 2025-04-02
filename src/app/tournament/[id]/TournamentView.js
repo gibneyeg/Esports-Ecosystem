@@ -8,7 +8,8 @@ import TournamentManagement from "../../../components/TournamentManagment.jsx";
 import DeclareWinnerButton from "../../../components/TournamentWinner.jsx";
 import TwitchStream from "../../../components/TournamentStream.jsx";
 import ManualTournamentBracket from "@/components/ManuelTournamentBracket.jsx";
-import Image from "next/image"; // Import Image for secure rendering
+import Image from "next/image";
+import Link from "next/link";
 
 export default function TournamentView({ tournamentId }) {
   const router = useRouter();
@@ -24,7 +25,6 @@ export default function TournamentView({ tournamentId }) {
     const startDate = new Date(tournament.startDate);
     const endDate = new Date(tournament.endDate);
 
-    // Fixed: Don't set an initial value that will be overwritten
     let newStatus;
 
     if (endDate < now) {
@@ -140,7 +140,6 @@ export default function TournamentView({ tournamentId }) {
     if (user.name) return user.name;
     if (user.username) return user.username;
     if (user.email) {
-      // Only show first part of email for privacy
       return user.email.split("@")[0];
     }
     return "Anonymous User";
@@ -186,7 +185,6 @@ export default function TournamentView({ tournamentId }) {
   const validateImageUrl = (url) => {
     if (!url) return false;
 
-    // Only allow http/https URLs
     return (
       (url.startsWith('http://') ||
         url.startsWith('https://')) &&
@@ -270,9 +268,13 @@ export default function TournamentView({ tournamentId }) {
               </h1>
               <p className="text-gray-600 mt-2">
                 Created by:{" "}
-                {tournament.createdBy
-                  ? getDisplayName(tournament.createdBy)
-                  : "Unknown"}
+                {tournament.createdBy ? (
+                  <Link href={`/user/${tournament.createdBy.id}`} className="hover:text-blue-600 hover:underline">
+                    {getDisplayName(tournament.createdBy)}
+                  </Link>
+                ) : (
+                  "Unknown"
+                )}
               </p>
             </div>
             {session?.user && canJoin && (
@@ -397,9 +399,12 @@ export default function TournamentView({ tournamentId }) {
                     {tournament.winner && (
                       <p>
                         <span className="font-medium">Winner:</span>{" "}
-                        <span className="text-green-600 font-semibold">
+                        <Link
+                          href={`/user/${tournament.winner.id}`}
+                          className="text-green-600 font-semibold hover:text-green-700 hover:underline"
+                        >
                           {getDisplayName(tournament.winner)}
-                        </span>
+                        </Link>
                       </p>
                     )}
                     {tournament.rules && (
@@ -450,7 +455,12 @@ export default function TournamentView({ tournamentId }) {
                                     {participant.seedNumber}
                                   </span>
                                 )}
-                                <span>{displayName}</span>
+                                <Link
+                                  href={`/user/${participant.user.id}`}
+                                  className="hover:text-blue-600 hover:underline"
+                                >
+                                  {displayName}
+                                </Link>
                               </div>
                             </div>
                             <span className="text-sm text-gray-500">

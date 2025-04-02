@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import useSWR from 'swr';
 import Layout from "/src/components/Layout.jsx";
+import Link from "next/link";
 
 const RANKS = [
   { id: 'All', label: 'All Ranks' },
@@ -299,7 +300,9 @@ export default function LeaderBoard() {
                         </td>
                         <td className="px-6 py-5">
                           <div className="font-bold text-lg text-gray-900 group-hover:text-blue-600 transition-colors">
-                            {player.username || player.name}
+                            <Link href={`/user/${player.id}`} className="hover:underline">
+                              {player.username || player.name}
+                            </Link>
                           </div>
                         </td>
                         <td className="px-6 py-5">
@@ -330,7 +333,16 @@ export default function LeaderBoard() {
                         </td>
                         <td className="px-6 py-5">
                           <div className="text-sm text-gray-700 max-w-xs truncate">
-                            {player.recentResult || "No recent results"}
+                            {player.recentResult ? (
+                              <Link
+                                href={`/tournament/${player.recentTournamentId}`}
+                                className="hover:text-blue-600 hover:underline"
+                              >
+                                {player.recentResult}
+                              </Link>
+                            ) : (
+                              "No recent results"
+                            )}
                           </div>
                         </td>
                       </tr>
