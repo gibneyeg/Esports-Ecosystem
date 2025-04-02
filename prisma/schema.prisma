@@ -23,7 +23,8 @@ model User {
   image         String?
   accounts      Account[]
   sessions      Session[]
-  
+  isProfilePrivate Boolean @default(false) 
+
   // Tournament relations
   createdTournaments Tournament[] @relation("TournamentCreator")
   wonTournaments    Tournament[] @relation("TournamentWinner")
