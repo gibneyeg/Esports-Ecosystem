@@ -5,6 +5,8 @@ import { initializeParticipants, loadParticipantsFromBracket } from '@/utils/par
 import { initializeBracket } from '@/utils/bracketUtils';
 import { fetchExistingBracket, prepareBracketDataForSave } from '@/utils/bracketApi';
 import RoundRobinBracket from './RoundRobinBracket';
+import DoubleEliminationBracket from './DoubleEliminationBracket';
+import SingleEliminationBracket from './SingleEliminationBracket';
 
 const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
   const [loading, setLoading] = useState(true);
@@ -363,6 +365,37 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
         />
       )}
 
+      {/* Double Elimination Bracket */}
+      {tournament.format === 'DOUBLE_ELIMINATION' && (
+        <DoubleEliminationBracket
+          tournament={tournament}
+          participants={participants}
+          setParticipants={setParticipants}
+          selectedParticipant={selectedParticipant}
+          setSelectedParticipant={setSelectedParticipant}
+          setTournamentWinner={setTournamentWinner}
+          setRunnerUp={setRunnerUp}
+          setThirdPlace={setThirdPlace}
+          viewOnly={!isOwner}
+          saveBracket={saveBracket}
+        />
+      )}
+
+      {/* Single Elimination Bracket */}
+      {tournament.format === 'SINGLE_ELIMINATION' && (
+        <SingleEliminationBracket
+          tournament={tournament}
+          participants={participants}
+          setParticipants={setParticipants}
+          selectedParticipant={selectedParticipant}
+          setSelectedParticipant={setSelectedParticipant}
+          setTournamentWinner={setTournamentWinner}
+          setRunnerUp={setRunnerUp}
+          viewOnly={!isOwner}
+          saveBracket={saveBracket}
+        />
+      )}
+
       {/* Save Button for tournament organizer */}
       {isOwner && (
         <div className="flex justify-end mt-6">
@@ -372,19 +405,20 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
                 handleSaveSingleEliminationBracket();
               } else if (tournament.format === 'DOUBLE_ELIMINATION') {
                 handleSaveDoubleEliminationBracket();
+              } else if (tournament.format === 'ROUND_ROBIN') {
+                // Trigger the Round Robin save event
+                const event = new CustomEvent('saveRoundRobinBracket');
+                document.dispatchEvent(event);
               }
-              // Round robin format handles saving internally
             }}
-            disabled={saving || tournament.format === 'ROUND_ROBIN'}
+            disabled={saving}
             className={`px-6 py-2 rounded-md ${saving ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
-              } text-white font-medium transition-colors ${tournament.format === 'ROUND_ROBIN' ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              } text-white font-medium transition-colors`}
           >
             {saving ? 'Saving...' : 'Save Bracket'}
           </button>
         </div>
       )}
-
       {savedNotification}
     </div>
   );

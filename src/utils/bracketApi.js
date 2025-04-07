@@ -43,7 +43,6 @@ export const prepareBracketDataForSave = (winnersBracket, losersBracket = [], gr
 
   // Calculate total winners rounds for proper round numbering
   const totalWinnersRounds = winnersBracket.length;
-  console.log(`Total winners rounds: ${totalWinnersRounds}`);
 
   // Add winners bracket rounds - Rounds 0 to totalWinnersRounds-1
   winnersBracket.forEach((roundData, roundIndex) => {
@@ -108,19 +107,12 @@ export const prepareBracketDataForSave = (winnersBracket, losersBracket = [], gr
     });
   });
 
-  // Log all losers rounds before processing
-  console.log(`Processing ${losersBracket.length} losers rounds`);
-  losersBracket.forEach((round, idx) => {
-    console.log(`Losers round ${idx}: ${round.id}, ${round.name}, matches: ${round.matches.length}`);
-  });
+
 
   if (losersBracket && losersBracket.length > 0) {
     losersBracket.forEach((roundData, roundIndex) => {
-      // Log even if round appears empty
-      console.log(`Processing losers round ${roundIndex}: ${roundData.name}, with ${roundData.matches.length} matches`);
 
       const matches = roundData.matches.map((match, matchIndex) => {
-        // Determine if this match has a winner by checking if anyone advanced to the next round
         let winnerId = null;
 
         const nextRound = roundIndex + 1;
@@ -139,7 +131,6 @@ export const prepareBracketDataForSave = (winnersBracket, losersBracket = [], gr
 
         // For losers finals specifically, check if player advanced to grand finals
         if (roundIndex === losersBracket.length - 1) {
-          // Check grand finals slot 1 (losers bracket winner) for advancement
           if (grandFinals && grandFinals.slots[1].participant) {
             for (const slot of match.slots) {
               if (slot.participant && slot.participant.id === grandFinals.slots[1].participant.id) {
@@ -152,7 +143,6 @@ export const prepareBracketDataForSave = (winnersBracket, losersBracket = [], gr
 
         return {
           id: match.id,
-          // Use absolute round number to avoid any confusion
           round: totalWinnersRounds + roundIndex,
           position: matchIndex,
           player1: match.slots[0].participant ? {
@@ -178,18 +168,11 @@ export const prepareBracketDataForSave = (winnersBracket, losersBracket = [], gr
 
   // Add grand finals - Round 2*totalWinnersRounds
   if (grandFinals) {
-    // Even if slots appear empty, include the grand finals structure
-    console.log("Processing grand finals with participants:", {
-      slot0: grandFinals.slots[0].participant?.name,
-      slot1: grandFinals.slots[1].participant?.name,
-      tournamentWinner: tournamentWinner?.name
-    });
 
     // Determine the winner of grand finals
     let grandFinalsWinnerId = null;
 
     if (resetMatch && resetMatch.slots[0].participant && resetMatch.slots[1].participant) {
-      // If reset match exists with participants, check tournament winner
       if (tournamentWinner) {
         grandFinalsWinnerId = tournamentWinner.id;
       }
@@ -221,12 +204,6 @@ export const prepareBracketDataForSave = (winnersBracket, losersBracket = [], gr
 
   // Add reset match - Round 2*totalWinnersRounds+1
   if (resetMatch) {
-    // Include reset match structure even if it appears empty
-    console.log("Processing reset match with participants:", {
-      slot0: resetMatch.slots[0].participant?.name,
-      slot1: resetMatch.slots[1].participant?.name,
-      tournamentWinner: tournamentWinner?.name
-    });
 
     let resetWinnerId = null;
     if (tournamentWinner && resetMatch.slots.some(slot =>
@@ -253,11 +230,6 @@ export const prepareBracketDataForSave = (winnersBracket, losersBracket = [], gr
       }]
     });
   }
-
-  console.log(`Total rounds prepared for save: ${rounds.length}`);
-  rounds.forEach((round, idx) => {
-    console.log(`Round ${idx}: ${round.name}, matches: ${round.matches.length}`);
-  });
 
   return {
     rounds: rounds,

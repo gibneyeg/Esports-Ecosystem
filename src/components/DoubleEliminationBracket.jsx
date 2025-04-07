@@ -1,99 +1,115 @@
 "use client";
 
-
-
 import React, { useState, useEffect } from 'react';
-
 import {
-
   initializeBracket,
-
   getNextWinnersMatch,
-
   getDropToLosersMatch,
-
   getNextLosersMatch
-
 } from '@/utils/bracketUtils';
-
 import { fetchExistingBracket, prepareBracketDataForSave } from '@/utils/bracketApi';
-
 import { findParticipantById } from '@/utils/participantUtils';
 
-
-
-const DoubleEliminationBracket = ({
-
+const RandomDoubleEliminationBracket = ({
   tournament,
-
   participants,
-
   setParticipants,
-
   selectedParticipant,
-
   setSelectedParticipant,
-
   setTournamentWinner,
-
   setRunnerUp,
-
   setThirdPlace,
-
   viewOnly,
-
   saveBracket
-
 }) => {
-
   const [winnersBracket, setWinnersBracket] = useState([]);
-
   const [losersBracket, setLosersBracket] = useState([]);
-
   const [grandFinals, setGrandFinals] = useState(null);
-
   const [resetMatch, setResetMatch] = useState(null);
-
   const [resetNeeded, setResetNeeded] = useState(false);
-
   const [isInitialized, setIsInitialized] = useState(false);
-
   const [tournamentWinner, setLocalTournamentWinner] = useState(null);
+  const [bracketGenerated, setBracketGenerated] = useState(false);
 
+  // Function to randomly seed the first round
+  const randomizeFirstRoundSeeding = (participantsToSeed, winnersB) => {
+    if (!winnersB || winnersB.length === 0 || participantsToSeed.length === 0) {
+      return { winnersBracket: winnersB, participants: participantsToSeed };
+    }
 
+    // Make a copy of participants for random shuffling
+    const participantsCopy = [...participantsToSeed];
+
+    // Shuffle the participants array randomly
+    for (let i = participantsCopy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [participantsCopy[i], participantsCopy[j]] = [participantsCopy[j], participantsCopy[i]];
+    }
+
+    // Create a copy of the winners bracket to modify
+    const updatedWinnersBracket = JSON.parse(JSON.stringify(winnersB));
+
+    // Get the first round of the winners bracket
+    const firstRound = updatedWinnersBracket[0];
+
+    // Reset the first round - clear any existing participants
+    firstRound.matches.forEach(match => {
+      match.slots.forEach(slot => {
+        slot.participant = null;
+      });
+    });
+
+    // Assign shuffled participants to first round matches
+    let participantIndex = 0;
+    for (let matchIndex = 0; matchIndex < firstRound.matches.length; matchIndex++) {
+      const match = firstRound.matches[matchIndex];
+
+      // Assign participants to both slots if available
+      for (let slotIndex = 0; slotIndex < match.slots.length; slotIndex++) {
+        if (participantIndex < participantsCopy.length) {
+          match.slots[slotIndex].participant = participantsCopy[participantIndex];
+          participantsCopy[participantIndex].isPlaced = true;
+          participantIndex++;
+        }
+      }
+    }
+
+    // Update the first round in the winners bracket
+    updatedWinnersBracket[0] = firstRound;
+
+    return {
+      winnersBracket: updatedWinnersBracket,
+      participants: participantsCopy
+    };
+  };
 
   // Initialize bracket when component mounts
-
   useEffect(() => {
-
     if (isInitialized) return;
-
-
 
     const initializeTournamentBracket = async () => {
       if (!tournament || !participants.length) return;
 
       try {
+        // Calculate total winners rounds for proper round determination
+        const totalParticipants = participants.length;
+        const totalWinnersRounds = Math.ceil(Math.log2(totalParticipants));
 
-        // Always initialize the bracket structure first
+        // Initialize the bracket structure
         const { winnersBracket: initialWinners, losersBracket: initialLosers, grandFinals: initialGrandFinals, resetMatch: initialResetMatch } =
           initializeBracket(participants.length, 'DOUBLE_ELIMINATION');
 
-        // Calculate total winners rounds for proper round determination
-
-
-        // Set initial structures immediately to avoid null references
+        // Set initial structures
         setWinnersBracket(initialWinners);
         setLosersBracket(initialLosers);
         setGrandFinals(initialGrandFinals);
         setResetMatch(initialResetMatch);
 
-        // Now try to load existing data if available
-        const bracketData = await fetchExistingBracket(tournament.id);
+        // Try to fetch existing bracket data
+        const existingBracket = await fetchExistingBracket(tournament.id);
 
-        if (bracketData && bracketData.matches && bracketData.matches.length > 0) {
-
-          // Create copies of the initial structures to update
+        if (existingBracket && existingBracket.matches && existingBracket.matches.length > 0) {
+          // Process existing bracket data
           const updatedWinnersBracket = JSON.parse(JSON.stringify(initialWinners));
           const updatedLosersBracket = JSON.parse(JSON.stringify(initialLosers));
           const updatedGrandFinals = JSON.parse(JSON.stringify(initialGrandFinals));
@@ -102,12 +118,9 @@ const DoubleEliminationBracket = ({
           // Track which participants have been placed
           const placedParticipants = new Set();
 
-
-
-          // STEP 1: Process winners bracket matches
+          // Process winners bracket matches
           const winnersMatchesByRound = {};
-
-          bracketData.matches.forEach(match => {
+          existingBracket.matches.forEach(match => {
             if (match.round < totalWinnersRounds) {
               if (!winnersMatchesByRound[match.round]) {
                 winnersMatchesByRound[match.round] = [];
@@ -116,13 +129,10 @@ const DoubleEliminationBracket = ({
             }
           });
 
-          // Process each winners round
           Object.keys(winnersMatchesByRound).forEach(roundIndex => {
             const roundMatches = winnersMatchesByRound[roundIndex];
-
             roundMatches.forEach(match => {
               const matchIndex = match.position;
-
               if (matchIndex < updatedWinnersBracket[roundIndex].matches.length) {
                 const currentMatch = updatedWinnersBracket[roundIndex].matches[matchIndex];
 
@@ -145,33 +155,25 @@ const DoubleEliminationBracket = ({
             });
           });
 
-          // STEP 2: Process losers bracket matches
+          // Process losers bracket matches
           const losersMatchesByRound = {};
-
-          // Group matches by round for losers bracket
-          bracketData.matches.forEach(match => {
+          existingBracket.matches.forEach(match => {
             if (match.round >= totalWinnersRounds) {
               const loserRoundIndex = match.round - totalWinnersRounds;
-
               if (!losersMatchesByRound[loserRoundIndex]) {
                 losersMatchesByRound[loserRoundIndex] = [];
               }
-
               losersMatchesByRound[loserRoundIndex].push(match);
             }
           });
 
-
-          // Process each round of losers matches
           Object.keys(losersMatchesByRound).forEach(roundIndexStr => {
             const roundIndex = parseInt(roundIndexStr);
             const roundMatches = losersMatchesByRound[roundIndex];
 
-
             if (roundIndex < updatedLosersBracket.length) {
               roundMatches.forEach(match => {
                 const matchIndex = match.position;
-
                 if (matchIndex < updatedLosersBracket[roundIndex].matches.length) {
                   const currentMatch = updatedLosersBracket[roundIndex].matches[matchIndex];
 
@@ -190,17 +192,13 @@ const DoubleEliminationBracket = ({
                       placedParticipants.add(participant.id);
                     }
                   }
-                } else {
-                  console.warn(`Match index ${matchIndex} out of range for losers round ${roundIndex}`);
                 }
               });
-            } else {
-              console.warn(`Round index ${roundIndex} out of range for losers bracket with length ${updatedLosersBracket.length}`);
             }
           });
 
-          // STEP 3: Process grand finals
-          const grandFinalsMatches = bracketData.matches.filter(match =>
+          // Process grand finals
+          const grandFinalsMatches = existingBracket.matches.filter(match =>
             match.round === totalWinnersRounds * 2);
 
           if (grandFinalsMatches.length > 0) {
@@ -223,8 +221,8 @@ const DoubleEliminationBracket = ({
             }
           }
 
-          // STEP 4: Process reset match
-          const resetMatches = bracketData.matches.filter(match =>
+          // Process reset match
+          const resetMatches = existingBracket.matches.filter(match =>
             match.round === totalWinnersRounds * 2 + 1);
 
           if (resetMatches.length > 0) {
@@ -246,17 +244,17 @@ const DoubleEliminationBracket = ({
               }
             }
 
-            // If reset match has participants, we need a reset
+            // If reset match has participants, a reset is needed
             if (resetMatchData.player1 || resetMatchData.player2) {
               setResetNeeded(true);
             }
           }
 
-
           setWinnersBracket(updatedWinnersBracket);
           setLosersBracket(updatedLosersBracket);
           setGrandFinals(updatedGrandFinals);
           setResetMatch(updatedResetMatch);
+          setBracketGenerated(true);
 
           // Update participants' placed status
           const updatedParticipants = participants.map(p => ({
@@ -294,6 +292,14 @@ const DoubleEliminationBracket = ({
               }
             }
           }
+        } else if (tournament.seedingType === 'RANDOM' && !bracketGenerated) {
+          // If no existing bracket data and seeding type is RANDOM, randomize first round
+          const { winnersBracket: randomizedBracket, participants: updatedParticipants } =
+            randomizeFirstRoundSeeding(participants, initialWinners);
+
+          setWinnersBracket(randomizedBracket);
+          setParticipants(updatedParticipants);
+          setBracketGenerated(true);
         }
       } catch (error) {
         console.error("Error initializing bracket:", error);
@@ -302,20 +308,16 @@ const DoubleEliminationBracket = ({
       setIsInitialized(true);
     };
 
-
     initializeTournamentBracket();
-
-  }, [tournament, participants, isInitialized, setParticipants, setTournamentWinner, setRunnerUp, setThirdPlace]);
+  }, [tournament, participants, isInitialized, bracketGenerated, setParticipants, setTournamentWinner, setRunnerUp, setThirdPlace]);
 
   // Listen for save event
-
   useEffect(() => {
     const handleSave = () => {
       if (!winnersBracket || !losersBracket || !grandFinals) {
         console.error("Cannot save bracket - missing required data");
         return;
       }
-
 
       // Deep clone the brackets to avoid any reference issues
       const winnersData = JSON.parse(JSON.stringify(winnersBracket));
@@ -342,1299 +344,664 @@ const DoubleEliminationBracket = ({
     };
   }, [winnersBracket, losersBracket, grandFinals, resetMatch, resetNeeded, tournamentWinner, saveBracket]);
 
+  // Handler for manually triggering random seeding
+  const handleRandomizeFirstRound = () => {
+    if (viewOnly || bracketGenerated) return;
 
+    // Get unplaced participants
+    const participantsToPlace = participants.filter(p => !p.isPlaced);
 
+    // If no participants left to place, do nothing
+    if (participantsToPlace.length === 0) return;
+
+    const { winnersBracket: randomizedBracket, participants: updatedParticipants } =
+      randomizeFirstRoundSeeding(participants, winnersBracket);
+
+    setWinnersBracket(randomizedBracket);
+    setParticipants(updatedParticipants);
+    setBracketGenerated(true);
+  };
 
   const handleSlotClick = (slotId, bracket) => {
-
     if (viewOnly) return;
 
-
-
     if (!selectedParticipant) {
-
       // If no participant is selected, check if we need to remove one
-
       let participantRemoved = false;
 
-
-
       if (bracket === 'winners' && winnersBracket) {
-
         const updatedWinnersBracket = [...winnersBracket];
 
-
-
         outerLoop: for (let r = 0; r < updatedWinnersBracket.length; r++) {
-
           for (let m = 0; m < updatedWinnersBracket[r].matches.length; m++) {
-
             for (let s = 0; s < updatedWinnersBracket[r].matches[m].slots.length; s++) {
-
               const slot = updatedWinnersBracket[r].matches[m].slots[s];
 
-
-
               if (slot.id === slotId && slot.participant) {
-
                 const updatedParticipants = [...participants];
-
                 const partIndex = updatedParticipants.findIndex(p =>
-
                   p.id === slot.participant.id
-
                 );
 
-
-
                 if (partIndex >= 0) {
-
                   updatedParticipants[partIndex].isPlaced = false;
-
                   setParticipants(updatedParticipants);
-
                 }
 
-
-
                 slot.participant = null;
-
                 participantRemoved = true;
-
                 break outerLoop;
-
               }
-
             }
-
           }
-
         }
-
-
 
         if (participantRemoved) {
-
           setWinnersBracket(updatedWinnersBracket);
-
         }
-
       } else if (bracket === 'losers' && losersBracket) {
-
         const updatedLosersBracket = [...losersBracket];
 
-
-
         outerLoop: for (let r = 0; r < updatedLosersBracket.length; r++) {
-
           for (let m = 0; m < updatedLosersBracket[r].matches.length; m++) {
-
             for (let s = 0; s < updatedLosersBracket[r].matches[m].slots.length; s++) {
-
               const slot = updatedLosersBracket[r].matches[m].slots[s];
 
-
-
               if (slot.id === slotId && slot.participant) {
-
                 const updatedParticipants = [...participants];
-
                 const partIndex = updatedParticipants.findIndex(p =>
-
                   p.id === slot.participant.id
-
                 );
 
-
-
                 if (partIndex >= 0) {
-
                   updatedParticipants[partIndex].isPlaced = false;
-
                   setParticipants(updatedParticipants);
-
                 }
-
-
 
                 slot.participant = null;
-
                 participantRemoved = true;
-
                 break outerLoop;
-
               }
-
             }
-
           }
-
         }
-
-
 
         if (participantRemoved) {
-
           setLosersBracket(updatedLosersBracket);
-
         }
-
       } else if (bracket === 'finals' && grandFinals) {
-
         const updatedGrandFinals = { ...grandFinals };
 
-
-
         for (let s = 0; s < updatedGrandFinals.slots.length; s++) {
-
           const slot = updatedGrandFinals.slots[s];
 
-
-
           if (slot.id === slotId && slot.participant) {
-
             const updatedParticipants = [...participants];
-
             const partIndex = updatedParticipants.findIndex(p =>
-
               p.id === slot.participant.id
-
             );
 
-
-
             if (partIndex >= 0) {
-
               updatedParticipants[partIndex].isPlaced = false;
-
               setParticipants(updatedParticipants);
-
             }
 
-
-
             slot.participant = null;
-
             participantRemoved = true;
-
             break;
-
           }
-
         }
-
-
 
         if (participantRemoved) {
-
           setGrandFinals(updatedGrandFinals);
-
         }
-
       } else if (bracket === 'reset' && resetMatch) {
-
         const updatedResetMatch = { ...resetMatch };
 
-
-
         for (let s = 0; s < updatedResetMatch.slots.length; s++) {
-
           const slot = updatedResetMatch.slots[s];
 
-
-
           if (slot.id === slotId && slot.participant) {
-
             const updatedParticipants = [...participants];
-
             const partIndex = updatedParticipants.findIndex(p =>
-
               p.id === slot.participant.id
-
             );
 
-
-
             if (partIndex >= 0) {
-
               updatedParticipants[partIndex].isPlaced = false;
-
               setParticipants(updatedParticipants);
-
             }
-
-
 
             slot.participant = null;
-
             participantRemoved = true;
-
             break;
-
           }
-
         }
-
-
 
         if (participantRemoved) {
-
           setResetMatch(updatedResetMatch);
-
         }
-
       }
 
-
-
       return;
-
     }
-
-
 
     // If a participant is selected, place them in the slot
-
     let participantPlaced = false;
 
-
-
     if (bracket === 'winners' && winnersBracket) {
-
       const updatedWinnersBracket = [...winnersBracket];
 
-
-
       outerLoop: for (let r = 0; r < updatedWinnersBracket.length; r++) {
-
         for (let m = 0; m < updatedWinnersBracket[r].matches.length; m++) {
-
           for (let s = 0; s < updatedWinnersBracket[r].matches[m].slots.length; s++) {
-
             const slot = updatedWinnersBracket[r].matches[m].slots[s];
 
-
-
             if (slot.id === slotId) {
-
               slot.participant = selectedParticipant;
-
               participantPlaced = true;
-
               break outerLoop;
-
             }
-
           }
-
         }
-
       }
-
-
 
       if (participantPlaced) {
-
         setWinnersBracket(updatedWinnersBracket);
-
       }
-
     } else if (bracket === 'losers' && losersBracket) {
-
       const updatedLosersBracket = [...losersBracket];
 
-
-
       outerLoop: for (let r = 0; r < updatedLosersBracket.length; r++) {
-
         for (let m = 0; m < updatedLosersBracket[r].matches.length; m++) {
-
           for (let s = 0; s < updatedLosersBracket[r].matches[m].slots.length; s++) {
-
             const slot = updatedLosersBracket[r].matches[m].slots[s];
 
-
-
             if (slot.id === slotId) {
-
               slot.participant = selectedParticipant;
-
               participantPlaced = true;
-
               break outerLoop;
-
             }
-
           }
-
         }
-
       }
-
-
 
       if (participantPlaced) {
-
         setLosersBracket(updatedLosersBracket);
-
       }
-
     } else if (bracket === 'finals' && grandFinals) {
-
       const updatedGrandFinals = { ...grandFinals };
 
-
-
       for (let s = 0; s < updatedGrandFinals.slots.length; s++) {
-
         const slot = updatedGrandFinals.slots[s];
 
-
-
         if (slot.id === slotId) {
-
           slot.participant = selectedParticipant;
-
           participantPlaced = true;
-
           break;
-
         }
-
       }
-
-
 
       if (participantPlaced) {
-
         setGrandFinals(updatedGrandFinals);
-
       }
-
     } else if (bracket === 'reset' && resetMatch) {
-
       const updatedResetMatch = { ...resetMatch };
 
-
-
       for (let s = 0; s < updatedResetMatch.slots.length; s++) {
-
         const slot = updatedResetMatch.slots[s];
 
-
-
         if (slot.id === slotId) {
-
           slot.participant = selectedParticipant;
-
           participantPlaced = true;
-
           break;
-
         }
-
       }
-
-
 
       if (participantPlaced) {
-
         setResetMatch(updatedResetMatch);
-
       }
-
     }
-
-
 
     if (participantPlaced) {
-
       const updatedParticipants = [...participants];
-
       const partIndex = updatedParticipants.findIndex(p =>
-
         p.id === selectedParticipant.id
-
       );
 
-
-
       if (partIndex >= 0) {
-
         updatedParticipants[partIndex].isPlaced = true;
-
         setParticipants(updatedParticipants);
-
       }
-
-
 
       setSelectedParticipant(null);
-
     }
-
   };
 
-
-
+  // Handle advancing winners through the bracket
   const handleWinnersAdvance = (match, participant, isLoser = false) => {
-
     if (!participant || !winnersBracket) return;
 
-
-
     let matchRound = -1;
-
     let matchPosition = -1;
-
-
 
     for (let r = 0; r < winnersBracket.length; r++) {
-
       const matchIndex = winnersBracket[r].matches.findIndex(m => m.id === match.id);
-
       if (matchIndex !== -1) {
-
         matchRound = r;
-
         matchPosition = matchIndex;
-
         break;
-
       }
-
     }
 
-
-
     if (matchRound === -1) return;
-
-
 
     if (isLoser && losersBracket) {
-
       // Handle losers dropping down to losers bracket
-
       const loserDest = getDropToLosersMatch(winnersBracket, losersBracket, matchRound, matchPosition);
 
-
-
       if (loserDest) {
-
         if (loserDest.type === 'losers') {
-
           const updatedLosersBracket = JSON.parse(JSON.stringify(losersBracket));
 
-
-
           for (let r = 0; r < updatedLosersBracket.length; r++) {
-
             for (let m = 0; m < updatedLosersBracket[r].matches.length; m++) {
-
               const currentMatch = updatedLosersBracket[r].matches[m];
 
-
-
               if (currentMatch.id === loserDest.match.id) {
-
                 if (!currentMatch.slots[loserDest.slotIndex].participant) {
-
                   currentMatch.slots[loserDest.slotIndex].participant = participant;
-
                   setLosersBracket(updatedLosersBracket);
-
                   return;
-
                 } else {
-
                   const otherSlot = loserDest.slotIndex === 0 ? 1 : 0;
-
                   if (!currentMatch.slots[otherSlot].participant) {
-
                     currentMatch.slots[otherSlot].participant = participant;
-
                     setLosersBracket(updatedLosersBracket);
-
                     return;
-
                   }
-
                 }
-
               }
-
             }
-
           }
-
-
-
-          const targetRound = loserDest.match.round;
-
-          for (let m = 0; m < updatedLosersBracket[targetRound].matches.length; m++) {
-
-            const currentMatch = updatedLosersBracket[targetRound].matches[m];
-
-            for (let s = 0; s < currentMatch.slots.length; s++) {
-
-              if (!currentMatch.slots[s].participant) {
-
-                currentMatch.slots[s].participant = participant;
-
-                setLosersBracket(updatedLosersBracket);
-
-                return;
-
-              }
-
-            }
-
-          }
-
         }
-
       }
-
     } else {
-
       // Handle winners advancing to next round
-
       const winnerDest = getNextWinnersMatch(winnersBracket, matchRound, matchPosition, 'DOUBLE_ELIMINATION', grandFinals);
 
-
-
       if (winnerDest) {
-
         if (winnerDest.type === 'winners') {
-
           const updatedWinnersBracket = [...winnersBracket];
-
           updatedWinnersBracket[winnerDest.match.round].matches[winnerDest.match.position].slots[winnerDest.slotIndex].participant = participant;
-
           setWinnersBracket(updatedWinnersBracket);
-
         } else if (winnerDest.type === 'finals' && grandFinals) {
-
           const updatedGrandFinals = { ...grandFinals };
-
           updatedGrandFinals.slots[winnerDest.slotIndex].participant = participant;
-
           setGrandFinals(updatedGrandFinals);
-
         }
-
       }
-
     }
-
   };
 
-
-
+  // Handle advancing in losers bracket
   const handleLosersAdvance = (match, participant, isLoser = false) => {
-
     if (!participant || !losersBracket) return;
 
-
-
     let matchRound = -1;
-
     let matchPosition = -1;
 
-
-
     for (let r = 0; r < losersBracket.length; r++) {
-
       const matchIndex = losersBracket[r].matches.findIndex(m => m.id === match.id);
-
       if (matchIndex !== -1) {
-
         matchRound = r;
-
         matchPosition = matchIndex;
-
         break;
-
       }
-
     }
-
-
 
     if (matchRound === -1) return;
 
-
-
     if (isLoser) {
-
       // In losers bracket, losers are eliminated
-
       return;
-
     } else {
-
       // Handle winners advancing in losers bracket
-
       const winnerDest = getNextLosersMatch(losersBracket, matchRound, matchPosition, grandFinals);
 
-
-
       // Check if this is the losers finals
-
       const isLosersFinals = matchRound === losersBracket.length - 1;
 
-
-
       if (isLosersFinals) {
-
         // Set third place to loser of losers finals
-
         const loser = match.slots.find(s =>
-
           s.participant && s.participant.id !== participant.id
-
         )?.participant;
 
-
-
         if (loser) {
-
           setThirdPlace(loser);
-
         }
-
       }
 
-
-
       if (winnerDest) {
-
         if (winnerDest.type === 'losers') {
-
           const updatedLosersBracket = JSON.parse(JSON.stringify(losersBracket));
-
-
 
           let targetMatch = null;
 
-
-
-
-
           for (let r = 0; r < updatedLosersBracket.length; r++) {
-
             for (let m = 0; m < updatedLosersBracket[r].matches.length; m++) {
-
               if (updatedLosersBracket[r].matches[m].id === winnerDest.match.id) {
-
                 targetMatch = updatedLosersBracket[r].matches[m];
-
-
-
                 break;
-
               }
-
             }
-
             if (targetMatch) break;
-
           }
-
-
 
           if (!targetMatch) {
-
             console.error("Target match not found in losers bracket copy");
-
             return;
-
           }
 
-
-
           targetMatch.slots[winnerDest.slotIndex].participant = participant;
-
           setLosersBracket(updatedLosersBracket);
-
         } else if (winnerDest.type === 'finals' && grandFinals) {
-
           const updatedGrandFinals = { ...grandFinals };
-
           updatedGrandFinals.slots[winnerDest.slotIndex].participant = participant;
-
           setGrandFinals(updatedGrandFinals);
-
         }
-
       }
-
     }
-
   };
 
-
-
+  // Handle grand finals result
   const handleGrandFinalsResult = (winnerIndex) => {
-
     if (!grandFinals || !grandFinals.slots[0].participant || !grandFinals.slots[1].participant) {
-
       return;
-
     }
-
-
 
     const winner = grandFinals.slots[winnerIndex].participant;
-
     const loser = grandFinals.slots[winnerIndex === 0 ? 1 : 0].participant;
 
-
-
     if (winnerIndex === 1) {
-
       // If losers bracket winner wins, a reset match is needed
-
       setResetNeeded(true);
 
-
-
       if (resetMatch) {
-
         const updatedResetMatch = { ...resetMatch };
-
         updatedResetMatch.slots[0].participant = grandFinals.slots[0].participant;
-
         updatedResetMatch.slots[1].participant = grandFinals.slots[1].participant;
-
         setResetMatch(updatedResetMatch);
-
       }
-
     } else {
-
       // If winners bracket winner wins, tournament is over
-
       setTournamentWinner(winner);
-
+      setLocalTournamentWinner(winner);
       setRunnerUp(loser);
-
     }
-
   };
 
-
-
+  // Handle reset match result
   const handleResetMatchResult = (winnerIndex) => {
-
     if (!resetMatch || !resetMatch.slots[0].participant || !resetMatch.slots[1].participant) {
-
       return;
-
     }
-
-
 
     const winner = resetMatch.slots[winnerIndex].participant;
-
     const loser = resetMatch.slots[winnerIndex === 0 ? 1 : 0].participant;
 
-
-
     setTournamentWinner(winner);
-
+    setLocalTournamentWinner(winner);
     setRunnerUp(loser);
-
   };
 
-
-
+  // Render slot in bracket
   const renderSlot = (slot, bracket) => {
-
     const isHighlighted = selectedParticipant && !slot.participant;
 
-
-
     return (
-
       <div
-
         key={slot.id}
-
         className={`p-2 min-h-[40px] border-b flex items-center justify-between ${isHighlighted ? 'bg-green-100' : slot.participant ? 'bg-gray-50' : 'bg-white'
-
           } cursor-pointer hover:bg-gray-100`}
-
         onClick={() => handleSlotClick(slot.id, bracket)}
-
       >
-
         <span className={slot.participant ? 'text-black' : 'text-gray-400'}>
-
           {slot.participant ? slot.participant.name : 'Empty Slot'}
-
         </span>
-
-        {slot.participant && (
-
+        {slot.participant && !viewOnly && (
           <button className="text-red-500 text-sm">×</button>
-
         )}
-
       </div>
-
     );
-
   };
 
-
-
   const renderLosersMatch = (match) => {
-
     if (!losersBracket) return null;
 
-
-
     let hasAdvanced = false;
-
     let matchRound = -1;
     // codeql-disable-next-line UnusedVariable
     let matchPosition = -1;
-
     const noop = (...args) => { /* intentionally empty */ };
-
-    //  function to mark  variable as used
+    //  function to mark variable as used
     noop(matchPosition);
 
     for (let r = 0; r < losersBracket.length; r++) {
-
       const matchIndex = losersBracket[r].matches.findIndex(m => m.id === match.id);
-
       if (matchIndex !== -1) {
-
         matchRound = r;
-
-
         break;
-
       }
-
     }
-
-
 
     if (matchRound !== -1) {
-
       const nextLosersRound = matchRound + 1;
 
-
-
       if (nextLosersRound < losersBracket.length) {
-
         for (const nextMatch of losersBracket[nextLosersRound].matches) {
-
           for (const slot of nextMatch.slots) {
-
             if (slot.participant &&
-
               match.slots.some(currentSlot =>
-
                 currentSlot.participant && currentSlot.participant.id === slot.participant.id)) {
-
               hasAdvanced = true;
-
               break;
-
             }
-
           }
-
           if (hasAdvanced) break;
-
         }
-
       }
-
-
 
       if (!hasAdvanced && matchRound === losersBracket.length - 1 && grandFinals) {
-
         for (const slot of grandFinals.slots) {
-
           if (slot.participant &&
-
             match.slots.some(currentSlot =>
-
               currentSlot.participant && currentSlot.participant.id === slot.participant.id)) {
-
             hasAdvanced = true;
-
             break;
-
           }
-
         }
-
       }
-
     }
-
-
 
     let advancedParticipant = null;
-
     if (hasAdvanced && match.slots[0].participant && match.slots[1].participant) {
-
       const nextRound = matchRound + 1;
 
-
-
       if (nextRound < losersBracket.length) {
-
         for (const nextMatch of losersBracket[nextRound].matches) {
-
           for (const slot of nextMatch.slots) {
-
             if (slot.participant) {
-
               if (slot.participant.id === match.slots[0].participant.id) {
-
                 advancedParticipant = match.slots[0].participant;
-
                 break;
-
               } else if (slot.participant.id === match.slots[1].participant.id) {
-
                 advancedParticipant = match.slots[1].participant;
-
                 break;
-
               }
-
             }
-
           }
-
           if (advancedParticipant) break;
-
         }
-
       }
-
-
 
       if (!advancedParticipant && matchRound === losersBracket.length - 1 && grandFinals) {
-
         for (const slot of grandFinals.slots) {
-
           if (slot.participant) {
-
             if (slot.participant.id === match.slots[0].participant.id) {
-
               advancedParticipant = match.slots[0].participant;
-
               break;
-
             } else if (slot.participant.id === match.slots[1].participant.id) {
-
               advancedParticipant = match.slots[1].participant;
-
               break;
-
             }
-
           }
-
         }
-
       }
-
     } else if (hasAdvanced) {
-
       advancedParticipant = match.slots[0].participant || match.slots[1].participant;
-
     }
 
-
-
     return (
-
       <div key={match.id} className="border border-red-200 rounded-md overflow-hidden mb-4">
-
         {match.slots.map(slot => renderSlot(slot, 'losers'))}
 
-
-
         {!hasAdvanced && !viewOnly && (
-
           <>
-
             {match.slots[0].participant && match.slots[1].participant && (
-
               <div className="flex justify-between bg-red-50 p-2">
-
                 <button
-
                   onClick={() => {
-
                     handleLosersAdvance(match, match.slots[0].participant);
-
                   }}
-
                   className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
-
                 >
-
                   {match.slots[0].participant?.name} won
-
                 </button>
-
                 <button
-
                   onClick={() => {
-
                     handleLosersAdvance(match, match.slots[1].participant);
-
                   }}
-
                   className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
-
                 >
-
                   {match.slots[1].participant?.name} won
-
                 </button>
-
               </div>
-
             )}
 
-
-
             {((match.slots[0].participant && !match.slots[1].participant) ||
-
               (!match.slots[0].participant && match.slots[1].participant)) && (
-
                 <div className="bg-red-50 p-2 text-center">
-
                   <button
-
                     onClick={() => handleLosersAdvance(match, match.slots[0].participant || match.slots[1].participant)}
-
                     className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
-
                   >
-
                     Advance {match.slots[0].participant?.name || match.slots[1].participant?.name || 'Player'} (Bye)
-
                   </button>
-
                 </div>
-
               )}
-
           </>
-
         )}
-
-
 
         {hasAdvanced && advancedParticipant && (
-
           <div className="bg-red-100 p-2 text-center text-red-800 text-sm font-medium">
-
             {advancedParticipant.name} advanced
-
           </div>
-
         )}
-
-
 
         {hasAdvanced && !advancedParticipant && (
-
           <div className="bg-red-100 p-2 text-center text-red-800 text-sm font-medium">
-
             Winner advanced to next round
-
           </div>
-
         )}
-
       </div>
-
     );
-
   };
-
-
 
   const renderGrandFinals = () => {
-
     if (!grandFinals) {
-
       return null;
-
     }
-
-
 
     const bothParticipantsPresent = grandFinals.slots[0].participant && grandFinals.slots[1].participant;
-
     const tournamentCompleted = tournamentWinner && bothParticipantsPresent;
 
-
-
     return (
-
       <div key="grand-finals" className="border-2 border-yellow-400 rounded-md overflow-hidden mb-4">
-
         <h4 className="bg-yellow-100 text-yellow-800 font-semibold p-2 text-center">Grand Finals</h4>
-
         {grandFinals.slots.map(slot => renderSlot(slot, 'finals'))}
 
-
-
         {bothParticipantsPresent && !tournamentCompleted && !resetNeeded && !viewOnly && (
-
           <div className="flex justify-between bg-yellow-100 p-2">
-
             <button
-
               onClick={() => handleGrandFinalsResult(0)}
-
               className="text-xs bg-yellow-600 text-white px-2 py-1 rounded hover:bg-yellow-700"
-
             >
-
               {grandFinals.slots[0].participant.name} won
-
             </button>
-
             <button
-
               onClick={() => handleGrandFinalsResult(1)}
-
               className="text-xs bg-yellow-600 text-white px-2 py-1 rounded hover:bg-yellow-700"
-
             >
-
               {grandFinals.slots[1].participant.name} won (force reset)
-
             </button>
-
           </div>
-
         )}
-
-
 
         {resetNeeded && !tournamentCompleted && (
-
           <div className="bg-orange-100 p-2 text-center text-orange-800 text-sm font-bold">
-
             Reset match required!
-
           </div>
-
         )}
-
-
 
         {tournamentCompleted && (
-
           <div className="bg-yellow-100 p-2 text-center text-yellow-800 text-sm font-bold">
-
             {tournamentWinner.name} won!
-
           </div>
-
         )}
-
       </div>
-
     );
-
   };
-
-
 
   const renderResetMatch = () => {
-
     if (!resetMatch || !resetNeeded) {
-
       return null;
-
     }
 
-
-
     const bothParticipantsPresent = resetMatch.slots[0].participant && resetMatch.slots[1].participant;
-
     const tournamentCompleted = tournamentWinner && bothParticipantsPresent;
 
-
-
     return (
-
       <div key="reset-match" className="border-2 border-red-400 rounded-md overflow-hidden mb-4">
-
         <h4 className="bg-red-100 text-red-800 font-semibold p-2 text-center">Reset Match (Final)</h4>
-
         {resetMatch.slots.map(slot => renderSlot(slot, 'reset'))}
 
-
-
         {bothParticipantsPresent && !tournamentCompleted && !viewOnly && (
-
           <div className="flex justify-between bg-red-100 p-2">
-
             <button
-
               onClick={() => handleResetMatchResult(0)}
-
               className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
-
             >
-
               {resetMatch.slots[0].participant.name} won
-
             </button>
-
             <button
-
               onClick={() => handleResetMatchResult(1)}
-
               className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
-
             >
-
               {resetMatch.slots[1].participant.name} won
-
             </button>
-
           </div>
-
         )}
-
-
 
         {tournamentCompleted && (
-
           <div className="bg-red-100 p-2 text-center text-red-800 text-sm font-bold">
-
             {tournamentWinner.name} won!
-
           </div>
-
         )}
-
       </div>
-
     );
-
   };
-
 
   const renderWinnersMatch = (match) => {
     if (!winnersBracket) return null;
@@ -1863,6 +1230,21 @@ const DoubleEliminationBracket = ({
 
   return (
     <div className="space-y-8">
+      {!viewOnly && tournament.seedingType === 'RANDOM' && !bracketGenerated && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded p-4 mb-4">
+          <h3 className="text-lg font-medium text-yellow-800 mb-2">Random Seeding</h3>
+          <p className="text-yellow-700 mb-4">
+            This tournament uses random seeding. Click the button below to generate the bracket with random matchups.
+          </p>
+          <button
+            onClick={handleRandomizeFirstRound}
+            className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
+          >
+            Generate Random Bracket
+          </button>
+        </div>
+      )}
+
       {winnersBracket && winnersBracket.length > 0 && (
         <div>
           <h3 className="text-xl font-semibold mb-4 text-blue-700">Winners Bracket</h3>
@@ -1904,8 +1286,24 @@ const DoubleEliminationBracket = ({
           </div>
         </div>
       )}
+
+      {/* Save button for tournament organizers */}
+      {!viewOnly && (
+        <div className="flex justify-end mt-8">
+          <button
+            onClick={() => {
+              const event = new Event('saveDoubleEliminationBracket');
+              document.dispatchEvent(event);
+            }}
+            disabled={!bracketGenerated}
+            className={`px-6 py-2 ${!bracketGenerated ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} text-white font-medium rounded transition-colors`}
+          >
+            Save Bracket
+          </button>
+        </div>
+      )}
     </div>
   );
 };
 
-export default DoubleEliminationBracket;
+export default RandomDoubleEliminationBracket;
