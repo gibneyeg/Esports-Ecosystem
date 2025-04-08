@@ -342,7 +342,6 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
           </div>
         </div>
         <p className="mt-3 text-sm text-gray-600">
-          In round robin format, winners are determined by total points earned across all matches.
         </p>
       </div>
 
@@ -397,16 +396,21 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
       )}
 
       {/* Save Button for tournament organizer */}
+      {/* Save Button for tournament organizer */}
       {isOwner && (
         <div className="flex justify-end mt-6">
           <button
             onClick={() => {
               if (tournament.format === 'SINGLE_ELIMINATION') {
-                handleSaveSingleEliminationBracket();
+
+
+                const event = new CustomEvent('saveSingleEliminationBracket');
+                document.dispatchEvent(event);
               } else if (tournament.format === 'DOUBLE_ELIMINATION') {
-                handleSaveDoubleEliminationBracket();
+
+                const event = new CustomEvent('saveDoubleEliminationBracket');
+                document.dispatchEvent(event);
               } else if (tournament.format === 'ROUND_ROBIN') {
-                // Trigger the Round Robin save event
                 const event = new CustomEvent('saveRoundRobinBracket');
                 document.dispatchEvent(event);
               }
