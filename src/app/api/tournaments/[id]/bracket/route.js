@@ -41,7 +41,6 @@ export async function POST(request, context) {
 
     // Parse the request body
     const bracketData = await request.json();
-    console.log("Received bracket data:", JSON.stringify(bracketData, null, 2));
 
     // Handle different tournament formats differently
     if (tournament.format === "ROUND_ROBIN") {
@@ -61,8 +60,6 @@ export async function POST(request, context) {
 // Handler for Round Robin format
 async function handleRoundRobinBracket(tournamentId, bracketData) {
   try {
-    console.log("Processing Round Robin bracket data:", JSON.stringify(bracketData, null, 2));
-
     // Get the current tournament data to preserve any existing settings
     const currentTournament = await prisma.tournament.findUnique({
       where: { id: tournamentId },
@@ -83,7 +80,6 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
         ? JSON.parse(bracketData.formatSettings)
         : bracketData.formatSettings;
 
-      console.log("Using format settings from bracket data:", formatSettingsToSave);
     }
     // If not in the bracket data, try to use existing settings
     else if (currentTournament?.formatSettings) {
@@ -91,8 +87,6 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
       formatSettingsToSave = typeof currentTournament.formatSettings === 'string'
         ? JSON.parse(currentTournament.formatSettings)
         : currentTournament.formatSettings;
-
-      console.log("Using existing format settings:", formatSettingsToSave);
     }
 
     // STEP 1: Clear existing brackets and matches in a transaction to ensure atomic operation
@@ -113,7 +107,6 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
 
     // If there are format settings to save, update the tournament record
     if (formatSettingsToSave) {
-      console.log("Updating tournament with format settings:", formatSettingsToSave);
 
       try {
         await prisma.tournament.update({
@@ -146,7 +139,6 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
 
     // Create all brackets first to ensure they exist before creating matches
     for (const groupId of groups) {
-      console.log(`Creating bracket for group: ${groupId}`);
 
       const bracket = await prisma.tournamentBracket.create({
         data: {
@@ -167,7 +159,6 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
     // STEP 4: Create matches for each group
     for (const match of bracketData.matches) {
       if (!match.player1 || !match.player2) {
-        console.log("Skipping match with missing player(s)");
         continue;
       }
 
@@ -183,9 +174,6 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
       const isDraw = match.isDraw === true;
       const hasWinner = !isDraw && match.winnerId;
       const matchStatus = (hasWinner || isDraw) ? "COMPLETED" : "PENDING";
-
-      console.log(`Creating match: ${match.player1.id} vs ${match.player2.id} in group ${groupId}`);
-      console.log(`Match status: ${matchStatus}, Winner ID: ${match.winnerId || 'None'}, isDraw: ${isDraw}`);
 
       try {
         // Ensure the data we're saving is consistent
@@ -212,9 +200,6 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
           matchData.completedTime = new Date();
         }
 
-        // Log the exact data we're trying to save
-        console.log("Creating match with data:", JSON.stringify(matchData, null, 2));
-
         await prisma.match.create({ data: matchData });
       } catch (error) {
         console.error("Error creating match:", error);
@@ -228,14 +213,12 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
           score: match.score,
           isDraw
         });
-        // Continue with other matches instead of failing completely
       }
     }
 
     // STEP 5: If a tournament winner is declared, update the tournament record
     // Only update if tournamentWinnerId is explicitly included in the request
     if (bracketData.tournamentWinnerId) {
-      console.log(`Setting tournament winner to: ${bracketData.tournamentWinnerId}`);
 
       try {
         await prisma.tournament.update({
@@ -248,7 +231,6 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
 
         // If there are winners to save, handle them
         if (bracketData.winners && bracketData.winners.length > 0) {
-          console.log(`Saving ${bracketData.winners.length} tournament winners`);
 
           // First delete any existing winners
           await prisma.tournamentWinner.deleteMany({
@@ -281,7 +263,6 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
         console.error("Error updating tournament winner:", error);
       }
     } else {
-      console.log("No tournament winner specified in request, skipping winner update");
     }
 
     // STEP 6: Get updated tournament with brackets
@@ -335,8 +316,6 @@ async function handleEliminationBracket(tournamentId, bracketData) {
           continue;
         }
 
-        console.log(`Creating bracket for round ${roundIndex}: ${round.name}`);
-
         // Create bracket for this round
         const bracket = await prisma.tournamentBracket.create({
           data: {
@@ -352,8 +331,6 @@ async function handleEliminationBracket(tournamentId, bracketData) {
 
           // Determine match status based on if it has a winner
           const matchStatus = match.winnerId ? "COMPLETED" : "PENDING";
-
-          console.log(`Creating match in round ${roundIndex}, position ${match.position}`);
 
           await prisma.match.create({
             data: {
@@ -490,7 +467,6 @@ function formatTournamentResponse(tournament) {
 
   tournament.brackets.forEach(bracket => {
     bracket.matches.forEach(match => {
-      // Parse roundRobinData if available
       let roundRobinInfo = {};
       try {
         if (match.roundRobinData) {
@@ -508,7 +484,7 @@ function formatTournamentResponse(tournament) {
         player1: match.player1,
         player2: match.player2,
         winner: match.winner,
-        winnerId: match.winnerId, // Include winnerId directly
+        winnerId: match.winnerId,
         score: match.score,
         status: match.status,
         completedTime: match.completedTime,
@@ -518,14 +494,13 @@ function formatTournamentResponse(tournament) {
       };
 
       // IMPORTANT: Make sure winner info is correctly set
-      // If there's a winnerId but no winner object (could happen with eager loading issues),
-      // make sure the isDraw and winnerId properties are consistent
+
       if (match.winnerId && !match.winner) {
-        matchData.winner = null; // Clear any potential inconsistent data
-        matchData.winnerId = match.winnerId; // Keep the ID
-        matchData.isDraw = false; // If there's a winnerId, it's not a draw
+        matchData.winner = null;
+        matchData.winnerId = match.winnerId;
+        matchData.isDraw = false;
       } else if (roundRobinInfo.isDraw) {
-        // For draws, ensure winner and winnerId are null
+
         matchData.winner = null;
         matchData.winnerId = null;
         matchData.isDraw = true;
@@ -543,7 +518,6 @@ function formatTournamentResponse(tournament) {
     return a.position - b.position;
   });
 
-  // Include formatSettings in the response for the frontend
   let formatSettings = null;
   try {
     if (tournament.formatSettings) {

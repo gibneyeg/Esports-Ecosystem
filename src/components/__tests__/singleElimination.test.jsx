@@ -213,7 +213,6 @@ describe("SingleEliminationBracket", () => {
             });
         } catch (error) {
 
-            console.log("Skipping advancement test - button not found");
             return;
         }
 
