@@ -8,7 +8,7 @@ import RoundRobinBracket from './RoundRobinBracket';
 import DoubleEliminationBracket from './DoubleEliminationBracket';
 import SingleEliminationBracket from './SingleEliminationBracket';
 
-const TournamentBrackets = ({ tournament, currentUser, isOwner }) => {
+const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [participants, setParticipants] = useState([]);
@@ -439,4 +439,4 @@ const TournamentBrackets = ({ tournament, currentUser, isOwner }) => {
   );
 };
 
-export default TournamentBrackets;
+export default TournamentBracketsHandler;

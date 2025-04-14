@@ -7,7 +7,7 @@ import Layout from "../../../components/Layout.jsx";
 import TournamentManagement from "../../../components/TournamentManagment.jsx";
 import DeclareWinnerButton from "../../../components/TournamentWinner.jsx";
 import TwitchStream from "../../../components/TournamentStream.jsx";
-import TournamentBrackets from "@/components/TournamentBrackets.jsx";
+import TournamentBracketsHandler from "@/components/TournamentBracketHandler.jsx";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -495,7 +495,7 @@ export default function TournamentView({ tournamentId }) {
 
           {activeTab === 'bracket' && (
             <div className="mt-8">
-              <TournamentBrackets
+              <TournamentBracketsHandler
                 tournament={tournament}
                 currentUser={session?.user}
                 isOwner={isCreator} // Pass the already calculated value
