@@ -26,8 +26,8 @@ const SingleEliminationBracket = ({
   const [semiFinalsLosers, setSemiFinalsLosers] = useState([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isSeedingRandom, setIsSeedingRandom] = useState(false);
-
-  // Function to shuffle array (Fisher-Yates algorithm)
+  const [isSeedingRanked, setIsSeedingRanked] = useState(false);
+  const [seedingType, setSeedingType] = useState('RANDOM');
   const shuffleArray = (array) => {
     const newArray = [...array];
     for (let i = newArray.length - 1; i > 0; i--) {
@@ -43,13 +43,10 @@ const SingleEliminationBracket = ({
 
     setIsSeedingRandom(true);
 
-    // First, clear the bracket
     clearBracket();
 
-    // Shuffle participants and assign seed numbers
     const shuffledParticipants = shuffleArray([...participants]);
 
-    // Update participants with seed numbers and mark as not placed
     const updatedParticipants = shuffledParticipants.map((participant, index) => ({
       ...participant,
       seedNumber: index + 1,
@@ -64,9 +61,36 @@ const SingleEliminationBracket = ({
     setIsSeedingRandom(false);
   };
 
+  // Function to apply ranked seeding based on participant points/rank
+  const applyRankedSeeding = () => {
+    if (participants.length < 3 || viewOnly) return;
+
+    setIsSeedingRanked(true);
+    setSeedingType('SKILL_BASED');
+
+    clearBracket();
+
+    const rankedParticipants = [...participants].sort((a, b) => {
+      const pointsA = a.user?.points || 0;
+      const pointsB = b.user?.points || 0;
+
+      return pointsB - pointsA;
+    });
+
+    const updatedParticipants = rankedParticipants.map((participant, index) => ({
+      ...participant,
+      seedNumber: index + 1,
+      isPlaced: false
+    }));
+
+    setParticipants(updatedParticipants);
+
+    populateBracketWithSeeds(updatedParticipants);
+
+    setIsSeedingRanked(false);
+  };
   // Clear all participants from the bracket
   const clearBracket = () => {
-    // Clear winners bracket
     const clearedWinnersBracket = winnersBracket.map(round => ({
       ...round,
       matches: round.matches.map(match => ({
@@ -96,51 +120,40 @@ const SingleEliminationBracket = ({
   const populateBracketWithSeeds = (seededParticipants) => {
     if (!winnersBracket.length || !seededParticipants.length) return;
 
-    // Get first round
     const firstRound = winnersBracket[0];
     const matchCount = firstRound.matches.length;
     const updatedWinnersBracket = [...winnersBracket];
 
-    // Calculate total number of slots in first round
     const totalSlots = matchCount * 2;
 
-    // Create array of seed positions for a standard bracket
-    // For example, for 8 participants (4 matches), the seed positions would be:
-    // [1, 8, 4, 5, 2, 7, 3, 6]
+
     const seedPositions = [];
 
-    // Implementation of standard tournament seeding pattern
     const generateSeedPositions = (start, end, positions, matchSize) => {
       if (end - start < 1) return;
 
-      // Add the highest and lowest seeds
       positions.push(start);
       positions.push(end);
 
       if (end - start <= 1) return;
 
-      // If we need more positions, recursively fill in the middle seeds
       generateSeedPositions(start + matchSize / 2, end - matchSize / 2, positions, matchSize / 2);
       generateSeedPositions(start + 1, end - 1, positions, matchSize / 2);
     };
 
     generateSeedPositions(1, totalSlots, seedPositions, totalSlots);
 
-    // Place participants in first round according to seed positions
     for (let matchIndex = 0; matchIndex < matchCount; matchIndex++) {
       for (let slotIndex = 0; slotIndex < 2; slotIndex++) {
         const seedPosition = matchIndex * 2 + slotIndex;
         if (seedPosition < seedPositions.length) {
           const seedNumber = seedPositions[seedPosition];
 
-          // Find participant with this seed number
           const participant = seededParticipants.find(p => p.seedNumber === seedNumber);
 
-          // If we have a participant for this seed, place them in the bracket
           if (participant && !participant.isPlaced) {
             updatedWinnersBracket[0].matches[matchIndex].slots[slotIndex].participant = participant;
 
-            // Mark participant as placed
             const partIndex = seededParticipants.findIndex(p => p.id === participant.id);
             if (partIndex >= 0) {
               seededParticipants[partIndex].isPlaced = true;
@@ -150,10 +163,9 @@ const SingleEliminationBracket = ({
       }
     }
 
-    // Handle byes (empty slots) if number of participants is less than total slots
+    // empty slots if number of participants is less than total slots
     if (seededParticipants.length < totalSlots) {
       for (let matchIndex = 0; matchIndex < matchCount; matchIndex++) {
-        // If a match has one participant and one empty slot, auto-advance the participant
         const match = updatedWinnersBracket[0].matches[matchIndex];
         if (
           (match.slots[0].participant && !match.slots[1].participant) ||
@@ -187,10 +199,9 @@ const SingleEliminationBracket = ({
         const { winnersBracket } = initializeBracket(participants.length, 'SINGLE_ELIMINATION');
         const updatedWinnersBracket = [...winnersBracket];
 
-        // Create a map of matches by round and position for easier access
         const matchesByRoundAndPosition = {};
         bracketData.matches.forEach(match => {
-          if (!match.isThirdPlaceMatch) { // Skip third place match, handle separately
+          if (!match.isThirdPlaceMatch) {
             if (!matchesByRoundAndPosition[match.round]) {
               matchesByRoundAndPosition[match.round] = {};
             }
@@ -198,7 +209,6 @@ const SingleEliminationBracket = ({
           }
         });
 
-        // Go through each round and populate match slots
         for (let roundIndex = 0; roundIndex < updatedWinnersBracket.length; roundIndex++) {
           const roundMatches = updatedWinnersBracket[roundIndex].matches;
 
@@ -208,13 +218,11 @@ const SingleEliminationBracket = ({
               matchesByRoundAndPosition[roundIndex][matchIndex] : null;
 
             if (savedMatch) {
-              // Populate player 1 slot
               if (savedMatch.player1) {
                 const participant = findParticipantById(participants, savedMatch.player1.id);
                 if (participant) {
                   currentMatch.slots[0].participant = participant;
 
-                  // Mark participant as placed
                   const partIndex = participants.findIndex(p => p.id === participant.id);
                   if (partIndex >= 0 && !participants[partIndex].isPlaced) {
                     participants[partIndex].isPlaced = true;
@@ -222,13 +230,11 @@ const SingleEliminationBracket = ({
                 }
               }
 
-              // Populate player 2 slot
               if (savedMatch.player2) {
                 const participant = findParticipantById(participants, savedMatch.player2.id);
                 if (participant) {
                   currentMatch.slots[1].participant = participant;
 
-                  // Mark participant as placed
                   const partIndex = participants.findIndex(p => p.id === participant.id);
                   if (partIndex >= 0 && !participants[partIndex].isPlaced) {
                     participants[partIndex].isPlaced = true;
@@ -249,7 +255,6 @@ const SingleEliminationBracket = ({
           const semiFinalsMatches = updatedWinnersBracket[semiFinalRoundIndex].matches;
           const finalsMatches = updatedWinnersBracket[updatedWinnersBracket.length - 1].matches;
 
-          // Find finalists (to exclude them from third place match)
           let finalistIds = [];
           if (finalsMatches.length > 0) {
             if (finalsMatches[0].slots[0].participant) {
@@ -260,7 +265,6 @@ const SingleEliminationBracket = ({
             }
           }
 
-          // Find semi-finalists who didn't make it to finals
           semiFinalsMatches.forEach(match => {
             if (match.slots[0].participant && !finalistIds.includes(match.slots[0].participant.id)) {
               potentialThirdPlaceContestants.push(match.slots[0].participant);
@@ -285,23 +289,19 @@ const SingleEliminationBracket = ({
             ]
           };
 
-          // If existing third place match data has participants, use them
           if (thirdPlaceMatchData.player1) {
             const participant = findParticipantById(participants, thirdPlaceMatchData.player1.id);
             if (participant) {
               newThirdPlaceMatch.slots[0].participant = participant;
 
-              // Mark participant as placed
               const partIndex = participants.findIndex(p => p.id === participant.id);
               if (partIndex >= 0 && !participants[partIndex].isPlaced) {
                 participants[partIndex].isPlaced = true;
               }
             }
           } else if (potentialThirdPlaceContestants.length > 0) {
-            // If no player1 in saved data but we have semi-finalists, use the first one
             newThirdPlaceMatch.slots[0].participant = potentialThirdPlaceContestants[0];
 
-            // Mark participant as placed
             const partIndex = participants.findIndex(p => p.id === potentialThirdPlaceContestants[0].id);
             if (partIndex >= 0 && !participants[partIndex].isPlaced) {
               participants[partIndex].isPlaced = true;
@@ -1063,17 +1063,32 @@ const SingleEliminationBracket = ({
     <div className="space-y-8">
       {/* Random Seeding Button - only show for tournament owners when not in view mode */}
       {!viewOnly && (
-        <div className="flex justify-end">
-          <button
-            onClick={applyRandomSeeding}
-            disabled={isSeedingRandom || participants.length < 3}
-            className={`px-4 py-2 rounded-md text-white font-medium ${isSeedingRandom || participants.length < 3
+        <div className="flex justify-end space-x-3">
+          {tournament.seedingType !== 'SKILL_BASED' && (
+            <button
+              onClick={applyRandomSeeding}
+              disabled={isSeedingRandom || participants.length < 3}
+              className={`px-4 py-2 rounded-md text-white font-medium ${isSeedingRandom || participants.length < 3
                 ? 'bg-gray-400 cursor-not-allowed'
                 : 'bg-purple-600 hover:bg-purple-700'
-              }`}
-          >
-            {isSeedingRandom ? 'Seeding...' : 'Random Seeding'}
-          </button>
+                }`}
+            >
+              {isSeedingRandom ? 'Seeding...' : 'Random Seeding'}
+            </button>
+          )}
+
+          {tournament.seedingType === 'SKILL_BASED' && (
+            <button
+              onClick={applyRankedSeeding}
+              disabled={isSeedingRanked || participants.length < 3}
+              className={`px-4 py-2 rounded-md text-white font-medium ${isSeedingRanked || participants.length < 3
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+            >
+              {isSeedingRanked ? 'Seeding...' : 'Ranked Seeding'}
+            </button>
+          )}
         </div>
       )}
 
