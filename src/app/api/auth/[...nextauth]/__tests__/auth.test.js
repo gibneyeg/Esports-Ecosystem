@@ -53,7 +53,7 @@ describe("NextAuth redirect callback", () => {
     expect(result).toBe("http://localhost:3000");
   });
 
-  it("handles invalid URLs gracefully", async () => {
+  it("handles invalid URLs", async () => {
     const baseUrl = "http://localhost:3000";
 
     await expect(async () => {
