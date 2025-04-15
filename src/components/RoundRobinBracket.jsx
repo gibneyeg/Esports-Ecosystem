@@ -99,6 +99,65 @@ const RoundRobinBracket = ({
         setBracketGenerated(true);
     };
 
+    // Add this function to distribute participants by seed numbers
+    const distributeByRanking = () => {
+        if (viewOnly || !participants.length) return;
+
+        const numberOfGroups = Math.ceil(participants.length / (groupSize || 4));
+        let newGroups = [];
+
+        for (let i = 0; i < numberOfGroups; i++) {
+            newGroups.push({
+                id: `group-${i + 1}`,
+                name: `Group ${String.fromCharCode(65 + i)}`,
+                participants: []
+            });
+        }
+
+        // Sort participants by seed number
+        const sortedParticipants = [...participants].sort((a, b) => {
+            if (!a.seedNumber && !b.seedNumber) return 0;
+            if (!a.seedNumber) return 1;
+            if (!b.seedNumber) return -1;
+            return a.seedNumber - b.seedNumber;
+        });
+
+
+        sortedParticipants.forEach((participant, index) => {
+            const row = Math.floor(index / numberOfGroups);
+            let col;
+
+
+            if (row % 2 === 0) {
+                col = index % numberOfGroups;
+            } else {
+                col = numberOfGroups - 1 - (index % numberOfGroups);
+            }
+
+            newGroups[col].participants.push({
+                ...participant,
+                wins: 0,
+                losses: 0,
+                draws: 0,
+                points: 0,
+                played: 0
+            });
+        });
+
+        setGroups(newGroups);
+        generateMatchesForGroups(newGroups);
+        setBracketGenerated(true);
+    };
+
+    //helper function to handle automatic seeding
+    const handleAutomaticSeeding = () => {
+        if (tournament.seedingType === 'RANDOM') {
+            randomizeParticipants();
+        } else if (tournament.seedingType === 'SKILL_BASED' || tournament.seedingType === 'MANUAL') {
+            distributeByRanking();
+        }
+    };
+
     // Generate matches for all groups
     const generateMatchesForGroups = (groups) => {
         const newMatches = [];
@@ -521,6 +580,65 @@ const RoundRobinBracket = ({
                     });
 
                     setBracketGenerated(true);
+                } else if (!bracketData && (tournament.seedingType === 'SKILL_BASED' || tournament.seedingType === 'MANUAL')) {
+                    const participantsWithSeeds = participants.filter(p => p.seedNumber);
+
+                    if (participantsWithSeeds.length > 0) {
+                        // Auto-generate seeded groups
+                        const sortedParticipants = [...participants].sort((a, b) => {
+                            if (!a.seedNumber && !b.seedNumber) return 0;
+                            if (!a.seedNumber) return 1;
+                            if (!b.seedNumber) return -1;
+                            return a.seedNumber - b.seedNumber;
+                        });
+
+                        sortedParticipants.forEach((participant, index) => {
+                            const row = Math.floor(index / numberOfGroups);
+                            let col;
+
+                            if (row % 2 === 0) {
+                                col = index % numberOfGroups;
+                            } else {
+                                col = numberOfGroups - 1 - (index % numberOfGroups);
+                            }
+
+                            newGroups[col].participants.push({
+                                ...participant,
+                                wins: 0,
+                                losses: 0,
+                                draws: 0,
+                                points: 0,
+                                played: 0
+                            });
+                        });
+
+                        // Generate matches for the groups
+                        newGroups.forEach(group => {
+                            const groupParticipants = group.participants;
+
+                            if (groupParticipants.length >= 2) {
+                                for (let j = 0; j < groupParticipants.length; j++) {
+                                    for (let k = j + 1; k < groupParticipants.length; k++) {
+                                        const match = {
+                                            id: `match-${group.id}-${j}-${k}`,
+                                            groupId: group.id,
+                                            groupName: group.name,
+                                            round: Math.floor(newMatches.length / numberOfGroups) + 1,
+                                            position: newMatches.length,
+                                            player1: groupParticipants[j],
+                                            player2: groupParticipants[k],
+                                            winner: null,
+                                            score: null,
+                                            isDraw: false
+                                        };
+                                        newMatches.push(match);
+                                    }
+                                }
+                            }
+                        });
+
+                        setBracketGenerated(true);
+                    }
                 }
 
                 // Check if component is still mounted before updating state
@@ -1321,6 +1439,16 @@ const RoundRobinBracket = ({
                         to automatically assign participants to groups randomly.
                     </p>
                 </div>
+            )}
+
+
+            {(tournament.seedingType === 'SKILL_BASED') && (
+                <button
+                    onClick={distributeByRanking}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                >
+                    Generate Seeded Groups
+                </button>
             )}
 
             {/* Group Assignment UI */}

@@ -8,7 +8,7 @@ import RoundRobinBracket from './RoundRobinBracket';
 import DoubleEliminationBracket from './DoubleEliminationBracket';
 import SingleEliminationBracket from './SingleEliminationBracket';
 
-const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
+const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [participants, setParticipants] = useState([]);
@@ -220,11 +220,22 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
 
   // Render participants list for bracket assignment
   const renderParticipantsList = () => {
-    // Check if there are participants to display
     if (!participants || participants.length === 0) {
       return (
         <div className="p-4 border rounded-md bg-gray-50">
           <p className="text-gray-500">No participants in this tournament yet.</p>
+        </div>
+      );
+    }
+
+    if (tournament.format === 'ROUND_ROBIN' && tournament.seedingType !== 'MANUAL') {
+      return (
+        <div className="bg-white p-4 border rounded-md shadow-sm">
+          <h3 className="text-lg font-medium mb-3">Participants</h3>
+          <p className="text-blue-600">
+            This tournament uses {tournament.seedingType === 'RANDOM' ? 'random' : 'skill-based'} seeding.
+            Participants will be automatically placed in groups.
+          </p>
         </div>
       );
     }
@@ -428,4 +439,4 @@ const ManualTournamentBracket = ({ tournament, currentUser, isOwner }) => {
   );
 };
 
-export default ManualTournamentBracket;
+export default TournamentBracketsHandler;

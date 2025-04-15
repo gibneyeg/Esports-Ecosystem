@@ -30,6 +30,7 @@ const RandomDoubleEliminationBracket = ({
   const [isInitialized, setIsInitialized] = useState(false);
   const [tournamentWinner, setLocalTournamentWinner] = useState(null);
   const [bracketGenerated, setBracketGenerated] = useState(false);
+  const [isSeedingRanked, setIsSeedingRanked] = useState(false);
 
   // Function to randomly seed the first round
   const randomizeFirstRoundSeeding = (participantsToSeed, winnersB) => {
@@ -37,29 +38,23 @@ const RandomDoubleEliminationBracket = ({
       return { winnersBracket: winnersB, participants: participantsToSeed };
     }
 
-    // Make a copy of participants for random shuffling
     const participantsCopy = [...participantsToSeed];
 
-    // Shuffle the participants array randomly
     for (let i = participantsCopy.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [participantsCopy[i], participantsCopy[j]] = [participantsCopy[j], participantsCopy[i]];
     }
 
-    // Create a copy of the winners bracket to modify
     const updatedWinnersBracket = JSON.parse(JSON.stringify(winnersB));
 
-    // Get the first round of the winners bracket
     const firstRound = updatedWinnersBracket[0];
 
-    // Reset the first round - clear any existing participants
     firstRound.matches.forEach(match => {
       match.slots.forEach(slot => {
         slot.participant = null;
       });
     });
 
-    // Assign shuffled participants to first round matches
     let participantIndex = 0;
     for (let matchIndex = 0; matchIndex < firstRound.matches.length; matchIndex++) {
       const match = firstRound.matches[matchIndex];
@@ -71,6 +66,60 @@ const RandomDoubleEliminationBracket = ({
           participantsCopy[participantIndex].isPlaced = true;
           participantIndex++;
         }
+      }
+    }
+
+    updatedWinnersBracket[0] = firstRound;
+
+    return {
+      winnersBracket: updatedWinnersBracket,
+      participants: participantsCopy
+    };
+  };
+
+  const rankedFirstRoundSeeding = (participantsToSeed, winnersB) => {
+    if (!winnersB || winnersB.length === 0 || participantsToSeed.length === 0) {
+      return { winnersBracket: winnersB, participants: participantsToSeed };
+    }
+
+    // Make a copy of participants for ranking
+    const participantsCopy = [...participantsToSeed];
+
+    // Sort participants by points 
+    participantsCopy.sort((a, b) => {
+      const pointsA = a.user?.points || 0;
+      const pointsB = b.user?.points || 0;
+      return pointsB - pointsA;
+    });
+
+    // Create a copy of the winners bracket to modify
+    const updatedWinnersBracket = JSON.parse(JSON.stringify(winnersB));
+
+    const firstRound = updatedWinnersBracket[0];
+
+    // Reset the first round - clear any existing participants
+    firstRound.matches.forEach(match => {
+      match.slots.forEach(slot => {
+        slot.participant = null;
+      });
+    });
+
+    const totalParticipants = participantsCopy.length;
+    const totalMatches = firstRound.matches.length;
+
+    for (let matchIndex = 0; matchIndex < totalMatches; matchIndex++) {
+      const match = firstRound.matches[matchIndex];
+
+      // For each match, determine which seeds should go in it
+      if (2 * matchIndex < totalParticipants) {
+        match.slots[0].participant = participantsCopy[matchIndex];
+        participantsCopy[matchIndex].isPlaced = true;
+      }
+
+      const opponentIndex = totalParticipants - 1 - matchIndex;
+      if (opponentIndex >= 0 && opponentIndex < totalParticipants && opponentIndex !== matchIndex) {
+        match.slots[1].participant = participantsCopy[opponentIndex];
+        participantsCopy[opponentIndex].isPlaced = true;
       }
     }
 
@@ -91,7 +140,6 @@ const RandomDoubleEliminationBracket = ({
       if (!tournament || !participants.length) return;
 
       try {
-        // Calculate total winners rounds for proper round determination
         const totalParticipants = participants.length;
         const totalWinnersRounds = Math.ceil(Math.log2(totalParticipants));
 
@@ -109,7 +157,6 @@ const RandomDoubleEliminationBracket = ({
         const existingBracket = await fetchExistingBracket(tournament.id);
 
         if (existingBracket && existingBracket.matches && existingBracket.matches.length > 0) {
-          // Process existing bracket data
           const updatedWinnersBracket = JSON.parse(JSON.stringify(initialWinners));
           const updatedLosersBracket = JSON.parse(JSON.stringify(initialLosers));
           const updatedGrandFinals = JSON.parse(JSON.stringify(initialGrandFinals));
@@ -293,11 +340,17 @@ const RandomDoubleEliminationBracket = ({
             }
           }
         } else if (tournament.seedingType === 'RANDOM' && !bracketGenerated) {
-          // If no existing bracket data and seeding type is RANDOM, randomize first round
           const { winnersBracket: randomizedBracket, participants: updatedParticipants } =
             randomizeFirstRoundSeeding(participants, initialWinners);
 
           setWinnersBracket(randomizedBracket);
+          setParticipants(updatedParticipants);
+          setBracketGenerated(true);
+        } else if (tournament.seedingType === 'SKILL_BASED' && !bracketGenerated) {
+          const { winnersBracket: rankedBracket, participants: updatedParticipants } =
+            rankedFirstRoundSeeding(participants, initialWinners);
+
+          setWinnersBracket(rankedBracket);
           setParticipants(updatedParticipants);
           setBracketGenerated(true);
         }
@@ -348,10 +401,8 @@ const RandomDoubleEliminationBracket = ({
   const handleRandomizeFirstRound = () => {
     if (viewOnly || bracketGenerated) return;
 
-    // Get unplaced participants
     const participantsToPlace = participants.filter(p => !p.isPlaced);
 
-    // If no participants left to place, do nothing
     if (participantsToPlace.length === 0) return;
 
     const { winnersBracket: randomizedBracket, participants: updatedParticipants } =
@@ -360,6 +411,29 @@ const RandomDoubleEliminationBracket = ({
     setWinnersBracket(randomizedBracket);
     setParticipants(updatedParticipants);
     setBracketGenerated(true);
+  };
+
+
+  // Handler for manually triggering ranked seeding
+  const handleRankedSeeding = () => {
+    if (viewOnly || bracketGenerated) return;
+
+    setIsSeedingRanked(true);
+
+    const participantsToPlace = participants.filter(p => !p.isPlaced);
+
+    if (participantsToPlace.length === 0) {
+      setIsSeedingRanked(false);
+      return;
+    }
+
+    const { winnersBracket: rankedBracket, participants: updatedParticipants } =
+      rankedFirstRoundSeeding(participants, winnersBracket);
+
+    setWinnersBracket(rankedBracket);
+    setParticipants(updatedParticipants);
+    setBracketGenerated(true);
+    setIsSeedingRanked(false);
   };
 
   const handleSlotClick = (slotId, bracket) => {
@@ -1245,6 +1319,22 @@ const RandomDoubleEliminationBracket = ({
         </div>
       )}
 
+      {!viewOnly && tournament.seedingType === 'SKILL_BASED' && !bracketGenerated && (
+        <div className="bg-blue-50 border border-blue-200 rounded p-4 mb-4">
+          <h3 className="text-lg font-medium text-blue-800 mb-2">Ranked Seeding</h3>
+          <p className="text-blue-700 mb-4">
+            This tournament uses ranked seeding based on player rankings. Click the button below to generate the bracket.
+          </p>
+          <button
+            onClick={handleRankedSeeding}
+            disabled={isSeedingRanked}
+            className={`px-4 py-2 ${isSeedingRanked ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded transition-colors`}
+          >
+            {isSeedingRanked ? 'Generating...' : 'Generate Ranked Bracket'}
+          </button>
+        </div>
+      )}
+
       {winnersBracket && winnersBracket.length > 0 && (
         <div>
           <h3 className="text-xl font-semibold mb-4 text-blue-700">Winners Bracket</h3>
@@ -1284,22 +1374,6 @@ const RandomDoubleEliminationBracket = ({
             {renderGrandFinals()}
             {resetNeeded && resetMatch && renderResetMatch()}
           </div>
-        </div>
-      )}
-
-      {/* Save button for tournament organizers */}
-      {!viewOnly && (
-        <div className="flex justify-end mt-8">
-          <button
-            onClick={() => {
-              const event = new Event('saveDoubleEliminationBracket');
-              document.dispatchEvent(event);
-            }}
-            disabled={!bracketGenerated}
-            className={`px-6 py-2 ${!bracketGenerated ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} text-white font-medium rounded transition-colors`}
-          >
-            Save Bracket
-          </button>
         </div>
       )}
     </div>
