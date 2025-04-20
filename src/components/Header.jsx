@@ -131,8 +131,8 @@ export default function Header() {
           <Image
             src={logo}
             alt="Logo"
-            width={150}  
-            height={50}  
+            width={150}
+            height={50}
             quality={100}
             priority
             className="h-auto w-auto"
@@ -225,6 +225,13 @@ export default function Header() {
                           Points: {session.user.points || 0}
                         </p>
                       </div>
+                      <Link
+                        href={`/user/${session.user.id}`}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setIsProfileMenuOpen(false)}
+                      >
+                        Profile
+                      </Link>
                       <button
                         onClick={() => setShowProfileUploader(true)}
                         className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
