@@ -27,45 +27,37 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
         setLoading(true);
         setError(null);
 
-        // Map participants for bracket usage
         const mappedParticipants = initializeParticipants(tournament.participants);
 
         // Check for existing winners from tournament data
         if (tournament.winners && tournament.winners.length > 0) {
-          // Sort winners by position (1=first, 2=second, 3=third)
           const sortedWinners = tournament.winners.sort((a, b) => a.position - b.position);
 
-          // Find first place winner
           const firstPlace = sortedWinners.find(w => w.position === 1);
           if (firstPlace) {
             const winner = mappedParticipants.find(p => p.id === firstPlace.user.id);
             if (winner) setTournamentWinner(winner);
           }
 
-          // Find second place
           const secondPlace = sortedWinners.find(w => w.position === 2);
           if (secondPlace) {
             const runnerUp = mappedParticipants.find(p => p.id === secondPlace.user.id);
             if (runnerUp) setRunnerUp(runnerUp);
           }
 
-          // Find third place
           const thirdPlace = sortedWinners.find(w => w.position === 3);
           if (thirdPlace) {
             const third = mappedParticipants.find(p => p.id === thirdPlace.user.id);
             if (third) setThirdPlace(third);
           }
         }
-        // If no winners in tournament.winners but tournament has a winner property
         else if (tournament.winner) {
           const winnerObj = mappedParticipants.find(p => p.id === tournament.winner.id);
           if (winnerObj) setTournamentWinner(winnerObj);
         }
 
-        // Try to fetch existing bracket data
         const existingBracket = await fetchExistingBracket(tournament.id);
 
-        // If we have existing bracket data, update participant placement status
         if (existingBracket) {
           const updatedParticipants = loadParticipantsFromBracket(
             mappedParticipants,
@@ -76,10 +68,12 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
           setParticipants(mappedParticipants);
         }
 
-        // Initialize bracket based on tournament format and participant count
         const participantCount = tournament.participants.length;
-        const initialBracket = initializeBracket(participantCount, tournament.format);
-        setBracket(initialBracket);
+        // Only initialize  for non-Swiss formats (Swiss handles its own initialization)
+        if (tournament.format !== 'SWISS') {
+          const initialBracket = initializeBracket(participantCount, tournament.format);
+          setBracket(initialBracket);
+        }
 
         setLoading(false);
       } catch (err) {
@@ -104,7 +98,6 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
         throw new Error("Only tournament owner can save bracket");
       }
 
-      // Add winners to bracket data if available
       if (tournamentWinner) {
         bracketData.tournamentWinnerId = tournamentWinner.id;
       }
@@ -123,7 +116,6 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
         throw new Error(data.message || "Failed to save bracket");
       }
 
-      // After successfully saving the bracket, also save tournament winners
       if (tournamentWinner || runnerUp || thirdPlace) {
         await saveWinners();
       }
@@ -147,7 +139,7 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
         winners.push({
           userId: tournamentWinner.id,
           position: 1,
-          prizeMoney: tournament.prizePool * 0.5 // 50% to 1st place
+          prizeMoney: tournament.prizePool * 0.5
         });
       }
 
@@ -155,7 +147,7 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
         winners.push({
           userId: runnerUp.id,
           position: 2,
-          prizeMoney: tournament.prizePool * 0.3 // 30% to 2nd place
+          prizeMoney: tournament.prizePool * 0.3
         });
       }
 
@@ -163,7 +155,7 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
         winners.push({
           userId: thirdPlace.id,
           position: 3,
-          prizeMoney: tournament.prizePool * 0.2 // 20% to 3rd place
+          prizeMoney: tournament.prizePool * 0.2
         });
       }
 
@@ -183,40 +175,12 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
       }
     } catch (err) {
       console.error("Error saving winners:", err);
-      // Don't throw here, as we still want to save the bracket
     }
   };
 
-  // Handle save for bracket with different formats
-  const handleSaveSingleEliminationBracket = () => {
-    if (!bracket || !bracket.winnersBracket) return;
 
-    // Prepare bracket data for saving
-    const bracketData = prepareBracketDataForSave(
-      bracket.winnersBracket,
-      [],
-      null,
-      null,
-      tournamentWinner
-    );
 
-    saveBracket(bracketData);
-  };
 
-  const handleSaveDoubleEliminationBracket = () => {
-    if (!bracket) return;
-
-    // Prepare bracket data for saving
-    const bracketData = prepareBracketDataForSave(
-      bracket.winnersBracket,
-      bracket.losersBracket,
-      bracket.grandFinals,
-      bracket.resetMatch,
-      tournamentWinner
-    );
-
-    saveBracket(bracketData);
-  };
 
   // Render participants list for bracket assignment
   const renderParticipantsList = () => {
@@ -228,13 +192,14 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
       );
     }
 
+    // Skip rendering participants list for Swiss and auto-seeded Round Robin
     if (tournament.format === 'ROUND_ROBIN' && tournament.seedingType !== 'MANUAL') {
       return (
         <div className="bg-white p-4 border rounded-md shadow-sm">
           <h3 className="text-lg font-medium mb-3">Participants</h3>
           <p className="text-blue-600">
             This tournament uses {tournament.seedingType === 'RANDOM' ? 'random' : 'skill-based'} seeding.
-            Participants will be automatically placed in groups.
+            Participants will be automatically placed in the bracket.
           </p>
         </div>
       );
@@ -317,7 +282,6 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
     );
   }
 
-  // Saved message notification
   const savedNotification = savedMessage ? (
     <div className="fixed bottom-4 right-4 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-md">
       {savedMessage}
@@ -327,36 +291,37 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
   // Render bracket based on tournament format
   return (
     <div className="space-y-6">
-      {isOwner && <div className="mb-6">{renderParticipantsList()}</div>}
+      {isOwner && tournament.format !== 'SWISS' && <div className="mb-6">{renderParticipantsList()}</div>}
 
-      {/* Tournament Results */}
-      <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4">
-        <h3 className="text-lg font-semibold mb-2">Tournament Results</h3>
-        <div className="space-y-2">
-          <div className="flex items-center">
-            <span className="text-2xl mr-2">🏆</span>
-            <span className="font-medium">First Place:</span>
-            <span className="ml-2">{tournamentWinner ? tournamentWinner.name : "Not decided"}</span>
-            {tournamentWinner && <span className="ml-2 text-green-600">${(tournament.prizePool * 0.5).toFixed(2)}</span>}
-          </div>
-          <div className="flex items-center">
-            <span className="text-2xl mr-2">🥈</span>
-            <span className="font-medium">Second Place:</span>
-            <span className="ml-2">{runnerUp ? runnerUp.name : "Not decided"}</span>
-            {runnerUp && <span className="ml-2 text-green-600">${(tournament.prizePool * 0.3).toFixed(2)}</span>}
-          </div>
-          <div className="flex items-center">
-            <span className="text-2xl mr-2">🥉</span>
-            <span className="font-medium">Third Place:</span>
-            <span className="ml-2">{thirdPlace ? thirdPlace.name : "Not decided"}</span>
-            {thirdPlace && <span className="ml-2 text-green-600">${(tournament.prizePool * 0.2).toFixed(2)}</span>}
+      {tournament.format !== 'SWISS' && (
+        <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-2">Tournament Results</h3>
+          <div className="space-y-2">
+            <div className="flex items-center">
+              <span className="text-2xl mr-2">🏆</span>
+              <span className="font-medium">First Place:</span>
+              <span className="ml-2">{tournamentWinner ? tournamentWinner.name : "Not decided"}</span>
+              {tournamentWinner && <span className="ml-2 text-green-600">${(tournament.prizePool * 0.5).toFixed(2)}</span>}
+            </div>
+            <div className="flex items-center">
+              <span className="text-2xl mr-2">🥈</span>
+              <span className="font-medium">Second Place:</span>
+              <span className="ml-2">{runnerUp ? runnerUp.name : "Not decided"}</span>
+              {runnerUp && <span className="ml-2 text-green-600">${(tournament.prizePool * 0.3).toFixed(2)}</span>}
+            </div>
+            <div className="flex items-center">
+              <span className="text-2xl mr-2">🥉</span>
+              <span className="font-medium">Third Place:</span>
+              <span className="ml-2">{thirdPlace ? thirdPlace.name : "Not decided"}</span>
+              {thirdPlace && <span className="ml-2 text-green-600">${(tournament.prizePool * 0.2).toFixed(2)}</span>}
+            </div>
           </div>
         </div>
-        <p className="mt-3 text-sm text-gray-600">
-        </p>
-      </div>
+      )}
 
-      {/* Render the appropriate bracket type based on tournament format */}
+
+
+      {/* Round Robin Bracket */}
       {tournament.format === 'ROUND_ROBIN' && (
         <RoundRobinBracket
           tournament={tournament}
@@ -406,19 +371,15 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
         />
       )}
 
-      {/* Save Button for tournament organizer */}
-      {/* Save Button for tournament organizer */}
+      {/* Save Button for tournament organizer  */}
       {isOwner && (
         <div className="flex justify-end mt-6">
           <button
             onClick={() => {
               if (tournament.format === 'SINGLE_ELIMINATION') {
-
-
                 const event = new CustomEvent('saveSingleEliminationBracket');
                 document.dispatchEvent(event);
               } else if (tournament.format === 'DOUBLE_ELIMINATION') {
-
                 const event = new CustomEvent('saveDoubleEliminationBracket');
                 document.dispatchEvent(event);
               } else if (tournament.format === 'ROUND_ROBIN') {
