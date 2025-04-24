@@ -16,10 +16,8 @@ export default function Header() {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState("");
 
-
-
   useEffect(() => {
-    if (!showProfileMenu) return; // Only add listener if menu is shown
+    if (!showProfileMenu) return;
 
     const handleClickOutside = (event) => {
       if (!event.target.closest(".profile-menu-container")) {
@@ -124,6 +122,24 @@ export default function Header() {
     );
   };
 
+  // Helper to get rank color classes
+  const getRankColorClass = (rank) => {
+    const rankLower = (rank || "Bronze").toLowerCase();
+    switch (rankLower) {
+      case "diamond":
+        return "text-blue-500";
+      case "platinum":
+        return "text-cyan-500";
+      case "gold":
+        return "text-yellow-500";
+      case "silver":
+        return "text-gray-400";
+      case "bronze":
+      default:
+        return "text-amber-700";
+    }
+  };
+
   return (
     <header className="bg-black">
       <nav className="flex justify-between items-center px-4 lg:px-6 py-2.5 h-16">
@@ -181,7 +197,7 @@ export default function Header() {
                     onClick={() => setShowProfileMenu(!showProfileMenu)}
                     className="flex items-center gap-2 text-white hover:bg-gray-800 px-3 py-2 rounded-lg transition-colors h-10"
                   >
-                    <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-700">
+                    <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-gray-700 to-gray-800 border border-gray-600 shadow-inner">
                       {session.user.image && validateImageUrl(session.user.image) ? (
                         <Image
                           src={session.user.image}
@@ -191,7 +207,7 @@ export default function Header() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-white">
+                        <div className="w-full h-full flex items-center justify-center text-white font-semibold">
                           {session.user.username?.charAt(0).toUpperCase() ||
                             session.user.email?.charAt(0).toUpperCase()}
                         </div>
@@ -201,56 +217,111 @@ export default function Header() {
                       <span className="text-sm font-medium text-white">
                         {session.user.username || session.user.email}
                       </span>
-                      <span className="text-xs text-gray-400">
-                        {session.user.rank || "Bronze"}
+                      <span className={`text-xs font-medium ${getRankColorClass(session.user.rank)}`}>
+                        {session.user.rank === "Bronze" && "🥉"}
+                        {session.user.rank === "Silver" && "🥈"}
+                        {session.user.rank === "Gold" && "🥇"}
+                        {session.user.rank === "Platinum" && "💎"}
+                        {session.user.rank === "Diamond" && "💠"}
+                        {session.user.rank === "Master" && "🎖️"}
+                        {session.user.rank === "Grandmaster" && "🏆"}
+                        {!session.user.rank && "🥉"}
                       </span>
                     </div>
                   </button>
 
                   {showProfileMenu && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
-                      <div className="px-4 py-2 border-b">
-                        <p className="text-sm font-medium text-gray-900">
-                          {session.user.username || session.user.email}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {session.user.email}
-                        </p>
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg overflow-hidden z-50 border border-gray-200">
+                      <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-gray-700 to-gray-800 border border-gray-200 shadow-sm">
+                            {session.user.image && validateImageUrl(session.user.image) ? (
+                              <Image
+                                src={session.user.image}
+                                alt="Profile"
+                                width={40}
+                                height={40}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-white font-semibold">
+                                {session.user.username?.charAt(0).toUpperCase() ||
+                                  session.user.email?.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {session.user.username || session.user.email}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {session.user.email}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center mt-3 pt-2 border-t border-gray-200">
+                          <div className="flex items-center">
+                            <span className="text-xs text-gray-500 mr-1">Rank:</span>
+                            <span className={`text-xs font-medium ${getRankColorClass(session.user.rank)}`}>
+                              {session.user.rank || "Bronze"}
+                            </span>
+                          </div>
+                          <div className="flex items-center">
+                            <span className="text-xs text-gray-500 mr-1">Points:</span>
+                            <span className="text-xs font-medium text-amber-600">
+                              {session.user.points || 0}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="px-4 py-2 border-b">
-                        <p className="text-xs text-gray-500">
-                          Rank: {session.user.rank || "Bronze"}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Points: {session.user.points || 0}
-                        </p>
-                      </div>
-                      <Link
-                        href={`/user/${session.user.id}`}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setIsProfileMenuOpen(false)}
-                      >
-                        Profile
-                      </Link>
-                      <button
-                        onClick={() => setShowProfileUploader(true)}
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        Change Profile Picture
-                      </button>
-                      <Link
-                        href="/settings"
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        Settings
-                      </Link>
-                      <button
-                        onClick={handleLogout}
-                        className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                      >
-                        Logout
-                      </button>
 
+                      <div className="py-1">
+                        <Link
+                          href={`/user/${session.user.id}`}
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                          </svg>
+                          Profile
+                        </Link>
+
+                        <button
+                          onClick={() => {
+                            setShowProfileUploader(true);
+                            setShowProfileMenu(false);
+                          }}
+                          className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" />
+                          </svg>
+                          Change Profile Picture
+                        </button>
+
+                        <Link
+                          href="/settings"
+                          className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                          </svg>
+                          Settings
+                        </Link>
+                      </div>
+
+                      <div className="border-t border-gray-200 py-1">
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V7.414l-5-5H3zm11 4a1 1 0 10-2 0v7.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L14 14.586V7z" clipRule="evenodd" />
+                          </svg>
+                          Logout
+                        </button>
+                      </div>
                     </div>
                   )}
 

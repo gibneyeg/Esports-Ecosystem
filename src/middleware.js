@@ -6,10 +6,9 @@ export async function middleware(request) {
   const isAuthenticated = !!token;
   const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
   const isProfileUpload = request.nextUrl.pathname.startsWith("/api/user/profile-picture");
-  const isPublicApiRoute = request.nextUrl.pathname.startsWith("/api/stats") || 
-                          request.nextUrl.pathname.startsWith("/api/leaderboard");
-  //const isBracketRoute = request.nextUrl.pathname.startsWith("")
-  // For public API routes that need cache control but not auth
+  const isPublicApiRoute = request.nextUrl.pathname.startsWith("/api/stats") ||
+    request.nextUrl.pathname.startsWith("/api/leaderboard");
+
   if (isPublicApiRoute) {
     const response = NextResponse.next();
     response.headers.set('Cache-Control', 'no-store, must-revalidate');
@@ -37,12 +36,12 @@ export async function middleware(request) {
   if (isProfileUpload) {
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set("X-Upload-Request", "true");
-    
-    // Add cache control headers for upload requests
+
+    // cache control headers for upload requests
     requestHeaders.set('Cache-Control', 'no-store, must-revalidate');
     requestHeaders.set('Pragma', 'no-cache');
     requestHeaders.set('Expires', '0');
-    
+
     return NextResponse.next({
       request: {
         headers: requestHeaders,
@@ -50,7 +49,6 @@ export async function middleware(request) {
     });
   }
 
-  // For all other authenticated API requests, add cache control headers
   if (isApiRoute) {
     const response = NextResponse.next();
     response.headers.set('Cache-Control', 'no-store, must-revalidate');
@@ -72,7 +70,6 @@ export const config = {
     "/api/tournaments/:id/edit",
     "/protected/:path*",
     "/api/user/profile-picture",
-    // Public API routes that need cache control
     "/api/stats",
     "/api/leaderboard",
     "/settings",
