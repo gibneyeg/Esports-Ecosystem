@@ -1,10 +1,10 @@
-"use client";
-
+'use client'
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Layout from "../../../components/Layout";
 import Image from "next/image";
 import Link from "next/link";
+import UserProfileLink from "../../../components/UserProfileLink"; // Import the UserProfileLink component
 
 export default function TeamDetailPage({ params }) {
     const teamId = params.id;
@@ -144,7 +144,12 @@ export default function TeamDetailPage({ params }) {
 
                                         <div>
                                             <div className="font-medium flex items-center">
-                                                {member.user?.name || member.user?.username || member.user?.email?.split('@')[0]}
+                                                {/* Replace the text with UserProfileLink component */}
+                                                <UserProfileLink
+                                                    user={member.user}
+                                                    className="font-medium"
+                                                />
+
                                                 {member.role === "OWNER" && (
                                                     <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Captain</span>
                                                 )}

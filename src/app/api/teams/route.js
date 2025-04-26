@@ -4,7 +4,6 @@ import prisma from "../../../lib/prisma";
 import { authOptions } from "../auth/[...nextauth]/route";
 import { v2 as cloudinary } from 'cloudinary';
 
-// Configure Cloudinary
 cloudinary.config({
     cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
@@ -34,19 +33,17 @@ export async function POST(req) {
         const session = await validateSession();
         const formData = await req.formData();
 
-        // Extract team data
+        //  team data
         const name = formData.get("name");
         const tag = formData.get("tag");
         const description = formData.get("description");
         const logo = formData.get("logo");
         const invitedUsersJson = formData.get("invitedUsers");
 
-        // Validate required fields
         if (!name || !tag) {
             return NextResponse.json({ message: "Team name and tag are required" }, { status: 400 });
         }
 
-        // Validate tag length (2-5 characters)
         if (tag.length < 2 || tag.length > 5) {
             return NextResponse.json(
                 { message: "Team tag must be between 2-5 characters" },
@@ -66,7 +63,6 @@ export async function POST(req) {
             );
         }
 
-        // Handle logo upload if provided
         let logoUrl = null;
         if (logo) {
             try {
@@ -100,9 +96,8 @@ export async function POST(req) {
             }
         }
 
-        // Create transaction to handle team creation and member invitations
+        //  handle team creation and member invitations
         const result = await prisma.$transaction(async (tx) => {
-            // Create the team
             const team = await tx.team.create({
                 data: {
                     name,
@@ -115,7 +110,6 @@ export async function POST(req) {
                 },
             });
 
-            // Add owner as team member with OWNER role
             await tx.teamMember.create({
                 data: {
                     role: "OWNER",
@@ -128,9 +122,8 @@ export async function POST(req) {
                 }
             });
 
-            // Add invited members with MEMBER role
+            // Add invited members with PENDING status
             if (invitedUserIds.length > 0) {
-                // Verify all invited users exist
                 const invitedUsers = await tx.user.findMany({
                     where: {
                         id: {
@@ -144,12 +137,12 @@ export async function POST(req) {
 
                 const validUserIds = invitedUsers.map(user => user.id);
 
-                // Create team membership for each valid user
+                // Create team invitations for each valid user
                 await Promise.all(
                     validUserIds.map(userId =>
-                        tx.teamMember.create({
+                        tx.teamInvitation.create({
                             data: {
-                                role: "MEMBER",
+                                status: "PENDING",
                                 team: {
                                     connect: { id: team.id }
                                 },
@@ -188,9 +181,7 @@ export async function GET(req) {
 
         // If userId is provided, fetch teams for that user
         if (userId) {
-            // Verify the user has permission to view these teams
             if (userId !== session.user.id && !session.user.isAdmin) {
-                // Check if the profile is public
                 const targetUser = await prisma.user.findUnique({
                     where: { id: userId },
                     select: { isProfilePrivate: true }
@@ -241,10 +232,40 @@ export async function GET(req) {
                 }
             });
 
-            return NextResponse.json(teams);
+            // Get pending invitations for this user
+            const pendingInvitations = await prisma.teamInvitation.findMany({
+                where: {
+                    userId,
+                    status: "PENDING"
+                },
+                include: {
+                    team: {
+                        include: {
+                            owner: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    username: true,
+                                    image: true
+                                }
+                            },
+                            _count: {
+                                select: {
+                                    members: true
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            return NextResponse.json({
+                teams,
+                pendingInvitations
+            });
         }
 
-        // Otherwise, fetch all teams (could add pagination later)
+        // Otherwise, fetch all teams 
         const teams = await prisma.team.findMany({
             include: {
                 owner: {
@@ -265,7 +286,7 @@ export async function GET(req) {
             orderBy: {
                 createdAt: 'desc'
             },
-            take: 50  // Limit results
+            take: 50
         });
 
         return NextResponse.json(teams);

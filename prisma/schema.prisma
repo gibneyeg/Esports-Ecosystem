@@ -143,6 +143,7 @@ model Team {
   ownerId       String
   members       TeamMember[]
   tournaments   TeamTournamentParticipant[]
+    invitations TeamInvitation[]
 }
 
 model TournamentParticipant {
