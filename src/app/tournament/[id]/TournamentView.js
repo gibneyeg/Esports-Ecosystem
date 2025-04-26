@@ -17,9 +17,34 @@ export default function TournamentView({ tournamentId }) {
   const [tournament, setTournament] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Initialize activeTab from URL 
   const [activeTab, setActiveTab] = useState('info');
 
-  // Function to update tournament status
+  // Load active tab from URL
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (['info', 'bracket', 'streams'].includes(hash)) {
+        setActiveTab(hash);
+      }
+    };
+
+    handleHashChange();
+
+    window.addEventListener('hashchange', handleHashChange);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, []);
+
+  // Update URL hash when active tab changes
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    window.location.hash = tab;
+  };
+
   const updateTournamentStatus = async (tournament) => {
     const now = new Date();
     const startDate = new Date(tournament.startDate);
@@ -303,7 +328,7 @@ export default function TournamentView({ tournamentId }) {
           <div className="border-b border-gray-200 mt-6">
             <nav className="flex space-x-8">
               <button
-                onClick={() => setActiveTab('info')}
+                onClick={() => handleTabChange('info')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'info'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -312,7 +337,7 @@ export default function TournamentView({ tournamentId }) {
                 Tournament Info
               </button>
               <button
-                onClick={() => setActiveTab('bracket')}
+                onClick={() => handleTabChange('bracket')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'bracket'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -321,7 +346,7 @@ export default function TournamentView({ tournamentId }) {
                 Bracket
               </button>
               <button
-                onClick={() => setActiveTab('streams')}
+                onClick={() => handleTabChange('streams')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'streams'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'

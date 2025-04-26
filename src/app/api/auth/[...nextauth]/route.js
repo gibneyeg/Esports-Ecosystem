@@ -1,3 +1,5 @@
+// File: /app/api/auth/[...nextauth]/route.js
+
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import DiscordProvider from "next-auth/providers/discord";
@@ -5,6 +7,33 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "../../../../lib/prisma";
 import bcrypt from "bcryptjs";
+import { v2 as cloudinary } from 'cloudinary';
+
+// Initialize Cloudinary
+cloudinary.config({
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// Enhanced Microsoft Provider with proper scopes for profile photo access
+const MicrosoftProvider = {
+  id: "microsoft",
+  name: "Microsoft",
+  type: "oauth",
+  wellKnown: "https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration",
+  authorization: { params: { scope: "openid profile email User.Read" } }, // Added User.Read scope
+  clientId: process.env.MICROSOFT_CLIENT_ID,
+  clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+  profile(profile) {
+    return {
+      id: profile.sub,
+      name: profile.name,
+      email: profile.email,
+      image: null, // Will be populated later using Graph API
+    };
+  },
+};
 
 export const authOptions = {
   adapter: PrismaAdapter(prisma),
@@ -28,6 +57,7 @@ export const authOptions = {
         },
       },
     }),
+    MicrosoftProvider,
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -104,38 +134,87 @@ export const authOptions = {
     },
   },
   callbacks: {
-    async signIn({ account, profile }) {
+    async signIn({ account, profile, user }) {
       try {
-        if (account.provider === "discord" || account.provider === "google") {
+        // Handle Microsoft accounts specially to get the profile picture
+        if (account.provider === "microsoft") {
+          // Fetch profile photo using Microsoft Graph API with the access token
+          if (account.access_token) {
+            try {
+              const photoResponse = await fetch('https://graph.microsoft.com/v1.0/me/photo/$value', {
+                headers: {
+                  Authorization: `Bearer ${account.access_token}`
+                }
+              });
+
+              // If photo exists, upload to Cloudinary
+              if (photoResponse.ok) {
+                const photoArrayBuffer = await photoResponse.arrayBuffer();
+                const photoBase64 = Buffer.from(photoArrayBuffer).toString('base64');
+                const photoContentType = photoResponse.headers.get('content-type') || 'image/jpeg';
+                const photoDataUrl = `data:${photoContentType};base64,${photoBase64}`;
+
+                // Upload to Cloudinary
+                const uploadResponse = await cloudinary.uploader.upload(photoDataUrl, {
+                  upload_preset: "profile_pictures"
+                });
+
+                // Store the Cloudinary URL
+                user.image = uploadResponse.secure_url;
+              }
+            } catch (photoError) {
+              console.error("Error handling Microsoft profile photo:", photoError);
+              // Continue without photo if there's an error
+            }
+          }
+        }
+
+        if (account.provider === "discord" || account.provider === "google" || account.provider === "microsoft") {
           const existingUser = await prisma.user.findUnique({
             where: { email: profile.email },
             include: { accounts: true },
           });
-    
+
           if (existingUser) {
             const hasProviderAccount = existingUser.accounts.some(
               (acc) => acc.provider === account.provider
             );
-    
+
             if (!hasProviderAccount) {
               return `/login?error=Signin`;
             }
-    
-            // Don't update the image for existing users
+
+            // Update profile picture for Microsoft users if we have a new one
+            if (account.provider === "microsoft" && user.image) {
+              await prisma.user.update({
+                where: { id: existingUser.id },
+                data: { image: user.image }
+              });
+            }
+
             return true;
           }
-    
-          // Only set provider image for new users
+
+          // Get profile image based on provider
+          let profileImage = null;
+
+          if (account.provider === "google" && profile.picture) {
+            profileImage = profile.picture;
+          } else if (account.provider === "discord" && profile.avatar) {
+            profileImage = `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`;
+          } else if (account.provider === "microsoft" && user.image) {
+            profileImage = user.image; // Use the Cloudinary URL we uploaded
+          }
+
+          // Create a username - use name if available, or email prefix
+          const username = profile.name || profile.email.split('@')[0];
+
           await prisma.user.create({
             data: {
               email: profile.email,
-              name: account.provider === "discord" ? profile.username : profile.name,
-              username: account.provider === "discord" ? profile.username : profile.name,
-              image: account.provider === "google" 
-                ? profile.picture 
-                : account.provider === "discord"
-                  ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
-                  : profile.image,
+              name: profile.name || username,
+              username: username,
+              image: profileImage,
               rank: "Bronze",
               points: 0,
               emailVerified: new Date(),
@@ -153,7 +232,7 @@ export const authOptions = {
               },
             },
           });
-    
+
           try {
             await fetch(`${process.env.NEXTAUTH_URL}/api/revalidate`, {
               method: 'POST',
@@ -167,7 +246,7 @@ export const authOptions = {
           } catch (error) {
             console.error('Error revalidating leaderboard:', error);
           }
-    
+
           return true;
         }
         return true;
@@ -176,6 +255,8 @@ export const authOptions = {
         return false;
       }
     },
+
+    // Rest of the callbacks remain unchanged
     async jwt({ token, user, trigger, session }) {
       if (trigger === "signIn" && user) {
         const dbUser = await prisma.user.findUnique({
@@ -227,7 +308,7 @@ export const authOptions = {
 
       return token;
     },
-    
+
     async session({ session, token }) {
       if (session?.user) {
         const dbUser = await prisma.user.findUnique({
@@ -302,6 +383,7 @@ export const authOptions = {
       }
       return session;
     },
+
     async redirect({ url, baseUrl }) {
       if (url.startsWith("/")) return `${baseUrl}${url}`;
       if (new URL(url).origin === baseUrl) return url;
@@ -315,16 +397,16 @@ export const authOptions = {
   },
   cookies: {
     sessionToken: {
-      name: process.env.NODE_ENV === "production" 
-        ? "__Secure-next-auth.session-token" 
+      name: process.env.NODE_ENV === "production"
+        ? "__Secure-next-auth.session-token"
         : "next-auth.session-token",
       options: {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
         secure: process.env.NODE_ENV === "production",
-        domain: process.env.NODE_ENV === "production" 
-          ? process.env.NEXTAUTH_URL?.split('://')[1] 
+        domain: process.env.NODE_ENV === "production"
+          ? process.env.NEXTAUTH_URL?.split('://')[1]
           : undefined
       },
     },
