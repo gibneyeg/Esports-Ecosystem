@@ -19,7 +19,6 @@ vi.mock('@/utils/bracketApi', () => ({
     prepareBracketDataForSave: vi.fn()
 }));
 
-// Import the mocked utilities
 import { initializeParticipants } from '@/utils/participantUtils';
 import { initializeBracket } from '@/utils/bracketUtils';
 import { fetchExistingBracket } from '@/utils/bracketApi';

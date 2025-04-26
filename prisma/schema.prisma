@@ -38,6 +38,7 @@ model User {
 
     ownedTeams   Team[]      @relation("TeamOwner")
   teamMemberships TeamMember[]
+    teamInvitations TeamInvitation[]
 }
 
 model TournamentWinner {
@@ -233,4 +234,17 @@ enum MatchStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+}
+
+model TeamInvitation {
+  id        String   @id @default(cuid())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  status    String   @default("PENDING") // PENDING, ACCEPTED, DECLINED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teamId, userId])
 }

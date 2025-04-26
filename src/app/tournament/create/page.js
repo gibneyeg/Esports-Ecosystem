@@ -27,6 +27,12 @@ export default function CreateTournament() {
     groupSize: "",
     streamEmbed: true,
     streamUrl: "",
+    // New team-related fields
+    registrationType: "INDIVIDUAL", // INDIVIDUAL or TEAM
+    teamSize: "2",                  // Number of players per team
+    allowPartialTeams: false,       // Allow teams with fewer than teamSize players
+    teamsCanRegisterAfterStart: false, // Allow teams to register after tournament starts
+    requireTeamApproval: false,     // Require teams to be approved by the organizer
   });
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -99,6 +105,16 @@ export default function CreateTournament() {
       return;
     }
 
+    // Validate team settings
+    if (formData.registrationType === "TEAM") {
+      const teamSize = parseInt(formData.teamSize);
+      if (teamSize < 2 || teamSize > 10) {
+        setError("Team size must be between 2 and 10 players");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     try {
       const formDataToSend = new FormData();
       Object.keys(formData).forEach((key) => {
@@ -136,6 +152,9 @@ export default function CreateTournament() {
     }));
   };
 
+  // Show team settings if registration type is TEAM
+  const isTeamTournament = formData.registrationType === "TEAM";
+
   return (
     <Layout>
       <div className="max-w-2xl mx-auto p-6">
@@ -147,7 +166,8 @@ export default function CreateTournament() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Basic tournament information */}
           <div>
             <label htmlFor="name" className="block mb-2 font-medium">
               Tournament Name
@@ -236,6 +256,7 @@ export default function CreateTournament() {
             </div>
           </div>
 
+          {/* Tournament dates */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label htmlFor="registrationCloseDate" className="block mb-2 font-medium">
@@ -286,6 +307,7 @@ export default function CreateTournament() {
             </div>
           </div>
 
+          {/* Prize and player settings */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="prizePool" className="block mb-2 font-medium">
@@ -307,7 +329,7 @@ export default function CreateTournament() {
 
             <div>
               <label htmlFor="maxPlayers" className="block mb-2 font-medium">
-                Max Players
+                {isTeamTournament ? "Max Teams" : "Max Players"}
               </label>
               <input
                 id="maxPlayers"
@@ -323,6 +345,7 @@ export default function CreateTournament() {
             </div>
           </div>
 
+          {/* Game selection */}
           <div>
             <label htmlFor="game" className="block mb-2 font-medium">
               Game
@@ -334,6 +357,145 @@ export default function CreateTournament() {
             />
           </div>
 
+          {/* Registration Type: Individual or Team */}
+          <div className="space-y-2">
+            <label className="block mb-2 font-medium">Registration Type</label>
+            <div className="grid grid-cols-2 gap-4">
+              <label className={`flex items-center justify-center p-4 border rounded-lg cursor-pointer ${formData.registrationType === 'INDIVIDUAL' ? 'bg-blue-50 border-blue-500' : 'border-gray-300 hover:bg-gray-50'}`}>
+                <input
+                  type="radio"
+                  name="registrationType"
+                  value="INDIVIDUAL"
+                  checked={formData.registrationType === 'INDIVIDUAL'}
+                  onChange={handleChange}
+                  className="sr-only"
+                />
+                <div className="text-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mx-auto text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <div className="mt-2 font-medium">Individual Players</div>
+                  <div className="text-xs text-gray-500">Players register independently</div>
+                </div>
+              </label>
+
+              <label className={`flex items-center justify-center p-4 border rounded-lg cursor-pointer ${formData.registrationType === 'TEAM' ? 'bg-blue-50 border-blue-500' : 'border-gray-300 hover:bg-gray-50'}`}>
+                <input
+                  type="radio"
+                  name="registrationType"
+                  value="TEAM"
+                  checked={formData.registrationType === 'TEAM'}
+                  onChange={handleChange}
+                  className="sr-only"
+                />
+                <div className="text-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mx-auto text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <div className="mt-2 font-medium">Team-Based</div>
+                  <div className="text-xs text-gray-500">Teams register as a group</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          {/* Team settings (only shown if team registration is selected) */}
+          {isTeamTournament && (
+            <div className="space-y-6 p-4 border rounded-lg bg-gray-50">
+              <h3 className="text-lg font-medium border-b pb-2">Team Settings</h3>
+
+              <div>
+                <label htmlFor="teamSize" className="block mb-2 font-medium">
+                  Number of Players per Team
+                </label>
+                <select
+                  id="teamSize"
+                  name="teamSize"
+                  value={formData.teamSize}
+                  onChange={handleChange}
+                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
+                  disabled={isSubmitting}
+                >
+                  {[2, 3, 4, 5, 6, 7, 8, 9, 10].map(size => (
+                    <option key={size} value={size}>{size} players</option>
+                  ))}
+                </select>
+                <p className="text-sm text-gray-500 mt-1">
+                  Each team must have exactly this many players unless partial teams are allowed
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-start">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="allowPartialTeams"
+                      name="allowPartialTeams"
+                      type="checkbox"
+                      checked={formData.allowPartialTeams}
+                      onChange={handleChange}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div className="ml-3 text-sm">
+                    <label htmlFor="allowPartialTeams" className="font-medium text-gray-700">
+                      Allow Partial Teams
+                    </label>
+                    <p className="text-gray-500">
+                      Teams can register with fewer players than required
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="teamsCanRegisterAfterStart"
+                      name="teamsCanRegisterAfterStart"
+                      type="checkbox"
+                      checked={formData.teamsCanRegisterAfterStart}
+                      onChange={handleChange}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div className="ml-3 text-sm">
+                    <label htmlFor="teamsCanRegisterAfterStart" className="font-medium text-gray-700">
+                      Allow Registration After Start
+                    </label>
+                    <p className="text-gray-500">
+                      Teams can join after the tournament has started
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="requireTeamApproval"
+                      name="requireTeamApproval"
+                      type="checkbox"
+                      checked={formData.requireTeamApproval}
+                      onChange={handleChange}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div className="ml-3 text-sm">
+                    <label htmlFor="requireTeamApproval" className="font-medium text-gray-700">
+                      Require Team Approval
+                    </label>
+                    <p className="text-gray-500">
+                      Teams must be approved by you before they can participate
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tournament format settings */}
           <div className="space-y-6">
             <div>
               <label className="block mb-2 font-medium">Tournament Format</label>
@@ -400,6 +562,7 @@ export default function CreateTournament() {
               />
             </div>
 
+            {/* Streaming settings */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Streaming Settings</h3>
 

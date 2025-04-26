@@ -207,12 +207,6 @@ describe("DoubleEliminationBracket", () => {
             render(<DoubleEliminationBracket {...defaultProps} />);
         });
 
-        // 2 matches with 2 slots each in winners first round + 1 match with 2 slots in winners finals
-        // 1 match with 2 slots in each losers rounds
-        // 1 grand finals match with 2 slots
-        // Note: The actual implementation seems to render 12 slots instead of 10
-        // Total: (2*2) + (1*2) + (1*2) + (1*2) + (1*2) = 12 slots
-
         const emptySlots = screen.getAllByText("Empty Slot");
         expect(emptySlots.length).toBe(12);
     });
@@ -248,8 +242,6 @@ describe("DoubleEliminationBracket", () => {
         const resetMatchHeading = screen.queryByText("Reset Match (Final)");
         expect(resetMatchHeading).not.toBeInTheDocument();
 
-        // Simulate losers bracket winner defeating winners bracket winner
-        // This would normally be done by calling handleGrandFinalsResult(1)
         const component = document.createElement('div');
         const event = new CustomEvent('saveDoubleEliminationBracket', { bubbles: true });
         component.dispatchEvent(event);
