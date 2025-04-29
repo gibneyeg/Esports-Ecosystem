@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Layout from "@/components/Layout";
-
+import Image from "next/image";
 export default function EditTeam({ params }) {
     const router = useRouter();
     const teamId = params.id;
@@ -253,10 +253,13 @@ export default function EditTeam({ params }) {
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                             {logoPreview ? (
                                 <div className="space-y-4">
-                                    <img
+                                    <Image
                                         src={logoPreview}
                                         alt="Logo Preview"
-                                        className="mx-auto max-h-48 rounded-full"
+                                        width={192}
+                                        height={192}
+                                        className="mx-auto rounded-full object-contain"
+                                        style={{ maxHeight: '12rem' }}
                                     />
                                     <button
                                         type="button"

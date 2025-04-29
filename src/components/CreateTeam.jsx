@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Layout from "./Layout";
-
+import Image from "next/image";
 export default function CreateTeam() {
     const router = useRouter();
     const { data: session } = useSession();
@@ -104,6 +104,7 @@ export default function CreateTeam() {
         }, 500);
 
         return () => clearTimeout(delayDebounceFn);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchQuery]);
 
     const inviteUser = (user) => {
@@ -259,10 +260,14 @@ export default function CreateTeam() {
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                             {logoPreview ? (
                                 <div className="space-y-4">
-                                    <img
+                                    <Image
                                         src={logoPreview}
                                         alt="Logo Preview"
-                                        className="mx-auto max-h-48 rounded-full"
+                                        width={192}
+                                        height={192}
+                                        className="mx-auto rounded-full object-contain"
+                                        style={{ maxHeight: '12rem' }}
+                                        unoptimized
                                     />
                                     <button
                                         type="button"
@@ -318,14 +323,16 @@ export default function CreateTeam() {
                             </span>
                         </div>
 
-                        {/* Team creator info - always shown */}
+                        {/* Team creator info */}
                         <div className="mb-4 bg-green-50 p-3 rounded-md border border-green-200">
                             <div className="flex items-center">
                                 {session?.user?.image ? (
-                                    <img
+                                    <Image
                                         src={session.user.image}
                                         alt={session.user.name || session.user.email}
-                                        className="h-10 w-10 rounded-full mr-3"
+                                        width={40}
+                                        height={40}
+                                        className="rounded-full mr-3 object-cover"
                                     />
                                 ) : (
                                     <div className="h-10 w-10 rounded-full bg-green-200 flex items-center justify-center mr-3">
@@ -383,10 +390,12 @@ export default function CreateTeam() {
                                             >
                                                 <div className="flex items-center">
                                                     {user.image ? (
-                                                        <img
+                                                        <Image
                                                             src={user.image}
                                                             alt={user.name || user.username}
-                                                            className="h-8 w-8 rounded-full mr-3"
+                                                            width={32}
+                                                            height={32}
+                                                            className="rounded-full mr-3 object-cover"
                                                         />
                                                     ) : (
                                                         <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
@@ -432,10 +441,12 @@ export default function CreateTeam() {
                                             >
                                                 <div className="flex items-center">
                                                     {user.image ? (
-                                                        <img
+                                                        <Image
                                                             src={user.image}
                                                             alt={user.name || user.username}
-                                                            className="h-8 w-8 rounded-full mr-3"
+                                                            width={32}
+                                                            height={32}
+                                                            className="rounded-full mr-3 object-cover"
                                                         />
                                                     ) : (
                                                         <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">

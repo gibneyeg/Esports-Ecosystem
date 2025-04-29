@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
-
+import Link from "next/link";
 export default function TeamTournamentRegistration({ tournamentId, formatSettings, isRegistrationOpen }) {
     const { data: session } = useSession();
     const [userTeams, setUserTeams] = useState([]);
@@ -174,9 +174,12 @@ export default function TeamTournamentRegistration({ tournamentId, formatSetting
                     </svg>
                     <p className="mt-2 text-gray-600">You don't have any teams that you own or teams of the right size</p>
                     <p className="mt-1 text-sm text-gray-500">You must be the Owner or Admin of a team to register it</p>
-                    <a href="/teams/create" className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                    <Link
+                        href="/teams/create"
+                        className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    >
                         Create a Team
-                    </a>
+                    </Link>
                 </div>
             ) : (
                 <>

@@ -107,10 +107,12 @@ export default function TeamDetailPage({ params }) {
                     <div className="flex items-start gap-6">
                         <div className="flex-shrink-0">
                             {team.logoUrl ? (
-                                <img
+                                <Image
                                     src={team.logoUrl}
                                     alt={team.name}
-                                    className="w-32 h-32 rounded-full object-cover border-4 border-gray-200"
+                                    width={128}
+                                    height={128}
+                                    className="rounded-full object-cover border-4 border-gray-200"
                                 />
                             ) : (
                                 <div className="w-32 h-32 rounded-full bg-blue-100 flex items-center justify-center text-4xl text-blue-800 font-bold border-4 border-gray-200">
@@ -151,10 +153,12 @@ export default function TeamDetailPage({ params }) {
                                 <div key={member.id} className="bg-gray-50 p-3 rounded-md flex items-center justify-between">
                                     <div className="flex items-center">
                                         {member.user?.image ? (
-                                            <img
+                                            <Image
                                                 src={member.user.image}
                                                 alt={member.user.name || member.user.username}
-                                                className="w-10 h-10 rounded-full mr-3"
+                                                width={40}
+                                                height={40}
+                                                className="rounded-full mr-3 object-cover"
                                             />
                                         ) : (
                                             <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
