@@ -29,11 +29,27 @@ export default function TeamTournamentRegistration({ tournamentId, formatSetting
                     throw new Error("Failed to fetch teams");
                 }
 
-                const data = await response.json();
+                const responseData = await response.json();
+
+                // Handle both possible API response formats
+                let teamsData = responseData;
+                if (responseData.teams) {
+                    // New API format returns {teams: [...]}
+                    teamsData = responseData.teams;
+                } else if (!Array.isArray(responseData)) {
+                    // If it's not an array and doesn't have teams property
+                    console.error("Unexpected API response format:", responseData);
+                    setError("Unexpected data format from API");
+                    setUserTeams([]);
+                    setIsLoadingTeams(false);
+                    return;
+                }
 
                 // Only include teams where the user is owner or admin
-                const eligibleTeams = data.filter(team => {
-                    const userMembership = team.members.find(member => member.user.id === session.user.id);
+                const eligibleTeams = teamsData.filter(team => {
+                    const userMembership = team.members.find(member =>
+                        member.user.id === session.user.id
+                    );
                     return userMembership && (userMembership.role === "OWNER" || userMembership.role === "ADMIN");
                 });
 
@@ -131,6 +147,16 @@ export default function TeamTournamentRegistration({ tournamentId, formatSetting
                         {allowPartialTeams && " (partial teams allowed)"}
                     </p>
                 </div>
+
+                {/* Owner requirement notice */}
+                <div className="flex items-center mb-3 bg-yellow-50 p-2 rounded border border-yellow-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <p className="text-sm text-yellow-700 font-medium">
+                        You must be the Owner or Admin of a team to register it for this tournament.
+                    </p>
+                </div>
             </div>
 
             {isLoadingTeams ? (
@@ -146,7 +172,8 @@ export default function TeamTournamentRegistration({ tournamentId, formatSetting
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    <p className="mt-2 text-gray-600">You don't have any teams yet.</p>
+                    <p className="mt-2 text-gray-600">You don't have any teams that you own or teams of the right size</p>
+                    <p className="mt-1 text-sm text-gray-500">You must be the Owner or Admin of a team to register it</p>
                     <a href="/teams/create" className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
                         Create a Team
                     </a>
@@ -163,8 +190,8 @@ export default function TeamTournamentRegistration({ tournamentId, formatSetting
                                     <div
                                         key={team.id}
                                         className={`border rounded-lg p-3 transition duration-150 ${selectedTeamId === team.id
-                                                ? "border-blue-500 bg-blue-50"
-                                                : "border-gray-200 hover:border-blue-300"
+                                            ? "border-blue-500 bg-blue-50"
+                                            : "border-gray-200 hover:border-blue-300"
                                             } ${!eligible && "opacity-60"}`}
                                         onClick={() => eligible && setSelectedTeamId(team.id)}
                                     >
@@ -221,8 +248,8 @@ export default function TeamTournamentRegistration({ tournamentId, formatSetting
                         onClick={handleRegisterTeam}
                         disabled={isLoading || !selectedTeamId || !isRegistrationOpen}
                         className={`w-full py-2 px-4 rounded-md font-medium text-center ${isLoading || !selectedTeamId || !isRegistrationOpen
-                                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                                : "bg-blue-600 text-white hover:bg-blue-700"
+                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                            : "bg-blue-600 text-white hover:bg-blue-700"
                             }`}
                     >
                         {isLoading ? (

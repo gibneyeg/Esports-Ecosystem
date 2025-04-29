@@ -493,7 +493,7 @@ export default function TournamentView({ tournamentId }) {
                   </div>
 
                   {/* Team Tournament Registration */}
-                  {isTeamTournament() && isTeamRegistrationOpen && !isUserInParticipatingTeam() && !isCreator && (
+                  {isTeamTournament() && isTeamRegistrationOpen && !isUserInParticipatingTeam() && (
                     <div className="mt-6">
                       <TeamTournamentRegistration
                         tournamentId={tournament.id}
