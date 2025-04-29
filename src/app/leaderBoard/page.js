@@ -1,6 +1,5 @@
 "use client";
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import Layout from "/src/components/Layout.jsx";
 import Link from "next/link";
@@ -129,6 +128,8 @@ const LeaderboardRankBadge = ({ rank }) => {
 
 export default function LeaderBoard() {
   const [selectedRank, setSelectedRank] = useState("All");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [playersPerPage] = useState(10);
 
   const { data, error } = useSWR('/api/leaderboard', fetcher, {
     refreshInterval: 30000, // Refresh every 30 seconds
@@ -138,6 +139,11 @@ export default function LeaderBoard() {
 
   const isLoading = !data && !error;
   const users = data?.users || [];
+
+  // Reset pagination when rank filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedRank]);
 
   // Filter and rank players
   const getFilteredAndRankedPlayers = () => {
@@ -153,11 +159,17 @@ export default function LeaderBoard() {
       }));
   };
 
-  const rankedPlayers = getFilteredAndRankedPlayers();
+  const allRankedPlayers = getFilteredAndRankedPlayers();
 
-  // Calculate the highest points for the progress bar
-  const maxPoints = users.length > 0
-    ? Math.max(...users.map(user => user.points))
+  // Paginate players
+  const indexOfLastPlayer = currentPage * playersPerPage;
+  const indexOfFirstPlayer = indexOfLastPlayer - playersPerPage;
+  const currentPlayers = allRankedPlayers.slice(indexOfFirstPlayer, indexOfLastPlayer);
+  const totalPages = Math.ceil(allRankedPlayers.length / playersPerPage);
+
+  // Find the highest points for the progress bar (from all players, not just current page)
+  const maxPoints = allRankedPlayers.length > 0
+    ? allRankedPlayers[0].points // This ensures the top player has a 100% width bar
     : 5500; // Fallback if no users
 
   if (isLoading) {
@@ -189,6 +201,15 @@ export default function LeaderBoard() {
     );
   }
 
+  // Pagination controls
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+      // Scroll to top of table when changing pages
+      window.scrollTo({ top: document.getElementById('leaderboard-table').offsetTop - 100, behavior: 'smooth' });
+    }
+  };
+
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-16">
@@ -203,7 +224,7 @@ export default function LeaderBoard() {
           </div>
 
           {/* Rank filter buttons */}
-          <div className="mb-10 flex flex-wrap gap-3 justify-center">
+          <div className="mb-8 flex flex-wrap gap-3 justify-center">
             {RANKS.map((rank) => {
               const rankStyle = rank.id !== 'All' ? getRankStyle(rank.id) : null;
               // Simple emoji for rank indicators
@@ -245,8 +266,15 @@ export default function LeaderBoard() {
             })}
           </div>
 
+          {/* Results summary */}
+          <div className="mb-4 text-center">
+            <p className="text-gray-600">
+              Showing {indexOfFirstPlayer + 1}-{Math.min(indexOfLastPlayer, allRankedPlayers.length)} of {allRankedPlayers.length} players
+            </p>
+          </div>
+
           {/* Leaderboard table */}
-          <div className="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-100">
+          <div id="leaderboard-table" className="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-100">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -281,7 +309,7 @@ export default function LeaderBoard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {rankedPlayers.map((player) => {
+                  {currentPlayers.map((player) => {
                     const rankStyle = getRankStyle(player.rank);
                     const isTopThree = player.leaderboardPosition <= 3;
 
@@ -312,11 +340,11 @@ export default function LeaderBoard() {
                           <div className="font-semibold text-gray-900">
                             {player.points.toLocaleString()}
 
-                            {/* Progress bar */}
+                            {/* Progress bar - now the top player will have 100% width */}
                             <div className="w-full h-1.5 bg-gray-100 rounded-full mt-2 overflow-hidden">
                               <div
                                 className={`h-full ${rankStyle.bg}`}
-                                style={{ width: `${(player.points / (maxPoints * 1.1)) * 100}%` }}
+                                style={{ width: `${(player.points / maxPoints) * 100}%` }}
                               />
                             </div>
                           </div>
@@ -348,9 +376,109 @@ export default function LeaderBoard() {
                       </tr>
                     );
                   })}
+
+                  {/* Empty state if no players match the filter */}
+                  {currentPlayers.length === 0 && (
+                    <tr>
+                      <td colSpan="7" className="px-6 py-10 text-center text-gray-500">
+                        <div className="flex flex-col items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <p className="text-lg font-medium mb-1">No players found</p>
+                          <p>Try selecting a different rank category</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination controls */}
+            {totalPages > 1 && (
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Page <span className="font-medium">{currentPage}</span> of{" "}
+                    <span className="font-medium">{totalPages}</span>
+                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handlePageChange(1)}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-1 rounded text-sm ${currentPage === 1
+                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      }`}
+                  >
+                    First
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-1 rounded text-sm ${currentPage === 1
+                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      }`}
+                  >
+                    Previous
+                  </button>
+
+                  {/* Page numbers */}
+                  <div className="flex space-x-1">
+                    {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                      // Show pages around current page
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => handlePageChange(pageNum)}
+                          className={`w-8 h-8 flex items-center justify-center rounded ${currentPage === pageNum
+                              ? "bg-blue-600 text-white"
+                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className={`px-3 py-1 rounded text-sm ${currentPage === totalPages
+                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      }`}
+                  >
+                    Next
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className={`px-3 py-1 rounded text-sm ${currentPage === totalPages
+                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      }`}
+                  >
+                    Last
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -81,27 +81,6 @@ describe("ProfilePictureUploader", () => {
         expect(screen.queryByText("Upload Picture")).not.toBeInTheDocument();
     });
 
-    // it("allows removing selected image", async () => {
-    //     render(<ProfilePictureUploader />);
-
-    //     const file = new File(["dummy content"], "test.jpg", { type: "image/jpeg" });
-    //     const input = screen.getByLabelText("Upload a file");
-
-    //     await act(async () => {
-    //         fireEvent.change(input, { target: { files: [file] } });
-    //         mockFileReader.onloadend();
-    //     });
-
-    //     // Click remove button
-    //     await act(async () => {
-    //         fireEvent.click(screen.getByText("Remove Image"));
-    //     });
-
-    //     // Should go back to original state
-    //     expect(screen.queryByAltText("Preview")).not.toBeInTheDocument();
-    //     expect(screen.queryByText("Upload Picture")).not.toBeInTheDocument();
-    //     expect(screen.getByText("Upload a file")).toBeInTheDocument();
-    // });
 
     it("uploads image to Cloudinary and updates profile", async () => {
         // Mock successful responses

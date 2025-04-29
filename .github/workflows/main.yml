@@ -100,7 +100,12 @@ jobs:
         run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
           
+      - name: npx prisma generate
+        run: npx prisma generate
+
+
       - name: Seed database
         run: npx prisma db seed
         env:

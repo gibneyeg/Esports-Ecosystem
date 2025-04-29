@@ -8,50 +8,51 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  username      String?   @unique
-  email         String?   @unique
-  password      String?
-  rank          String    @default("Bronze")
-  points        Int       @default(0)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
+  id        String   @id @default(uuid())
+  username  String?  @unique
+  email     String?  @unique
+  password  String?
+  rank      String   @default("Bronze")
+  points    Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // NextAuth.js required fields
-  name          String?
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
-  isProfilePrivate Boolean @default(false) 
+  name             String?
+  emailVerified    DateTime?
+  image            String?
+  accounts         Account[]
+  sessions         Session[]
+  isProfilePrivate Boolean   @default(false)
 
   // Tournament relations
-  createdTournaments Tournament[] @relation("TournamentCreator")
-  wonTournaments    Tournament[] @relation("TournamentWinner")
-  tournaments       TournamentParticipant[]
-  tournamentWins    TournamentWinner[]    
-  
-  // Match relations
-  player1Matches    Match[] @relation("Player1Matches")
-  player2Matches    Match[] @relation("Player2Matches")
-  wonMatches        Match[] @relation("WonMatches")
+  createdTournaments Tournament[]            @relation("TournamentCreator")
+  wonTournaments     Tournament[]            @relation("TournamentWinner")
+  tournaments        TournamentParticipant[]
+  tournamentWins     TournamentWinner[]
 
-    ownedTeams   Team[]      @relation("TeamOwner")
+  // Match relations
+  player1Matches Match[] @relation("Player1Matches")
+  player2Matches Match[] @relation("Player2Matches")
+  wonMatches     Match[] @relation("WonMatches")
+
+  ownedTeams      Team[]           @relation("TeamOwner")
   teamMemberships TeamMember[]
+  teamInvitations TeamInvitation[]
 }
 
 model TournamentWinner {
   id           String     @id @default(uuid())
   tournament   Tournament @relation(fields: [tournamentId], references: [id])
   tournamentId String
-  user         User      @relation(fields: [userId], references: [id])
+  user         User       @relation(fields: [userId], references: [id])
   userId       String
-  position     Int       // 1 for first place, 2 for second, 3 for third
-  prizeMoney   Float     
-  createdAt    DateTime  @default(now())
+  position     Int // 1 for first place, 2 for second, 3 for third
+  prizeMoney   Float
+  createdAt    DateTime   @default(now())
 
-  @@unique([tournamentId, position])  // Ensure no duplicate positions per tournament
-  @@unique([tournamentId, userId])    // Ensure a user can't win multiple positions
+  @@unique([tournamentId, position]) // Ensure no duplicate positions per tournament
+  @@unique([tournamentId, userId]) // Ensure a user can't win multiple positions
 }
 
 model Account {
@@ -67,7 +68,7 @@ model Account {
   scope             String?
   id_token          String? @db.Text
   session_state     String?
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -89,59 +90,60 @@ model VerificationToken {
 }
 
 model Tournament {
-  id          String      @id @default(uuid())
-  name        String
-  description String
-  imageUrl    String?
-  startDate   DateTime
-  endDate     DateTime
+  id                    String                  @id @default(uuid())
+  name                  String
+  description           String
+  imageUrl              String?
+  startDate             DateTime
+  endDate               DateTime
   registrationCloseDate DateTime
-  prizePool   Float
-  maxPlayers  Int
-  game        String
-  status      TournamentStatus @default(UPCOMING)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  createdBy   User       @relation("TournamentCreator", fields: [userId], references: [id])
-  userId      String
-  winner      User?      @relation("TournamentWinner", fields: [winnerId], references: [id])
-  winnerId    String?
-  participants TournamentParticipant[]
-  brackets    TournamentBracket[]
-  winners     TournamentWinner[]
+  prizePool             Float
+  maxPlayers            Int
+  game                  String
+  status                TournamentStatus        @default(UPCOMING)
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  createdBy             User                    @relation("TournamentCreator", fields: [userId], references: [id])
+  userId                String
+  winner                User?                   @relation("TournamentWinner", fields: [winnerId], references: [id])
+  winnerId              String?
+  participants          TournamentParticipant[]
+  brackets              TournamentBracket[]
+  winners               TournamentWinner[]
 
   hasManualSeeding Boolean @default(false)
 
   //twitch streaming
-  streamUrl        String?    // Optional Twitch stream URL
-  streamEmbed      Boolean    @default(true) // Whether to embed the stream
-  featuredStreams  TournamentStream[] // Multiple streams for the tournament
+  streamUrl       String? // Optional Twitch stream URL
+  streamEmbed     Boolean            @default(true) // Whether to embed the stream
+  featuredStreams TournamentStream[] // Multiple streams for the tournament
 
   // New fields for tournament format
-  format              String      // SINGLE_ELIMINATION, DOUBLE_ELIMINATION, ROUND_ROBIN, SWISS
-  seedingType         String      @default("RANDOM") // RANDOM, MANUAL, SKILL_BASED
-  rules               String?     @db.Text
-  formatSettings      Json?       // Store format-specific settings like numberOfRounds, groupSize
+  format         String // SINGLE_ELIMINATION, DOUBLE_ELIMINATION, ROUND_ROBIN, SWISS
+  seedingType    String  @default("RANDOM") // RANDOM, MANUAL, SKILL_BASED
+  rules          String? @db.Text
+  formatSettings Json? // Store format-specific settings like numberOfRounds, groupSize
+
+  teamParticipants TeamTournamentParticipant[]
+
   @@map("tournaments")
-
-
-    teamParticipants TeamTournamentParticipant[]
 }
 
 model Team {
-  id            String    @id @default(cuid())
-  name          String
-  tag           String    @unique
-  description   String?
-  logoUrl       String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
+  id          String   @id @default(cuid())
+  name        String
+  tag         String   @unique
+  description String?
+  logoUrl     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   // Relations
-  owner         User      @relation("TeamOwner", fields: [ownerId], references: [id])
-  ownerId       String
-  members       TeamMember[]
-  tournaments   TeamTournamentParticipant[]
+  owner       User                        @relation("TeamOwner", fields: [ownerId], references: [id])
+  ownerId     String
+  members     TeamMember[]
+  tournaments TeamTournamentParticipant[]
+  invitations TeamInvitation[]
 }
 
 model TournamentParticipant {
@@ -151,35 +153,36 @@ model TournamentParticipant {
   user         User       @relation(fields: [userId], references: [id])
   userId       String
   joinedAt     DateTime   @default(now())
-  seedNumber Int?
+  seedNumber   Int?
+
   @@unique([tournamentId, userId])
 }
 
 model TeamTournamentParticipant {
-  id            String    @id @default(cuid())
-  seedNumber    Int?
-  joinedAt      DateTime  @default(now())
-  
+  id         String   @id @default(cuid())
+  seedNumber Int?
+  joinedAt   DateTime @default(now())
+
   // Relations
-  tournament    Tournament @relation(fields: [tournamentId], references: [id])
-  tournamentId  String
-  team          Team       @relation(fields: [teamId], references: [id])
-  teamId        String
-  
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId String
+  team         Team       @relation(fields: [teamId], references: [id])
+  teamId       String
+
   @@unique([tournamentId, teamId])
 }
 
 model TeamMember {
-  id        String   @id @default(cuid())
-  role      String   @default("MEMBER") // OWNER, ADMIN, MEMBER
-  joinedAt  DateTime @default(now())
-  
+  id       String   @id @default(cuid())
+  role     String   @default("MEMBER") // OWNER, ADMIN, MEMBER
+  joinedAt DateTime @default(now())
+
   // Relations
-  team      Team     @relation(fields: [teamId], references: [id])
-  teamId    String
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
-  
+  team   Team   @relation(fields: [teamId], references: [id])
+  teamId String
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
   @@unique([teamId, userId])
 }
 
@@ -196,31 +199,34 @@ model TournamentStream {
   id           String     @id @default(uuid())
   tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   tournamentId String
-  streamUrl    String     // Twitch stream URL
-  streamerName String     // Name of the streamer
+  streamUrl    String // Twitch stream URL
+  streamerName String // Name of the streamer
   isOfficial   Boolean    @default(false) // Whether this is an official tournament stream
   isLive       Boolean    @default(false) // Stream status
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+
   @@index([tournamentId])
 }
+
 model Match {
-  id            String     @id @default(uuid())
-  bracket       TournamentBracket @relation(fields: [bracketId], references: [id], onDelete: Cascade)
-  bracketId     String
-  player1       User?     @relation("Player1Matches", fields: [player1Id], references: [id])
-  player1Id     String?
-  player2       User?     @relation("Player2Matches", fields: [player2Id], references: [id])
-  player2Id     String?
-  winner        User?     @relation("WonMatches", fields: [winnerId], references: [id])
-  winnerId      String?
-  score         String?
-  status        MatchStatus @default(PENDING)
-  position      Int
-  scheduledTime DateTime?
-  completedTime DateTime?
+  id             String            @id @default(uuid())
+  bracket        TournamentBracket @relation(fields: [bracketId], references: [id], onDelete: Cascade)
+  bracketId      String
+  player1        User?             @relation("Player1Matches", fields: [player1Id], references: [id])
+  player1Id      String?
+  player2        User?             @relation("Player2Matches", fields: [player2Id], references: [id])
+  player2Id      String?
+  winner         User?             @relation("WonMatches", fields: [winnerId], references: [id])
+  winnerId       String?
+  score          String?
+  status         MatchStatus       @default(PENDING)
+  position       Int
+  scheduledTime  DateTime?
+  completedTime  DateTime?
   roundRobinData String?
 }
+
 enum TournamentStatus {
   UPCOMING
   ONGOING
@@ -233,4 +239,17 @@ enum MatchStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+}
+
+model TeamInvitation {
+  id        String   @id @default(cuid())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  status    String   @default("PENDING") // PENDING, ACCEPTED, DECLINED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teamId, userId])
 }

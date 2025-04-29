@@ -8,6 +8,7 @@ import TournamentManagement from "../../../components/TournamentManagment.jsx";
 import DeclareWinnerButton from "../../../components/TournamentWinner.jsx";
 import TwitchStream from "../../../components/TournamentStream.jsx";
 import TournamentBracketsHandler from "@/components/TournamentBracketHandler.jsx";
+import TeamTournamentRegistration from "@/components/TeamTournamentRegistration.jsx";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -108,6 +109,11 @@ export default function TournamentView({ tournamentId }) {
         }
 
         if (mounted) {
+          // Make sure teamParticipants is initialized if not present
+          if (!data.teamParticipants) {
+            data.teamParticipants = [];
+          }
+
           // Update tournament status if needed
           const updatedTournament = await updateTournamentStatus(data);
           setTournament(updatedTournament);
@@ -217,6 +223,22 @@ export default function TournamentView({ tournamentId }) {
     );
   };
 
+  // Check if tournament is team-based - with safe access
+  const isTeamTournament = () => {
+    return tournament?.formatSettings?.registrationType === "TEAM";
+  };
+
+  // Check if the user is part of a team in this tournament - with safe access
+  const isUserInParticipatingTeam = () => {
+    if (!session?.user?.id || !tournament?.teamParticipants || !isTeamTournament()) {
+      return false;
+    }
+
+    return tournament.teamParticipants.some(teamParticipant =>
+      teamParticipant.team.members.some(member => member.user.id === session.user.id)
+    );
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -256,12 +278,22 @@ export default function TournamentView({ tournamentId }) {
   }
 
   const isCreator = session?.user?.id === tournament.userId;
-  const isParticipant = tournament.participants?.some(
+  const isIndividualParticipant = tournament.participants?.some(
     (p) => p.user.id === session?.user?.id
   );
-  const canJoin =
-    !isParticipant &&
-    tournament.participants.length < tournament.maxPlayers &&
+
+  // For individual tournaments, use the standard join flow - with safe access
+  const canJoinIndividual =
+    !isTeamTournament() &&
+    !isIndividualParticipant &&
+    (tournament.participants?.length || 0) < tournament.maxPlayers &&
+    tournament.status === "UPCOMING" &&
+    new Date() < new Date(tournament.registrationCloseDate);
+
+  // For team tournaments, check if registration is open - with safe access
+  const isTeamRegistrationOpen =
+    isTeamTournament() &&
+    (tournament.teamParticipants?.length || 0) < tournament.maxPlayers &&
     tournament.status === "UPCOMING" &&
     new Date() < new Date(tournament.registrationCloseDate);
 
@@ -302,7 +334,7 @@ export default function TournamentView({ tournamentId }) {
                 )}
               </p>
             </div>
-            {session?.user && canJoin && (
+            {session?.user && canJoinIndividual && (
               <button
                 onClick={handleJoinTournament}
                 className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
@@ -368,6 +400,19 @@ export default function TournamentView({ tournamentId }) {
                       <span className="font-medium">Game:</span> {tournament.game}
                     </p>
                     <p>
+                      <span className="font-medium">Registration Type:</span>{" "}
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                        {isTeamTournament() ? "Team-Based" : "Individual Players"}
+                      </span>
+                    </p>
+                    {isTeamTournament() && tournament.formatSettings && (
+                      <p>
+                        <span className="font-medium">Team Size:</span>{" "}
+                        {tournament.formatSettings.teamSize} players
+                        {tournament.formatSettings.allowPartialTeams && " (partial teams allowed)"}
+                      </p>
+                    )}
+                    <p>
                       <span className="font-medium">Format:</span>{" "}
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
                         {getFormatIcon(tournament.format)}{" "}
@@ -418,8 +463,13 @@ export default function TournamentView({ tournamentId }) {
                       </span>
                     </p>
                     <p>
-                      <span className="font-medium">Players:</span>{" "}
-                      {tournament.participants?.length || 0}/{tournament.maxPlayers}
+                      <span className="font-medium">
+                        {isTeamTournament() ? "Teams" : "Players"}:
+                      </span>{" "}
+                      {isTeamTournament()
+                        ? `${tournament.teamParticipants?.length || 0}/${tournament.maxPlayers}`
+                        : `${tournament.participants?.length || 0}/${tournament.maxPlayers}`
+                      }
                     </p>
                     {tournament.winner && (
                       <p>
@@ -441,63 +491,167 @@ export default function TournamentView({ tournamentId }) {
                       </div>
                     )}
                   </div>
+
+                  {/* Team Tournament Registration */}
+                  {isTeamTournament() && isTeamRegistrationOpen && !isUserInParticipatingTeam() && (
+                    <div className="mt-6">
+                      <TeamTournamentRegistration
+                        tournamentId={tournament.id}
+                        formatSettings={tournament.formatSettings}
+                        isRegistrationOpen={isTeamRegistrationOpen}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div>
-                  <h2 className="text-xl font-semibold mb-4">Participants</h2>
-                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                    {tournament.participants?.length > 0 ? (
-                      tournament.participants.map((participant) => {
-                        const displayName = getParticipantDisplayName(participant);
-                        const firstLetter = displayName.charAt(0).toUpperCase();
-
-                        return (
-                          <div
-                            key={participant.id}
-                            className="bg-gray-50 p-2 rounded-md flex items-center justify-between"
-                          >
-                            <div className="flex items-center">
-                              {/* Profile Picture/Avatar */}
-                              <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 mr-3">
-                                {participant.user?.image && validateImageUrl(participant.user.image) ? (
-                                  <Image
-                                    src={participant.user.image}
-                                    alt={displayName}
-                                    width={32}
-                                    height={32}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center bg-blue-100 text-blue-800 font-medium">
-                                    {firstLetter}
+                  {isTeamTournament() ? (
+                    // Team participants list
+                    <div>
+                      <h2 className="text-xl font-semibold mb-4">Teams</h2>
+                      <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                        {tournament.teamParticipants?.length > 0 ? (
+                          tournament.teamParticipants.map((teamParticipant) => {
+                            const team = teamParticipant.team;
+                            return (
+                              <div
+                                key={teamParticipant.id}
+                                className="bg-gray-50 p-4 rounded-md"
+                              >
+                                <div className="flex items-center mb-3">
+                                  {team.logoUrl ? (
+                                    <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
+                                      <Image
+                                        src={team.logoUrl}
+                                        alt={team.name}
+                                        width={40}
+                                        height={40}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                                      <span className="text-blue-800 font-medium">
+                                        {team.tag?.slice(0, 2).toUpperCase() || "T"}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <h3 className="font-medium">
+                                      {teamParticipant.seedNumber && (
+                                        <span className="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-800 rounded-full text-xs mr-2">
+                                          {teamParticipant.seedNumber}
+                                        </span>
+                                      )}
+                                      <Link href={`/teams/${team.id}`} className="hover:text-blue-600 hover:underline">
+                                        [{team.tag}] {team.name}
+                                      </Link>
+                                    </h3>
+                                    <p className="text-sm text-gray-500">
+                                      {team.members?.length || 0} members • Joined {new Date(teamParticipant.joinedAt).toLocaleDateString()}
+                                    </p>
                                   </div>
-                                )}
+                                </div>
+                                <div className="pl-4 border-l-2 border-gray-200 ml-2">
+                                  <p className="text-sm text-gray-600 mb-1">Team Members:</p>
+                                  <div className="space-y-1">
+                                    {team.members?.map((member) => (
+                                      <div key={member.id} className="flex items-center">
+                                        {member.user.image ? (
+                                          <Image
+                                            src={member.user.image}
+                                            alt={getDisplayName(member.user)}
+                                            width={20}
+                                            height={20}
+                                            className="w-5 h-5 rounded-full mr-2"
+                                          />
+                                        ) : (
+                                          <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center mr-2">
+                                            <span className="text-gray-600 text-xs">
+                                              {getDisplayName(member.user).charAt(0).toUpperCase()}
+                                            </span>
+                                          </div>
+                                        )}
+                                        <Link
+                                          href={`/user/${member.user.id}`}
+                                          className="text-sm hover:text-blue-600 hover:underline"
+                                        >
+                                          {getDisplayName(member.user)}
+                                        </Link>
+                                        {member.role === "OWNER" && (
+                                          <span className="ml-1 text-xs text-gray-500">(Captain)</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               </div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-gray-500">No teams have registered yet</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    // Individual participants list
+                    <div>
+                      <h2 className="text-xl font-semibold mb-4">Participants</h2>
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                        {tournament.participants?.length > 0 ? (
+                          tournament.participants.map((participant) => {
+                            const displayName = getParticipantDisplayName(participant);
+                            const firstLetter = displayName.charAt(0).toUpperCase();
 
-                              <div className="flex items-center">
-                                {participant.seedNumber && (
-                                  <span className="w-6 h-6 flex items-center justify-center bg-blue-100 text-blue-800 rounded-full text-xs mr-2">
-                                    {participant.seedNumber}
-                                  </span>
-                                )}
-                                <Link
-                                  href={`/user/${participant.user.id}`}
-                                  className="hover:text-blue-600 hover:underline"
-                                >
-                                  {displayName}
-                                </Link>
+                            return (
+                              <div
+                                key={participant.id}
+                                className="bg-gray-50 p-2 rounded-md flex items-center justify-between"
+                              >
+                                <div className="flex items-center">
+                                  {/* Profile Picture/Avatar */}
+                                  <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 mr-3">
+                                    {participant.user?.image && validateImageUrl(participant.user.image) ? (
+                                      <Image
+                                        src={participant.user.image}
+                                        alt={displayName}
+                                        width={32}
+                                        height={32}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center bg-blue-100 text-blue-800 font-medium">
+                                        {firstLetter}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center">
+                                    {participant.seedNumber && (
+                                      <span className="w-6 h-6 flex items-center justify-center bg-blue-100 text-blue-800 rounded-full text-xs mr-2">
+                                        {participant.seedNumber}
+                                      </span>
+                                    )}
+                                    <Link
+                                      href={`/user/${participant.user.id}`}
+                                      className="hover:text-blue-600 hover:underline"
+                                    >
+                                      {displayName}
+                                    </Link>
+                                  </div>
+                                </div>
+                                <span className="text-sm text-gray-500">
+                                  {formatDate(participant.joinedAt)}
+                                </span>
                               </div>
-                            </div>
-                            <span className="text-sm text-gray-500">
-                              {formatDate(participant.joinedAt)}
-                            </span>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <p className="text-gray-500">No participants yet</p>
-                    )}
-                  </div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-gray-500">No participants yet</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -10,6 +10,7 @@ import styles from "./styles/Header.module.css";
 export default function Header() {
   const { data: session, status, update } = useSession();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showTeamsMenu, setShowTeamsMenu] = useState(false);
   const [showProfileUploader, setShowProfileUploader] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -28,6 +29,19 @@ export default function Header() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showProfileMenu]);
+
+  useEffect(() => {
+    if (!showTeamsMenu) return;
+
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".teams-menu-container")) {
+        setShowTeamsMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showTeamsMenu]);
 
   const handleLogout = async () => {
     document.cookie.split(";").forEach((c) => {
@@ -181,6 +195,46 @@ export default function Header() {
                 Tournaments
               </Link>
             </li>
+
+            {/* New Teams Dropdown */}
+            {session && (
+              <li className="relative teams-menu-container">
+                <button
+                  onClick={() => setShowTeamsMenu(!showTeamsMenu)}
+                  className="block py-2 text-gray-400 hover:text-white text-base flex items-center"
+                >
+                  Teams
+                  <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {showTeamsMenu && (
+                  <div className="absolute left-0 mt-2 w-48 bg-gray-800 text-white rounded-md shadow-lg z-50">
+                    <div className="py-1">
+                      <Link href="/teams"
+                        className="block px-4 py-2 text-gray-300 hover:bg-gray-700"
+                        onClick={() => setShowTeamsMenu(false)}
+                      >
+                        My Teams
+                      </Link>
+                      <Link href="/teams/invitations"
+                        className="block px-4 py-2 text-gray-300 hover:bg-gray-700"
+                        onClick={() => setShowTeamsMenu(false)}
+                      >
+                        Team Invitations
+                      </Link>
+                      <Link href="/teams/create"
+                        className="block px-4 py-2 text-gray-300 hover:bg-gray-700"
+                        onClick={() => setShowTeamsMenu(false)}
+                      >
+                        Create Team
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </li>
+            )}
           </ul>
         </div>
         <div className="flex items-center gap-4 min-w-[200px] justify-end">

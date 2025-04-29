@@ -1,3 +1,4 @@
+// app/api/tournaments/route.js
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "../../../lib/prisma";
@@ -27,7 +28,6 @@ async function validateSession() {
   return session;
 }
 
-// app/api/tournaments/route.js
 export async function POST(req) {
   try {
     const session = await validateSession();
@@ -47,6 +47,13 @@ export async function POST(req) {
     const numberOfRounds = formData.get("numberOfRounds");
     const groupSize = formData.get("groupSize");
     const image = formData.get("image");
+
+    // Team-related form data
+    const registrationType = formData.get("registrationType") || "INDIVIDUAL";
+    const teamSize = formData.get("teamSize");
+    const allowPartialTeams = formData.get("allowPartialTeams") === "true";
+    const teamsCanRegisterAfterStart = formData.get("teamsCanRegisterAfterStart") === "true";
+    const requireTeamApproval = formData.get("requireTeamApproval") === "true";
 
     // Validate required fields
     if (!name || !description || !startDate || !endDate || !registrationCloseDate || !game || !format) {
@@ -78,6 +85,17 @@ export async function POST(req) {
     const validSeedingTypes = ["RANDOM", "MANUAL", "SKILL_BASED"];
     if (seedingType && !validSeedingTypes.includes(seedingType)) {
       return NextResponse.json({ message: "Invalid seeding type" }, { status: 400 });
+    }
+
+    // Validate team settings
+    if (registrationType === "TEAM") {
+      const parsedTeamSize = parseInt(teamSize || 2);
+      if (parsedTeamSize < 2 || parsedTeamSize > 10) {
+        return NextResponse.json(
+          { message: "Team size must be between 2 and 10 players" },
+          { status: 400 }
+        );
+      }
     }
 
     // Format-specific validations
@@ -121,6 +139,17 @@ export async function POST(req) {
         { message: "End date must be after start date" },
         { status: 400 }
       );
+    }
+
+    // Add team settings to formatSettings if team-based tournament
+    if (registrationType === "TEAM") {
+      formatSettings.registrationType = "TEAM";
+      formatSettings.teamSize = parseInt(teamSize || 2);
+      formatSettings.allowPartialTeams = allowPartialTeams;
+      formatSettings.teamsCanRegisterAfterStart = teamsCanRegisterAfterStart;
+      formatSettings.requireTeamApproval = requireTeamApproval;
+    } else {
+      formatSettings.registrationType = "INDIVIDUAL";
     }
 
     // Handle image upload
@@ -222,6 +251,26 @@ export async function GET(req) {
             },
           },
         },
+        teamParticipants: {
+          include: {
+            team: {
+              include: {
+                members: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        name: true,
+                        username: true,
+                        email: true,
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       },
       orderBy: {
         createdAt: "desc",
@@ -234,12 +283,21 @@ export async function GET(req) {
       const registrationCloseDate = new Date(tournament.registrationCloseDate);
       const isUpcoming = tournament.status === "UPCOMING" && startDate > now;
 
+      // Check if it's a team tournament
+      const isTeamTournament = tournament.formatSettings?.registrationType === "TEAM";
+
+      // Count participants appropriately based on tournament type
+      const participantCount = isTeamTournament
+        ? tournament.teamParticipants.length
+        : tournament.participants.length;
+
       return {
         ...tournament,
-        participantCount: tournament.participants.length,
+        participantCount,
+        isTeamTournament,
         isRegistrationOpen:
           isUpcoming &&
-          tournament.participants.length < tournament.maxPlayers &&
+          participantCount < tournament.maxPlayers &&
           now < registrationCloseDate,
         formattedStartDate: startDate.toLocaleString(),
         formattedEndDate: new Date(tournament.endDate).toLocaleString(),
@@ -265,7 +323,7 @@ export async function DELETE(req, context) {
   try {
     const tournamentId = context.params.id;
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.email) {
       return NextResponse.json({ message: "Authentication required" }, { status: 401 });
     }
@@ -302,7 +360,7 @@ export async function DELETE(req, context) {
           .slice(-2)
           .join('/')
           .split('.')[0];
-        
+
         await cloudinary.uploader.destroy(publicId);
       } catch (error) {
         console.error("Error deleting image from Cloudinary:", error);

@@ -46,7 +46,7 @@ export async function GET(request, context) {
             name: true,
             email: true,
             username: true,
-            image: true, // Added image field
+            image: true,
           },
         },
         winner: {
@@ -56,7 +56,7 @@ export async function GET(request, context) {
             email: true,
             username: true,
             points: true,
-            image: true, // Added image field
+            image: true,
           },
         },
         winners: {
@@ -68,7 +68,7 @@ export async function GET(request, context) {
                 email: true,
                 username: true,
                 points: true,
-                image: true, // Added image field
+                image: true,
               },
             },
           },
@@ -84,7 +84,7 @@ export async function GET(request, context) {
                 name: true,
                 email: true,
                 username: true,
-                image: true, // Added image field
+                image: true,
               },
             },
           },
@@ -92,6 +92,41 @@ export async function GET(request, context) {
             joinedAt: "desc",
           },
         },
+        // Add team participants for team tournaments
+        teamParticipants: {
+          include: {
+            team: {
+              include: {
+                owner: {
+                  select: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    email: true,
+                    image: true,
+                  }
+                },
+                members: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        name: true,
+                        username: true,
+                        email: true,
+                        image: true,
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          orderBy: {
+            joinedAt: "desc",
+          }
+        },
+        featuredStreams: true,
       },
     });
 
@@ -102,15 +137,29 @@ export async function GET(request, context) {
       );
     }
 
+    // Initialize teamParticipants as empty array if undefined
+    if (!tournament.teamParticipants) {
+      tournament.teamParticipants = [];
+    }
+
+    // Check if it's a team tournament
+    const isTeamTournament = tournament.formatSettings?.registrationType === "TEAM";
+
     // Add computed fields
     const enrichedTournament = {
       ...tournament,
-      participantCount: tournament.participants.length,
+      // Count participants based on tournament type
+      participantCount: isTeamTournament
+        ? tournament.teamParticipants.length
+        : tournament.participants.length,
       isRegistrationOpen:
-        tournament.participants.length < tournament.maxPlayers &&
+        (isTeamTournament
+          ? tournament.teamParticipants.length < tournament.maxPlayers
+          : tournament.participants.length < tournament.maxPlayers) &&
         tournament.status === "UPCOMING" &&
         new Date() < new Date(tournament.startDate),
       hasWinner: !!tournament.winner,
+      isTeamTournament: isTeamTournament,
     };
 
     return NextResponse.json(enrichedTournament);
@@ -245,13 +294,50 @@ export async function POST(request, context) {
                   name: true,
                   email: true,
                   username: true,
-                  image: true, // Added image field
+                  image: true,
                 },
               },
             },
           },
+          // Include team participants in the response
+          teamParticipants: {
+            include: {
+              team: {
+                include: {
+                  owner: {
+                    select: {
+                      id: true,
+                      name: true,
+                      username: true,
+                      email: true,
+                      image: true,
+                    }
+                  },
+                  members: {
+                    include: {
+                      user: {
+                        select: {
+                          id: true,
+                          name: true,
+                          username: true,
+                          email: true,
+                          image: true,
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+          },
+          featuredStreams: true,
         },
       });
+
+      // Initialize teamParticipants if needed
+      if (!updatedTournament.teamParticipants) {
+        updatedTournament.teamParticipants = [];
+      }
 
       return updatedTournament;
     });

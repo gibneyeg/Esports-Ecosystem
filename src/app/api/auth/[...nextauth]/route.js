@@ -1,5 +1,3 @@
-// File: /app/api/auth/[...nextauth]/route.js
-
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import DiscordProvider from "next-auth/providers/discord";
@@ -22,7 +20,7 @@ const MicrosoftProvider = {
   name: "Microsoft",
   type: "oauth",
   wellKnown: "https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration",
-  authorization: { params: { scope: "openid profile email User.Read" } }, // Added User.Read scope
+  authorization: { params: { scope: "openid profile email User.Read" } },
   clientId: process.env.MICROSOFT_CLIENT_ID,
   clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
   profile(profile) {
@@ -30,14 +28,13 @@ const MicrosoftProvider = {
       id: profile.sub,
       name: profile.name,
       email: profile.email,
-      image: null, // Will be populated later using Graph API
+      image: null,
     };
   },
 };
 
 export const authOptions = {
   adapter: PrismaAdapter(prisma),
-  debug: true,
   providers: [
     DiscordProvider({
       clientId: process.env.DISCORD_CLIENT_ID,
@@ -136,7 +133,6 @@ export const authOptions = {
   callbacks: {
     async signIn({ account, profile, user }) {
       try {
-        // Handle Microsoft accounts specially to get the profile picture
         if (account.provider === "microsoft") {
           // Fetch profile photo using Microsoft Graph API with the access token
           if (account.access_token) {
@@ -154,12 +150,10 @@ export const authOptions = {
                 const photoContentType = photoResponse.headers.get('content-type') || 'image/jpeg';
                 const photoDataUrl = `data:${photoContentType};base64,${photoBase64}`;
 
-                // Upload to Cloudinary
                 const uploadResponse = await cloudinary.uploader.upload(photoDataUrl, {
                   upload_preset: "profile_pictures"
                 });
 
-                // Store the Cloudinary URL
                 user.image = uploadResponse.secure_url;
               }
             } catch (photoError) {
