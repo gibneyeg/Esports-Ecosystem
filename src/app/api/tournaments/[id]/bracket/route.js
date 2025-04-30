@@ -45,6 +45,8 @@ export async function POST(request, context) {
     // Handle different tournament formats differently
     if (tournament.format === "ROUND_ROBIN") {
       return await handleRoundRobinBracket(id, bracketData);
+    } else if (tournament.format === "SWISS") {
+      return await handleSwissBracket(id, bracketData);
     } else {
       return await handleEliminationBracket(id, bracketData);
     }
@@ -60,7 +62,6 @@ export async function POST(request, context) {
 // Handler for Round Robin format
 async function handleRoundRobinBracket(tournamentId, bracketData) {
   try {
-    // Get the current tournament data to preserve any existing settings
     const currentTournament = await prisma.tournament.findUnique({
       where: { id: tournamentId },
       select: {
@@ -70,26 +71,22 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
       }
     });
 
-    // Prepare the format settings to save
     let formatSettingsToSave = null;
 
     // Check if we have format settings in the bracket data
     if (bracketData.formatSettings) {
-      // Convert to a proper JSON object if it's not already
+      // Convert to JSON object
       formatSettingsToSave = typeof bracketData.formatSettings === 'string'
         ? JSON.parse(bracketData.formatSettings)
         : bracketData.formatSettings;
 
     }
-    // If not in the bracket data, try to use existing settings
     else if (currentTournament?.formatSettings) {
-      // Keep the existing settings
       formatSettingsToSave = typeof currentTournament.formatSettings === 'string'
         ? JSON.parse(currentTournament.formatSettings)
         : currentTournament.formatSettings;
     }
 
-    // STEP 1: Clear existing brackets and matches in a transaction to ensure atomic operation
     await prisma.$transaction([
       prisma.match.deleteMany({
         where: {
@@ -105,7 +102,6 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
       })
     ]);
 
-    // If there are format settings to save, update the tournament record
     if (formatSettingsToSave) {
 
       try {
@@ -120,7 +116,6 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
       }
     }
 
-    // STEP 2: For Round Robin, we'll create one bracket per group
     const groups = new Set();
     bracketData.matches.forEach(match => {
       if (match.groupId) {
@@ -128,16 +123,13 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
       }
     });
 
-    // If no groups specified, create a default group
     if (groups.size === 0) {
       groups.add("default");
     }
 
-    // STEP 3: Create brackets for each group
     const groupBrackets = {};
     let bracketIndex = 0;
 
-    // Create all brackets first to ensure they exist before creating matches
     for (const groupId of groups) {
 
       const bracket = await prisma.tournamentBracket.create({
@@ -148,7 +140,6 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
         },
       });
 
-      // Store the created bracket ID for this group
       groupBrackets[groupId] = bracket.id;
       bracketIndex++;
     }
@@ -156,7 +147,6 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
     // Wait to ensure all brackets are created
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // STEP 4: Create matches for each group
     for (const match of bracketData.matches) {
       if (!match.player1 || !match.player2) {
         continue;
@@ -170,7 +160,7 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
         continue;
       }
 
-      // IMPORTANT: Properly determine match status based on if it has a winner or is a draw
+      // Properly determine match status based on if it has a winner or is a draw
       const isDraw = match.isDraw === true;
       const hasWinner = !isDraw && match.winnerId;
       const matchStatus = (hasWinner || isDraw) ? "COMPLETED" : "PENDING";
@@ -183,10 +173,8 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
           status: matchStatus,
           player1Id: match.player1.id,
           player2Id: match.player2.id,
-          // For draws, winnerId should be null, otherwise use the provided winnerId
           winnerId: isDraw ? null : match.winnerId,
           score: match.score || (isDraw ? "Draw" : null),
-          // Store round robin specific data in roundRobinData field
           roundRobinData: JSON.stringify({
             round: match.round,
             isDraw: isDraw,
@@ -195,7 +183,6 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
           }),
         };
 
-        // If the match is completed, add a completion time
         if (matchStatus === "COMPLETED") {
           matchData.completedTime = new Date();
         }
@@ -216,8 +203,7 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
       }
     }
 
-    // STEP 5: If a tournament winner is declared, update the tournament record
-    // Only update if tournamentWinnerId is explicitly included in the request
+
     if (bracketData.tournamentWinnerId) {
 
       try {
@@ -229,21 +215,17 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
           }
         });
 
-        // If there are winners to save, handle them
         if (bracketData.winners && bracketData.winners.length > 0) {
 
-          // First delete any existing winners
           await prisma.tournamentWinner.deleteMany({
             where: { tournamentId }
           });
 
-          // Get the tournament prize pool information
           const tournamentInfo = await prisma.tournament.findUnique({
             where: { id: tournamentId },
             select: { prizePool: true }
           });
 
-          // Then create the new winners
           for (const winner of bracketData.winners) {
             try {
               await prisma.tournamentWinner.create({
@@ -265,11 +247,148 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
     } else {
     }
 
-    // STEP 6: Get updated tournament with brackets
     const updatedTournament = await getUpdatedTournament(tournamentId);
     return formatTournamentResponse(updatedTournament);
   } catch (error) {
     console.error("Round Robin bracket save error:", error);
+    throw error;
+  }
+}
+
+// Handler for Swiss format brackets
+async function handleSwissBracket(tournamentId, bracketData) {
+  try {
+    const { rounds, currentRound, winners } = bracketData;
+
+    // Transaction to update bracket data and winners
+    await prisma.$transaction(async (tx) => {
+      // Check if bracket data exists
+      const existingBracket = await tx.tournamentSwissBracket.findUnique({
+        where: { tournamentId }
+      });
+
+      if (existingBracket) {
+        // Update existing bracket
+        await tx.tournamentSwissBracket.update({
+          where: { tournamentId },
+          data: {
+            currentRound: currentRound || 0,
+            updatedAt: new Date()
+          }
+        });
+
+        // Delete existing rounds and matches to replace with new data
+        await tx.tournamentSwissMatch.deleteMany({
+          where: {
+            round: {
+              bracketId: existingBracket.id
+            }
+          }
+        });
+
+        await tx.tournamentSwissRound.deleteMany({
+          where: {
+            bracketId: existingBracket.id
+          }
+        });
+      } else {
+        // Create new bracket
+        await tx.tournamentSwissBracket.create({
+          data: {
+            tournamentId,
+            currentRound: currentRound || 0
+          }
+        });
+      }
+
+      // Get the bracket record (either existing or newly created)
+      const bracket = await tx.tournamentSwissBracket.findUnique({
+        where: { tournamentId }
+      });
+
+      // Create rounds and matches
+      if (rounds && rounds.length > 0) {
+        for (let i = 0; i < rounds.length; i++) {
+          const round = rounds[i];
+
+          // Create round
+          const createdRound = await tx.tournamentSwissRound.create({
+            data: {
+              bracketId: bracket.id,
+              roundNumber: i,
+            }
+          });
+
+          // Create matches for this round
+          if (round.matches && round.matches.length > 0) {
+            for (let j = 0; j < round.matches.length; j++) {
+              const match = round.matches[j];
+
+              await tx.tournamentSwissMatch.create({
+                data: {
+                  roundId: createdRound.id,
+                  player1Id: match.player1Id,
+                  player2Id: match.player2Id,
+                  result: match.result,
+                  position: j  // Use the array index as the position
+                }
+              });
+            }
+          }
+        }
+      }
+
+      // Update winners if provided
+      if (winners && winners.length > 0) {
+        // Delete existing winners
+        await tx.tournamentWinner.deleteMany({
+          where: { tournamentId }
+        });
+
+        // Get the tournament prize pool information
+        const tournamentInfo = await tx.tournament.findUnique({
+          where: { id: tournamentId },
+          select: { prizePool: true }
+        });
+
+        // Create new winners
+        for (const winner of winners) {
+          // Handle team tournaments vs individual tournaments
+          if (winner.teamId) {
+            await tx.tournamentWinner.create({
+              data: {
+                tournamentId,
+                teamId: winner.teamId,
+                position: winner.position,
+                prizeMoney: calculatePrizeMoney(tournamentInfo.prizePool, winner.position)
+              }
+            });
+          } else if (winner.userId) {
+            await tx.tournamentWinner.create({
+              data: {
+                tournamentId,
+                userId: winner.userId,
+                position: winner.position,
+                prizeMoney: calculatePrizeMoney(tournamentInfo.prizePool, winner.position)
+              }
+            });
+          }
+        }
+
+        // Update tournament status to completed
+        await tx.tournament.update({
+          where: { id: tournamentId },
+          data: { status: "COMPLETED" }
+        });
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Swiss bracket saved successfully"
+    });
+  } catch (error) {
+    console.error("Swiss bracket save error:", error);
     throw error;
   }
 }
@@ -288,112 +407,71 @@ function calculatePrizeMoney(prizePool, position) {
   }
 }
 
-// Handler for elimination format brackets (Single or Double)
+// Handler for elimination format brackets
 async function handleEliminationBracket(tournamentId, bracketData) {
   try {
-    // Clear existing brackets and matches
+    // Delete existing brackets and matches for this tournament
     await prisma.match.deleteMany({
       where: {
         bracket: {
-          tournamentId
+          tournamentId: tournamentId
         }
-      },
+      }
     });
 
     await prisma.tournamentBracket.deleteMany({
-      where: {
-        tournamentId
-      },
+      where: { tournamentId: tournamentId }
     });
 
-    // Create new brackets and matches
-    if (bracketData.rounds && bracketData.rounds.length > 0) {
-      for (let roundIndex = 0; roundIndex < bracketData.rounds.length; roundIndex++) {
-        const round = bracketData.rounds[roundIndex];
-
-        // Skip rounds with no matches
-        if (!round.matches || round.matches.length === 0) {
-          continue;
-        }
-
-        // Create bracket for this round
-        const bracket = await prisma.tournamentBracket.create({
-          data: {
-            tournamentId,
-            round: roundIndex,
-            position: 0, // Default position
-          },
+    // Process the matches from bracketData
+    if (bracketData.matches && bracketData.matches.length > 0) {
+      for (const matchData of bracketData.matches) {
+        // Create the bracket if it doesn't exist
+        let bracket = await prisma.tournamentBracket.findFirst({
+          where: {
+            tournamentId: tournamentId,
+            round: matchData.round,
+            position: matchData.position
+          }
         });
 
-        // Create matches for this round
-        for (let matchIndex = 0; matchIndex < round.matches.length; matchIndex++) {
-          const match = round.matches[matchIndex];
-
-          // Determine match status based on if it has a winner
-          const matchStatus = match.winnerId ? "COMPLETED" : "PENDING";
-
-          await prisma.match.create({
+        if (!bracket) {
+          bracket = await prisma.tournamentBracket.create({
             data: {
-              bracketId: bracket.id,
-              position: match.position,
-              status: matchStatus,
-              player1Id: match.player1?.id || null,
-              player2Id: match.player2?.id || null,
-              winnerId: match.winnerId || null,
-              // If the match is completed, add a completion time and score
-              ...(matchStatus === "COMPLETED" && {
-                completedTime: new Date(),
-                score: "W-L" // Default score format
-              })
-            },
-          });
-        }
-      }
-    }
-
-    // If a tournament winner is declared, update the tournament record
-    if (bracketData.tournamentWinnerId) {
-      await prisma.tournament.update({
-        where: { id: tournamentId },
-        data: {
-          winnerId: bracketData.tournamentWinnerId,
-          status: "COMPLETED"
-        }
-      });
-
-      // If there are winners to save
-      if (bracketData.winners && bracketData.winners.length > 0) {
-        // Get tournament for prize pool
-        const tournamentInfo = await prisma.tournament.findUnique({
-          where: { id: tournamentId },
-          select: { prizePool: true }
-        });
-
-        // Clear existing winners
-        await prisma.tournamentWinner.deleteMany({
-          where: { tournamentId }
-        });
-
-        // Create new winners
-        for (const winner of bracketData.winners) {
-          await prisma.tournamentWinner.create({
-            data: {
-              tournamentId,
-              userId: winner.userId,
-              position: winner.position,
-              prizeMoney: calculatePrizeMoney(tournamentInfo.prizePool, winner.position)
+              tournamentId: tournamentId,
+              round: matchData.round,
+              position: matchData.position
             }
           });
         }
+
+        // Create the match with the position field
+        await prisma.match.create({
+          data: {
+            bracketId: bracket.id,
+            status: "PENDING",
+            player1Id: matchData.player1?.id || null,
+            player2Id: matchData.player2?.id || null,
+            winnerId: matchData.winnerId || null,
+            position: matchData.matchIndex || 0, // Make sure to provide a position value
+            score: matchData.score || null
+          }
+        });
       }
     }
 
-    // Get updated tournament with brackets
-    const updatedTournament = await getUpdatedTournament(tournamentId);
-    return formatTournamentResponse(updatedTournament);
+    // Update tournament winner if provided
+    if (bracketData.tournamentWinnerId) {
+      await prisma.tournament.update({
+        where: { id: tournamentId },
+        data: { winnerId: bracketData.tournamentWinnerId }
+      });
+    }
+
+    return { success: true };
   } catch (error) {
     console.error("Elimination bracket save error:", error);
-    throw error;
+    throw new Error(`Failed to save elimination bracket: ${error.message}`);
   }
 }
 
@@ -456,12 +534,29 @@ async function getUpdatedTournament(tournamentId) {
           },
         },
       },
+      swissBracket: {
+        include: {
+          rounds: {
+            include: {
+              matches: true
+            },
+            orderBy: {
+              roundNumber: 'asc'
+            }
+          }
+        }
+      }
     },
   });
 }
 
 // Helper function to format tournament response
 function formatTournamentResponse(tournament) {
+  // For Swiss format, return the specialized format
+  if (tournament.format === "SWISS" && tournament.swissBracket) {
+    return formatSwissTournamentResponse(tournament);
+  }
+
   // Flatten matches for easier consumption by frontend
   const matches = [];
 
@@ -494,13 +589,11 @@ function formatTournamentResponse(tournament) {
       };
 
       // IMPORTANT: Make sure winner info is correctly set
-
       if (match.winnerId && !match.winner) {
         matchData.winner = null;
         matchData.winnerId = match.winnerId;
         matchData.isDraw = false;
       } else if (roundRobinInfo.isDraw) {
-
         matchData.winner = null;
         matchData.winnerId = null;
         matchData.isDraw = true;
@@ -540,10 +633,64 @@ function formatTournamentResponse(tournament) {
   });
 }
 
+// Helper function to format Swiss tournament response
+function formatSwissTournamentResponse(tournament) {
+  // If no Swiss bracket exists yet, return empty data structure
+  if (!tournament.swissBracket) {
+    return NextResponse.json({
+      tournamentId: tournament.id,
+      format: "SWISS",
+      rounds: [],
+      currentRound: 0,
+      winner: tournament.winner,
+      status: tournament.status
+    });
+  }
+
+  // Format the rounds and matches in a structure friendly to the frontend
+  const rounds = tournament.swissBracket.rounds.map(round => {
+    return {
+      id: round.id,
+      roundNumber: round.roundNumber,
+      matches: round.matches.map(match => ({
+        id: match.id,
+        player1Id: match.player1Id,
+        player2Id: match.player2Id,
+        result: match.result,
+        round: round.roundNumber,
+        position: match.position
+      }))
+    };
+  });
+
+  let formatSettings = null;
+  try {
+    if (tournament.formatSettings) {
+      formatSettings = typeof tournament.formatSettings === 'string'
+        ? JSON.parse(tournament.formatSettings)
+        : tournament.formatSettings;
+    }
+  } catch (e) {
+    console.warn("Failed to parse tournament formatSettings:", e);
+  }
+
+  return NextResponse.json({
+    tournamentId: tournament.id,
+    format: "SWISS",
+    formatSettings: formatSettings,
+    rounds: rounds,
+    currentRound: tournament.swissBracket.currentRound,
+    winner: tournament.winner,
+    status: tournament.status
+  });
+}
+
 // New GET handler for retrieving bracket data
 export async function GET(request, context) {
   try {
     const { id } = context.params;
+    const { searchParams } = new URL(request.url);
+    const format = searchParams.get('format');
 
     // Get tournament with brackets and matches
     const tournament = await getUpdatedTournament(id);
@@ -555,8 +702,15 @@ export async function GET(request, context) {
       );
     }
 
+    // If format is specifically requested, and it's SWISS
+    if (format === 'SWISS') {
+      // Return swiss bracket format even if empty
+      return formatSwissTournamentResponse(tournament);
+    }
+
     // If there are no brackets yet, return empty array
-    if (!tournament.brackets || tournament.brackets.length === 0) {
+    if ((!tournament.brackets || tournament.brackets.length === 0) &&
+      (!tournament.swissBracket)) {
       return NextResponse.json({
         tournamentId: id,
         format: tournament.format,

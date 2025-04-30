@@ -1,13 +1,17 @@
-// Make sure fetchExistingBracket is properly exported
+
+/**
+ * Fetches existing bracket data for a tournament
+ * @param {string} tournamentId - Tournament ID
+ * @returns {Promise<Object>} Bracket data
+ */
 export const fetchExistingBracket = async (tournamentId) => {
   try {
     const response = await fetch(`/api/tournaments/${tournamentId}/bracket`, {
-      method: 'GET',
-      credentials: 'include',
+      credentials: 'include'
     });
 
     if (!response.ok) {
-      return null;
+      throw new Error(`Failed to fetch bracket: ${response.statusText}`);
     }
 
     return await response.json();
@@ -17,222 +21,128 @@ export const fetchExistingBracket = async (tournamentId) => {
   }
 };
 
-// Transform the raw bracket data from API to the format used in the app
-export const transformBracketData = (bracketData) => {
-  if (!bracketData || !bracketData.rounds || bracketData.rounds.length === 0) {
-    return null;
+/**
+ * Prepares bracket data for saving to the API
+ * @param {Array} winnersBracket - Winners bracket data
+ * @param {Array} losersBracket - Losers bracket data (for double elimination)
+ * @param {Object} grandFinals - Grand finals data (for double elimination)
+ * @param {Object} resetMatch - Reset match data (for double elimination)
+ * @param {Object} tournamentWinner - Tournament winner
+ * @returns {Object} Formatted data for API
+ */
+export const prepareBracketDataForSave = (
+  winnersBracket,
+  losersBracket = null,
+  grandFinals = null,
+  resetMatch = null,
+  tournamentWinner = null
+) => {
+  const matches = [];
+
+  // Process winners bracket
+  if (winnersBracket) {
+    winnersBracket.forEach((round, roundIndex) => {
+      round.matches.forEach((match, matchIndex) => {
+        matches.push({
+          round: roundIndex,
+          position: matchIndex,
+          matchIndex: matchIndex, // Add matchIndex for position field
+          player1: match.slots[0].participant,
+          player2: match.slots[1].participant,
+          winnerId: null, // Will be set later if a winner is determined
+          isThirdPlaceMatch: false
+        });
+      });
+    });
   }
 
-  // Sort rounds based on their IDs to ensure proper order
-  const matches = bracketData.rounds.flatMap(round =>
-    round.matches.map(match => ({
-      ...match,
-      roundId: round.id,
-      roundName: round.name
-    }))
-  );
+  // Process losers bracket for double elimination
+  if (losersBracket) {
+    const winnersRoundCount = winnersBracket.length;
+
+    losersBracket.forEach((round, roundIndex) => {
+      round.matches.forEach((match, matchIndex) => {
+        matches.push({
+          round: winnersRoundCount + roundIndex,
+          position: matchIndex,
+          matchIndex: matchIndex, // Add matchIndex for position field
+          player1: match.slots[0].participant,
+          player2: match.slots[1].participant,
+          winnerId: null,
+          isThirdPlaceMatch: false
+        });
+      });
+    });
+  }
+
+  // Add grand finals match for double elimination
+  if (grandFinals) {
+    const totalRounds = (winnersBracket ? winnersBracket.length : 0) +
+      (losersBracket ? losersBracket.length : 0);
+
+    matches.push({
+      round: totalRounds,
+      position: 0,
+      matchIndex: 0, // Add matchIndex for position field
+      player1: grandFinals.slots[0].participant,
+      player2: grandFinals.slots[1].participant,
+      winnerId: null,
+      isThirdPlaceMatch: false
+    });
+  }
+
+  // Add reset match for double elimination if needed
+  if (resetMatch) {
+    const totalRounds = (winnersBracket ? winnersBracket.length : 0) +
+      (losersBracket ? losersBracket.length : 0);
+
+    matches.push({
+      round: totalRounds + 1,
+      position: 0,
+      matchIndex: 0, // Add matchIndex for position field
+      player1: resetMatch.slots[0].participant,
+      player2: resetMatch.slots[1].participant,
+      winnerId: null,
+      isThirdPlaceMatch: false
+    });
+  }
+
+  // Determine winners if available
+  const winners = [];
+
+  if (tournamentWinner) {
+    matches.forEach(match => {
+      // Check if this match has the tournament winner
+      if (match.player1 && match.player1.id === tournamentWinner.id) {
+        match.winnerId = tournamentWinner.id;
+      } else if (match.player2 && match.player2.id === tournamentWinner.id) {
+        match.winnerId = tournamentWinner.id;
+      }
+    });
+
+    // Add to winners list
+    winners.push({
+      userId: tournamentWinner.id,
+      position: 1,
+      prizeMoney: 0 // This will be calculated on the server
+    });
+  }
 
   return {
-    matches: matches,
-    tournamentWinnerId: bracketData.tournamentWinnerId || null
+    matches,
+    winners,
+    tournamentWinnerId: tournamentWinner?.id || null
   };
 };
 
-export const prepareBracketDataForSave = (winnersBracket, losersBracket = [], grandFinals = null, resetMatch = null, tournamentWinner = null) => {
-  const rounds = [];
-
-  // Calculate total winners rounds for proper round numbering
-  const totalWinnersRounds = winnersBracket.length;
-
-  // Add winners bracket rounds - Rounds 0 to totalWinnersRounds-1
-  winnersBracket.forEach((roundData, roundIndex) => {
-    const matches = roundData.matches.map((match, matchIndex) => {
-      // Determine if this match has a winner
-      let winnerId = null;
-
-      // If it's the final round, check if we have a tournament winner
-      const isFinal = roundIndex === winnersBracket.length - 1;
-
-      if (isFinal && tournamentWinner && match.slots.some(slot =>
-        slot.participant && slot.participant.id === tournamentWinner.id)) {
-        winnerId = tournamentWinner.id;
-      } else {
-        // For non-final rounds, check if any participant advanced to the next round
-        const nextRound = roundIndex + 1;
-        if (nextRound < winnersBracket.length) {
-          const nextMatchPos = Math.floor(matchIndex / 2);
-
-          if (nextMatchPos < winnersBracket[nextRound].matches.length) {
-            const nextMatch = winnersBracket[nextRound].matches[nextMatchPos];
-
-            for (const slot of nextMatch.slots) {
-              if (slot.participant && match.slots.some(currentSlot =>
-                currentSlot.participant && currentSlot.participant.id === slot.participant.id)) {
-                winnerId = slot.participant.id;
-                break;
-              }
-            }
-          }
-        }
-      }
-
-      // Also determine who lost and dropped to losers bracket
-      let loserId = null;
-      if (winnerId && match.slots[0].participant && match.slots[1].participant) {
-        loserId = match.slots[0].participant.id === winnerId ?
-          match.slots[1].participant.id : match.slots[0].participant.id;
-      }
-
-      return {
-        id: match.id, // Original ID  but not used by database
-        round: roundIndex, // Actual round number in the database - WINNERS BRACKET: 0 to n-1
-        position: matchIndex,
-        player1: match.slots[0].participant ? {
-          id: match.slots[0].participant.id,
-          participantId: match.slots[0].participant.participantId || match.slots[0].participant.id
-        } : null,
-        player2: match.slots[1].participant ? {
-          id: match.slots[1].participant.id,
-          participantId: match.slots[1].participant.participantId || match.slots[1].participant.id
-        } : null,
-        winnerId: winnerId,
-        loserId: loserId  // Add the loser ID to track who drops to losers bracket
-      };
-    });
-
-    rounds.push({
-      id: roundData.id,
-      name: roundData.name,
-      matches: matches
-    });
-  });
-
-
-
-  if (losersBracket && losersBracket.length > 0) {
-    losersBracket.forEach((roundData, roundIndex) => {
-
-      const matches = roundData.matches.map((match, matchIndex) => {
-        let winnerId = null;
-
-        const nextRound = roundIndex + 1;
-        if (nextRound < losersBracket.length) {
-          for (const nextMatch of losersBracket[nextRound].matches) {
-            for (const slot of nextMatch.slots) {
-              if (slot.participant && match.slots.some(currentSlot =>
-                currentSlot.participant && currentSlot.participant.id === slot.participant.id)) {
-                winnerId = slot.participant.id;
-                break;
-              }
-            }
-            if (winnerId) break;
-          }
-        }
-
-        // For losers finals specifically, check if player advanced to grand finals
-        if (roundIndex === losersBracket.length - 1) {
-          if (grandFinals && grandFinals.slots[1].participant) {
-            for (const slot of match.slots) {
-              if (slot.participant && slot.participant.id === grandFinals.slots[1].participant.id) {
-                winnerId = slot.participant.id;
-                break;
-              }
-            }
-          }
-        }
-
-        return {
-          id: match.id,
-          round: totalWinnersRounds + roundIndex,
-          position: matchIndex,
-          player1: match.slots[0].participant ? {
-            id: match.slots[0].participant.id,
-            participantId: match.slots[0].participant.participantId || match.slots[0].participant.id
-          } : null,
-          player2: match.slots[1].participant ? {
-            id: match.slots[1].participant.id,
-            participantId: match.slots[1].participant.participantId || match.slots[1].participant.id
-          } : null,
-          winnerId: winnerId
-        };
-      });
-
-      // Always add this round even if matches appear empty
-      rounds.push({
-        id: roundData.id,
-        name: roundData.name,
-        matches: matches
-      });
-    });
-  }
-
-  // Add grand finals - Round 2*totalWinnersRounds
-  if (grandFinals) {
-
-    // Determine the winner of grand finals
-    let grandFinalsWinnerId = null;
-
-    if (resetMatch && resetMatch.slots[0].participant && resetMatch.slots[1].participant) {
-      if (tournamentWinner) {
-        grandFinalsWinnerId = tournamentWinner.id;
-      }
-    } else if (tournamentWinner && grandFinals.slots.some(slot =>
-      slot.participant && slot.participant.id === tournamentWinner.id)) {
-      // Tournament winner exists and is in grand finals
-      grandFinalsWinnerId = tournamentWinner.id;
-    }
-
-    rounds.push({
-      id: "grand-finals-round",
-      name: "Grand Finals",
-      matches: [{
-        id: "grand-finals",
-        round: totalWinnersRounds * 2, // GRAND FINALS round is 2*totalWinnersRounds
-        position: 0,
-        player1: grandFinals.slots[0].participant ? {
-          id: grandFinals.slots[0].participant.id,
-          participantId: grandFinals.slots[0].participant.participantId || grandFinals.slots[0].participant.id
-        } : null,
-        player2: grandFinals.slots[1].participant ? {
-          id: grandFinals.slots[1].participant.id,
-          participantId: grandFinals.slots[1].participant.participantId || grandFinals.slots[1].participant.id
-        } : null,
-        winnerId: grandFinalsWinnerId
-      }]
-    });
-  }
-
-  // Add reset match - Round 2*totalWinnersRounds+1
-  if (resetMatch) {
-
-    let resetWinnerId = null;
-    if (tournamentWinner && resetMatch.slots.some(slot =>
-      slot.participant && slot.participant.id === tournamentWinner.id)) {
-      resetWinnerId = tournamentWinner.id;
-    }
-
-    rounds.push({
-      id: "reset-match-round",
-      name: "Reset Match",
-      matches: [{
-        id: "reset-match",
-        round: totalWinnersRounds * 2 + 1, // RESET MATCH round is 2*totalWinnersRounds+1
-        position: 0,
-        player1: resetMatch.slots[0].participant ? {
-          id: resetMatch.slots[0].participant.id,
-          participantId: resetMatch.slots[0].participant.participantId || resetMatch.slots[0].participant.id
-        } : null,
-        player2: resetMatch.slots[1].participant ? {
-          id: resetMatch.slots[1].participant.id,
-          participantId: resetMatch.slots[1].participant.participantId || resetMatch.slots[1].participant.id
-        } : null,
-        winnerId: resetWinnerId
-      }]
-    });
-  }
-
+/**
+ * Helper function to prepare Swiss bracket data for saving
+ * @param {Object} bracketData - Complete Swiss bracket data
+ * @returns {Object} - Formatted data for API
+ */
+export const prepareSwissBracketForSave = (bracketData) => {
   return {
-    rounds: rounds,
-    tournamentWinnerId: tournamentWinner ? tournamentWinner.id : null
+    format: 'SWISS',
+    ...bracketData
   };
 };
