@@ -128,13 +128,7 @@ jobs:
           NEXTAUTH_URL: http://localhost:3000
           NEXTAUTH_SECRET: test_secret
           
-      # - name: Upload test report
-      #   if: always()
-      #   uses: actions/upload-artifact@v3.1.2
-      #   with:
-      #     name: playwright-report
-      #     path: playwright-report/
-      #     retention-days: 30
+
 
   security-scan:
     runs-on: ubuntu-latest

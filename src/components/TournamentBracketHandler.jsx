@@ -7,6 +7,7 @@ import { fetchExistingBracket, prepareBracketDataForSave } from '@/utils/bracket
 import RoundRobinBracket from './RoundRobinBracket';
 import DoubleEliminationBracket from './DoubleEliminationBracket';
 import SingleEliminationBracket from './SingleEliminationBracket';
+import SwissBracket from './SwissBracket';
 
 const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
   const [loading, setLoading] = useState(true);
@@ -19,7 +20,9 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
   const [thirdPlace, setThirdPlace] = useState(null);
   const [saving, setSaving] = useState(false);
   const [savedMessage, setSavedMessage] = useState("");
-
+  const [isTeamTournament, setIsTeamTournament] = useState(
+    tournament?.formatSettings?.registrationType === "TEAM"
+  );
   // Initialize the participants and bracket
   useEffect(() => {
     const loadBracket = async () => {
@@ -69,7 +72,7 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
         }
 
         const participantCount = tournament.participants.length;
-        // Only initialize  for non-Swiss formats (Swiss handles its own initialization)
+        // Only initialize for non-Swiss formats (Swiss handles its own initialization)
         if (tournament.format !== 'SWISS') {
           const initialBracket = initializeBracket(participantCount, tournament.format);
           setBracket(initialBracket);
@@ -98,6 +101,25 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
         throw new Error("Only tournament owner can save bracket");
       }
 
+      // For Swiss format
+      if (tournament.format === 'SWISS') {
+        if (bracketData.rounds) {
+          bracketData.participants = isTeamTournament
+            ? tournament.teamParticipants.map(tp => ({
+              id: tp.teamId,
+              name: tp.team.name,
+              tag: tp.team.tag,
+              logoUrl: tp.team.logoUrl,
+              isTeam: true
+            }))
+            : participants.map(p => ({
+              ...p,
+              isTeam: false
+            }));
+        }
+      }
+
+      // Include tournamentWinnerId if available
       if (tournamentWinner) {
         bracketData.tournamentWinnerId = tournamentWinner.id;
       }
@@ -116,6 +138,7 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
         throw new Error(data.message || "Failed to save bracket");
       }
 
+      // Handle winners separately
       if (tournamentWinner || runnerUp || thirdPlace) {
         await saveWinners();
       }
@@ -178,10 +201,6 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
     }
   };
 
-
-
-
-
   // Render participants list for bracket assignment
   const renderParticipantsList = () => {
     if (!participants || participants.length === 0) {
@@ -192,8 +211,8 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
       );
     }
 
-    // Skip rendering participants list for Swiss and auto-seeded Round Robin
-    if (tournament.format === 'ROUND_ROBIN' && tournament.seedingType !== 'MANUAL') {
+    if ((tournament.format === 'ROUND_ROBIN' && tournament.seedingType !== 'MANUAL') ||
+      tournament.format === 'SWISS') {
       return (
         <div className="bg-white p-4 border rounded-md shadow-sm">
           <h3 className="text-lg font-medium mb-3">Participants</h3>
@@ -319,8 +338,6 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
         </div>
       )}
 
-
-
       {/* Round Robin Bracket */}
       {tournament.format === 'ROUND_ROBIN' && (
         <RoundRobinBracket
@@ -371,6 +388,21 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
         />
       )}
 
+      {/* Swiss Tournament Bracket */}
+      {tournament.format === 'SWISS' && (
+        <SwissBracket
+          tournament={tournament}
+          participants={participants}
+          setParticipants={setParticipants}
+          setTournamentWinner={setTournamentWinner}
+          setRunnerUp={setRunnerUp}
+          setThirdPlace={setThirdPlace}
+          viewOnly={!isOwner}
+          saveBracket={saveBracket}
+          isTeamTournament={false}
+        />
+      )}
+
       {/* Save Button for tournament organizer  */}
       {isOwner && (
         <div className="flex justify-end mt-6">
@@ -384,6 +416,9 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
                 document.dispatchEvent(event);
               } else if (tournament.format === 'ROUND_ROBIN') {
                 const event = new CustomEvent('saveRoundRobinBracket');
+                document.dispatchEvent(event);
+              } else if (tournament.format === 'SWISS') {
+                const event = new CustomEvent('saveSwissBracket');
                 document.dispatchEvent(event);
               }
             }}
