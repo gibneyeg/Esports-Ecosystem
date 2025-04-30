@@ -39,6 +39,9 @@ model User {
   ownedTeams      Team[]           @relation("TeamOwner")
   teamMemberships TeamMember[]
   teamInvitations TeamInvitation[]
+
+  swissMatchesAsPlayer1 TournamentSwissMatch[] @relation("SwissMatchPlayer1")
+  swissMatchesAsPlayer2 TournamentSwissMatch[] @relation("SwissMatchPlayer2")
 }
 
 model TournamentWinner {
@@ -125,8 +128,10 @@ model Tournament {
   formatSettings Json? // Store format-specific settings like numberOfRounds, groupSize
 
   teamParticipants TeamTournamentParticipant[]
-
+  swissBracket TournamentSwissBracket?
   @@map("tournaments")
+
+  
 }
 
 model Team {
@@ -252,4 +257,46 @@ model TeamInvitation {
   updatedAt DateTime @updatedAt
 
   @@unique([teamId, userId])
+}
+
+
+model TournamentSwissRound {
+  id          String   @id @default(cuid())
+  bracketId   String
+  bracket     TournamentSwissBracket @relation(fields: [bracketId], references: [id], onDelete: Cascade)
+  roundNumber Int
+  matches     TournamentSwissMatch[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([bracketId])
+}
+
+// Swiss Tournament Match
+model TournamentSwissMatch {
+  id          String   @id @default(cuid())
+  roundId     String
+  round       TournamentSwissRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  player1Id   String?
+  player1     User?    @relation("SwissMatchPlayer1", fields: [player1Id], references: [id])
+  player2Id   String?
+  player2     User?    @relation("SwissMatchPlayer2", fields: [player2Id], references: [id])
+  result      String?  // "player1", "player2", "draw", or null
+  position    Int      // Position in the round
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([roundId])
+  @@index([player1Id])
+  @@index([player2Id])
+}
+
+model TournamentSwissBracket {
+  id          String   @id @default(cuid())
+  tournamentId String   @unique
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  currentRound Int      @default(0)
+  rounds       TournamentSwissRound[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

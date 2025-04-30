@@ -282,7 +282,6 @@ export default function TournamentView({ tournamentId }) {
     (p) => p.user.id === session?.user?.id
   );
 
-  // For individual tournaments, use the standard join flow - with safe access
   const canJoinIndividual =
     !isTeamTournament() &&
     !isIndividualParticipant &&
@@ -290,7 +289,6 @@ export default function TournamentView({ tournamentId }) {
     tournament.status === "UPCOMING" &&
     new Date() < new Date(tournament.registrationCloseDate);
 
-  // For team tournaments, check if registration is open - with safe access
   const isTeamRegistrationOpen =
     isTeamTournament() &&
     (tournament.teamParticipants?.length || 0) < tournament.maxPlayers &&
