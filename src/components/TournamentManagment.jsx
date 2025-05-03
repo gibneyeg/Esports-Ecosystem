@@ -44,11 +44,11 @@ const TournamentManagement = ({ tournamentId }) => {
           {error}
         </div>
       )}
-      
+
       {!showConfirmation ? (
         <>
           <button
-            onClick={() => router.push(`/tournaments/${tournamentId}/edit`)}
+            onClick={() => router.push(`/tournament/${tournamentId}/edit`)}
             className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
           >
             Edit Tournament
