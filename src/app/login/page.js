@@ -269,7 +269,7 @@ function LoginPageF() {
               <path fill="#7fba00" d="M12 1h10v10H12z" />
               <path fill="#ffb900" d="M12 12h10v10H12z" />
             </svg>
-            Sign in with Xbox
+            Sign in with Microsoft
           </button>
         </div>
 

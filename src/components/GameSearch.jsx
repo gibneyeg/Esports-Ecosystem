@@ -8,7 +8,19 @@ const GameSkeleton = () => {
       <div className="mt-2 space-y-2">
         <div className="h-4 bg-gray-200 rounded w-3/4"></div>
         <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+        <div className="flex flex-wrap gap-1">
+          <div className="h-5 bg-gray-200 rounded-full w-16"></div>
+          <div className="h-5 bg-gray-200 rounded-full w-12"></div>
+        </div>
       </div>
+    </div>
+  );
+};
+
+const SearchSkeleton = () => {
+  return (
+    <div className="w-full animate-pulse">
+      <div className="w-full h-12 bg-gray-200 rounded-lg"></div>
     </div>
   );
 };
@@ -51,11 +63,6 @@ const GameList = ({ games, onGameSelect, selectedGame, loading }) => {
                   }`}>
                   {game.name}
                 </span>
-                {game.genres?.length > 0 && (
-                  <span className="block text-xs text-gray-500 truncate">
-                    {game.genres.slice(0, 2).join(', ')}
-                  </span>
-                )}
               </div>
             </button>
           </div>
@@ -69,7 +76,8 @@ export default function SearchBar({ searchQuery, setSearchQuery, filterTournamen
   const [games, setGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState('');
   const [loading, setLoading] = useState(true);
-  const [refreshing] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   const fetchRandomGames = async () => {
     try {
@@ -87,67 +95,141 @@ export default function SearchBar({ searchQuery, setSearchQuery, filterTournamen
   };
 
   useEffect(() => {
-    fetchRandomGames();
+    fetchRandomGames().then(() => {
+      // Add a slight delay to ensure smooth animation
+      setTimeout(() => {
+        setInitialLoad(false);
+      }, 300);
+    });
   }, []);
 
   const handleGameSelect = (gameName) => {
     if (selectedGame === gameName) {
       setSelectedGame('');
-      setSearchQuery('');
-      filterTournaments('');
+      updateSearch('');
       return;
     }
     setSelectedGame(gameName);
-    handleSearch('', gameName);
+    updateSearch(gameName);
   };
 
   const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
-    handleSearch(e.target.value, selectedGame);
+    const value = e.target.value;
+    setSearchQuery(value);
+
+    // Show brief loading state when typing
+    setSearchLoading(true);
+    setTimeout(() => {
+      updateSearch(selectedGame, value);
+      setSearchLoading(false);
+    }, 300);
   };
 
-  const handleSearch = (query, game) => {
-    if (!query.trim() && !game) {
-      filterTournaments('');
-      return;
-    }
-
+  const updateSearch = (game = '', query = searchQuery) => {
     const searchTerms = [];
+
     if (query.trim()) searchTerms.push(query.toLowerCase());
     if (game) searchTerms.push(game.toLowerCase());
 
     filterTournaments(searchTerms.join(' '));
   };
 
-  return (
-    <div className="w-full max-w-[1200px] mx-auto mb-12">
-      <div className="space-y-6">
-        <div className="flex">
-          <div className="relative w-full">
-            <input
-              type="text"
-              placeholder="START YOUR SEARCH"
-              value={searchQuery}
-              onChange={handleSearchChange}
-              className="w-full px-6 py-3 text-base rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              autoComplete="off"
-              autoFocus
-            />
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+  const clearAllFilters = () => {
+    setSelectedGame('');
+    setSearchQuery('');
+    filterTournaments('');
+  };
+
+  if (initialLoad) {
+    return (
+      <div className="w-full max-w-[1200px] mx-auto mb-12 animate-fade-in">
+        <div className="space-y-6">
+          {/* Search input skeleton */}
+          <div className="flex">
+            <SearchSkeleton />
+          </div>
+
+          {/* Games section skeleton */}
+          <div className="bg-white rounded-lg px-6 py-6">
+            <div className="flex justify-between items-center mb-6">
+              <div className="h-5 bg-gray-200 rounded w-36 animate-pulse"></div>
+              <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {[...Array(5)].map((_, index) => (
+                <div key={index} className="w-full">
+                  <GameSkeleton />
+                </div>
+              ))}
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
 
+  return (
+    <div className="w-full max-w-[1200px] mx-auto mb-12 animate-fade-in">
+      <div className="space-y-6">
+        <div className="flex">
+          <div className="relative w-full">
+            {searchLoading ? (
+              <SearchSkeleton />
+            ) : (
+              <>
+                <input
+                  type="text"
+                  placeholder="SEARCH TOURNAMENTS"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  className="w-full px-6 py-3 text-base rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  autoComplete="off"
+                  autoFocus
+                />
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Active filters section */}
+        {selectedGame && (
+          <div className="flex flex-wrap items-center gap-2 bg-blue-50 rounded-lg p-3">
+            <span className="text-sm font-medium text-blue-700">Active filters:</span>
+
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800">
+              Game: {selectedGame}
+              <button
+                onClick={() => handleGameSelect(selectedGame)}
+                className="ml-1 text-blue-600 hover:text-blue-800"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+
+            <button
+              onClick={clearAllFilters}
+              className="ml-auto text-sm text-blue-600 hover:text-blue-800"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
+
+        {/* Games section */}
         <div className="bg-white rounded-lg px-6 py-6">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3">
               <h3 className="text-base font-medium">Featured Games</h3>
               <button
                 onClick={fetchRandomGames}
-                disabled={loading || refreshing}
+                disabled={loading}
                 className="text-blue-600 hover:text-blue-700 disabled:text-blue-300 p-1.5 rounded-full hover:bg-blue-50 transition-colors"
                 title="Show different games"
               >
