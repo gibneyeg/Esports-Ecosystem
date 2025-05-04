@@ -1,430 +1,195 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import prisma from "@/lib/prisma";
+import { render, fireEvent, screen, act } from "@testing-library/react";
+import "@testing-library/jest-dom";
+import TournamentWinner from "../TournamentWinner";
+import { useSession } from "next-auth/react";
 
-const mockRoute = {
-  POST: async (request, context) => {
-    try {
-      const session = await getServerSession();
-      if (!session?.user?.email) {
-        return NextResponse.json({ message: "Authentication required" }, { status: 401 });
-      }
-
-      const { id } = context.params;
-      const { streamUrl, streamerName, isOfficial } = await request.json();
-
-      const tournament = await prisma.tournament.findUnique({
-        where: { id },
-        include: { createdBy: true }
-      });
-
-      if (!tournament) {
-        return NextResponse.json({ message: "Tournament not found" }, { status: 404 });
-      }
-
-      if (isOfficial && tournament.createdBy.email !== session.user.email) {
-        return NextResponse.json(
-          { message: "Only tournament creators can add official streams" },
-          { status: 403 }
-        );
-      }
-
-      const stream = await prisma.tournamentStream.create({
-        data: {
-          tournamentId: id,
-          streamUrl,
-          streamerName,
-          isOfficial,
-        }
-      });
-
-      return NextResponse.json(stream);
-    } catch (error) {
-      return NextResponse.json(
-        { message: "Failed to add stream" },
-        { status: 500 }
-      );
-    }
-  },
-
-  GET: async (request, context) => {
-    try {
-      const { id } = context.params;
-      
-      const streams = await prisma.tournamentStream.findMany({
-        where: { tournamentId: id },
-        orderBy: [
-          { isOfficial: 'desc' },
-          { createdAt: 'desc' }
-        ]
-      });
-
-      return NextResponse.json(streams);
-    } catch (error) {
-      return NextResponse.json(
-        { message: "Failed to fetch streams" },
-        { status: 500 }
-      );
-    }
-  },
-
-  DELETE: async (request, context) => {
-    try {
-      const session = await getServerSession();
-      if (!session?.user?.email) {
-        return NextResponse.json({ message: "Authentication required" }, { status: 401 });
-      }
-
-      const { id, streamId } = context.params;
-
-      const tournament = await prisma.tournament.findUnique({
-        where: { id },
-        include: { createdBy: true }
-      });
-
-      if (!tournament) {
-        return NextResponse.json({ message: "Tournament not found" }, { status: 404 });
-      }
-
-      const stream = await prisma.tournamentStream.findUnique({
-        where: { id: streamId }
-      });
-
-      if (!stream) {
-        return NextResponse.json({ message: "Stream not found" }, { status: 404 });
-      }
-
-      if (tournament.createdBy.email !== session.user.email) {
-        return NextResponse.json(
-          { message: "Only tournament creators can remove streams" },
-          { status: 403 }
-        );
-      }
-
-      await prisma.tournamentStream.delete({
-        where: { id: streamId }
-      });
-
-      return NextResponse.json({ message: "Stream removed successfully" });
-    } catch (error) {
-      return NextResponse.json(
-        { message: "Failed to remove stream" },
-        { status: 500 }
-      );
-    }
-  }
-};
-
-vi.mock("next-auth", () => ({
-  getServerSession: vi.fn()
+// Mock next-auth
+vi.mock("next-auth/react", () => ({
+  useSession: vi.fn()
 }));
 
-vi.mock("@/lib/prisma", () => ({
-  default: {
-    tournament: {
-      findUnique: vi.fn(),
-    },
-    tournamentStream: {
-      create: vi.fn(),
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      delete: vi.fn()
-    }
-  }
-}));
-
-describe("Tournament Stream Routes", () => {
+describe("TournamentWinner", () => {
   const mockSession = {
-    user: {
-      email: "creator@test.com",
-      id: "creator-id"
+    data: {
+      user: {
+        id: "owner-id",
+        email: "owner@test.com"
+      }
     }
   };
 
-  const mockTournament = {
-    id: "tournament-id",
-    createdBy: {
-      email: "creator@test.com"
-    }
+  const mockOnWinnerDeclared = vi.fn();
+
+  const defaultProps = {
+    tournament: {
+      id: "tournament-1",
+      status: "IN_PROGRESS",
+      prizePool: 1000,
+      participants: [
+        { user: { id: "user1", name: "Player 1" } },
+        { user: { id: "user2", name: "Player 2" } },
+        { user: { id: "user3", name: "Player 3" } }
+      ]
+    },
+    hasAccess: true,
+    canEdit: true,
+    isOwner: true,
+    onWinnerDeclared: mockOnWinnerDeclared
   };
 
-  const mockContext = {
-    params: {
-      id: "tournament-id",
-      streamId: "stream-id"
-    }
-  };
+  global.fetch = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
-  });
+    useSession.mockReturnValue(mockSession);
 
-  describe("POST /api/tournaments/[id]/streams", () => {
-    const mockStreamData = {
-      streamUrl: "https://twitch.tv/test",
-      streamerName: "TestStreamer",
-      isOfficial: true
-    };
-
-    it("returns 401 if user is not authenticated", async () => {
-      getServerSession.mockResolvedValueOnce(null);
-
-      const request = new Request("http://localhost/api/tournaments/123/streams", {
-        method: "POST",
-        body: JSON.stringify(mockStreamData)
-      });
-
-      const response = await mockRoute.POST(request, mockContext);
-      
-      expect(response.status).toBe(401);
-      expect(await response.json()).toEqual({
-        message: "Authentication required"
-      });
-    });
-
-    it("returns 404 if tournament is not found", async () => {
-      getServerSession.mockResolvedValueOnce(mockSession);
-      prisma.tournament.findUnique.mockResolvedValueOnce(null);
-
-      const request = new Request("http://localhost/api/tournaments/123/streams", {
-        method: "POST",
-        body: JSON.stringify(mockStreamData)
-      });
-
-      const response = await mockRoute.POST(request, mockContext);
-      
-      expect(response.status).toBe(404);
-      expect(await response.json()).toEqual({
-        message: "Tournament not found"
-      });
-    });
-
-    it("returns 403 if non-creator tries to add official stream", async () => {
-      getServerSession.mockResolvedValueOnce({
-        user: { email: "other@test.com" }
-      });
-      prisma.tournament.findUnique.mockResolvedValueOnce(mockTournament);
-
-      const request = new Request("http://localhost/api/tournaments/123/streams", {
-        method: "POST",
-        body: JSON.stringify(mockStreamData)
-      });
-
-      const response = await mockRoute.POST(request, mockContext);
-      
-      expect(response.status).toBe(403);
-      expect(await response.json()).toEqual({
-        message: "Only tournament creators can add official streams"
-      });
-    });
-
-    it("successfully creates a stream", async () => {
-      const mockStream = { id: "stream-id", ...mockStreamData };
-      
-      getServerSession.mockResolvedValueOnce(mockSession);
-      prisma.tournament.findUnique.mockResolvedValueOnce(mockTournament);
-      prisma.tournamentStream.create.mockResolvedValueOnce(mockStream);
-
-      const request = new Request("http://localhost/api/tournaments/123/streams", {
-        method: "POST",
-        body: JSON.stringify(mockStreamData)
-      });
-
-      const response = await mockRoute.POST(request, mockContext);
-      const data = await response.json();
-      
-      expect(response.status).toBe(200);
-      expect(data).toEqual(mockStream);
-      expect(prisma.tournamentStream.create).toHaveBeenCalledWith({
-        data: {
-          tournamentId: mockContext.params.id,
-          ...mockStreamData
-        }
-      });
-    });
-
-    it("handles database errors during stream creation", async () => {
-      getServerSession.mockResolvedValueOnce(mockSession);
-      prisma.tournament.findUnique.mockResolvedValueOnce(mockTournament);
-      prisma.tournamentStream.create.mockRejectedValueOnce(new Error("Database error"));
-
-      const request = new Request("http://localhost/api/tournaments/123/streams", {
-        method: "POST",
-        body: JSON.stringify(mockStreamData)
-      });
-
-      const response = await mockRoute.POST(request, mockContext);
-      
-      expect(response.status).toBe(500);
-      expect(await response.json()).toEqual({
-        message: "Failed to add stream"
-      });
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ tournament: { id: "tournament-1" } })
     });
   });
 
-  describe("GET /api/tournaments/[id]/streams", () => {
-    it("successfully retrieves streams", async () => {
-      const mockStreams = [
-        { id: "stream-1", streamUrl: "https://twitch.tv/test1" },
-        { id: "stream-2", streamUrl: "https://twitch.tv/test2" }
-      ];
-
-      prisma.tournamentStream.findMany.mockResolvedValueOnce(mockStreams);
-
-      const request = new Request("http://localhost/api/tournaments/123/streams", {
-        method: "GET"
-      });
-
-      const response = await mockRoute.GET(request, mockContext);
-      const data = await response.json();
-      
-      expect(response.status).toBe(200);
-      expect(data).toEqual(mockStreams);
-      expect(prisma.tournamentStream.findMany).toHaveBeenCalledWith({
-        where: { tournamentId: mockContext.params.id },
-        orderBy: [
-          { isOfficial: 'desc' },
-          { createdAt: 'desc' }
-        ]
-      });
-    });
-
-    it("handles errors when retrieving streams", async () => {
-      prisma.tournamentStream.findMany.mockRejectedValueOnce(new Error("Database error"));
-
-      const request = new Request("http://localhost/api/tournaments/123/streams", {
-        method: "GET"
-      });
-
-      const response = await mockRoute.GET(request, mockContext);
-      
-      expect(response.status).toBe(500);
-      expect(await response.json()).toEqual({
-        message: "Failed to fetch streams"
-      });
-    });
-
-    it("returns empty array when no streams exist", async () => {
-      prisma.tournamentStream.findMany.mockResolvedValueOnce([]);
-
-      const request = new Request("http://localhost/api/tournaments/123/streams", {
-        method: "GET"
-      });
-
-      const response = await mockRoute.GET(request, mockContext);
-      const data = await response.json();
-      
-      expect(response.status).toBe(200);
-      expect(data).toEqual([]);
-    });
+  it("does not render tournament results when no winners exist", () => {
+    render(<TournamentWinner {...defaultProps} />);
+    expect(screen.queryByText("Tournament Results")).not.toBeInTheDocument();
   });
 
-  describe("DELETE /api/tournaments/[id]/streams/[streamId]", () => {
-    it("returns 401 if user is not authenticated", async () => {
-      getServerSession.mockResolvedValueOnce(null);
+  it("renders declare winners button when conditions are met", () => {
+    render(<TournamentWinner {...defaultProps} />);
+    expect(screen.getByText("Declare Winners")).toBeInTheDocument();
+  });
 
-      const request = new Request("http://localhost/api/tournaments/123/streams/456", {
-        method: "DELETE"
-      });
+  it("renders nothing when no session exists", () => {
+    useSession.mockReturnValue({ data: null });
+    const { container } = render(<TournamentWinner {...defaultProps} />);
+    expect(container.firstChild).toBeNull();
+  });
 
-      const response = await mockRoute.DELETE(request, mockContext);
-      
-      expect(response.status).toBe(401);
-      expect(await response.json()).toEqual({
-        message: "Authentication required"
-      });
+
+  it("opens modal when declare winners button is clicked", async () => {
+    render(<TournamentWinner {...defaultProps} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Declare Winners"));
     });
 
-    it("returns 404 if tournament is not found", async () => {
-      getServerSession.mockResolvedValueOnce(mockSession);
-      prisma.tournament.findUnique.mockResolvedValueOnce(null);
+    expect(screen.getByText("Select Tournament Winners")).toBeInTheDocument();
+    expect(screen.getByText(/First Place.*\$500/)).toBeInTheDocument();
+  });
 
-      const request = new Request("http://localhost/api/tournaments/123/streams/456", {
-        method: "DELETE"
-      });
+  it("shows error when no first place winner is selected", async () => {
+    render(<TournamentWinner {...defaultProps} />);
 
-      const response = await mockRoute.DELETE(request, mockContext);
-      
-      expect(response.status).toBe(404);
-      expect(await response.json()).toEqual({
-        message: "Tournament not found"
-      });
+    await act(async () => {
+      fireEvent.click(screen.getByText("Declare Winners"));
     });
 
-    it("returns 404 if stream is not found", async () => {
-      getServerSession.mockResolvedValueOnce(mockSession);
-      prisma.tournament.findUnique.mockResolvedValueOnce(mockTournament);
-      prisma.tournamentStream.findUnique.mockResolvedValueOnce(null);
-
-      const request = new Request("http://localhost/api/tournaments/123/streams/456", {
-        method: "DELETE"
-      });
-
-      const response = await mockRoute.DELETE(request, mockContext);
-      
-      expect(response.status).toBe(404);
-      expect(await response.json()).toEqual({
-        message: "Stream not found"
-      });
+    const submitButton = screen.getAllByText("Declare Winners")[1];
+    await act(async () => {
+      fireEvent.click(submitButton);
     });
 
-    it("returns 403 if non-creator tries to delete stream", async () => {
-      getServerSession.mockResolvedValueOnce({
-        user: { email: "other@test.com" }
-      });
-      prisma.tournament.findUnique.mockResolvedValueOnce(mockTournament);
-      prisma.tournamentStream.findUnique.mockResolvedValueOnce({ id: "stream-id" });
+    expect(screen.getByText("Please select at least a first place winner")).toBeInTheDocument();
+  });
 
-      const request = new Request("http://localhost/api/tournaments/123/streams/456", {
-        method: "DELETE"
-      });
+  it("shows error when duplicate winners are selected", async () => {
+    render(<TournamentWinner {...defaultProps} />);
 
-      const response = await mockRoute.DELETE(request, mockContext);
-      
-      expect(response.status).toBe(403);
-      expect(await response.json()).toEqual({
-        message: "Only tournament creators can remove streams"
-      });
+    await act(async () => {
+      fireEvent.click(screen.getByText("Declare Winners"));
     });
 
-    it("successfully deletes a stream", async () => {
-      getServerSession.mockResolvedValueOnce(mockSession);
-      prisma.tournament.findUnique.mockResolvedValueOnce(mockTournament);
-      prisma.tournamentStream.findUnique.mockResolvedValueOnce({ id: "stream-id" });
-      prisma.tournamentStream.delete.mockResolvedValueOnce({ id: "stream-id" });
-
-      const request = new Request("http://localhost/api/tournaments/123/streams/456", {
-        method: "DELETE"
-      });
-
-      const response = await mockRoute.DELETE(request, mockContext);
-      
-      expect(response.status).toBe(200);
-      expect(await response.json()).toEqual({
-        message: "Stream removed successfully"
-      });
-      expect(prisma.tournamentStream.delete).toHaveBeenCalledWith({
-        where: { id: mockContext.params.streamId }
-      });
+    const selects = screen.getAllByRole('combobox');
+    await act(async () => {
+      fireEvent.change(selects[0], { target: { value: "user1" } });
+      fireEvent.change(selects[1], { target: { value: "user1" } });
     });
 
-    it("handles database errors during stream deletion", async () => {
-      getServerSession.mockResolvedValueOnce(mockSession);
-      prisma.tournament.findUnique.mockResolvedValueOnce(mockTournament);
-      prisma.tournamentStream.findUnique.mockResolvedValueOnce({ id: "stream-id" });
-      prisma.tournamentStream.delete.mockRejectedValueOnce(new Error("Database error"));
-
-      const request = new Request("http://localhost/api/tournaments/123/streams/456", {
-        method: "DELETE"
-      });
-
-      const response = await mockRoute.DELETE(request, mockContext);
-      
-      expect(response.status).toBe(500);
-      expect(await response.json()).toEqual({
-        message: "Failed to remove stream"
-      });
+    const submitButton = screen.getAllByText("Declare Winners")[1];
+    await act(async () => {
+      fireEvent.click(submitButton);
     });
+
+    expect(screen.getByText("Each player can only win one position")).toBeInTheDocument();
+  });
+
+  it("successfully declares winners and makes API call", async () => {
+    render(<TournamentWinner {...defaultProps} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Declare Winners"));
+    });
+
+    const selects = screen.getAllByRole('combobox');
+    await act(async () => {
+      fireEvent.change(selects[0], { target: { value: "user1" } });
+    });
+
+    const submitButton = screen.getAllByText("Declare Winners")[1];
+    await act(async () => {
+      fireEvent.click(submitButton);
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      `/api/tournaments/${defaultProps.tournament.id}/winner`,
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+    );
+
+    expect(mockOnWinnerDeclared).toHaveBeenCalled();
+  });
+
+  it("handles API error when declaring winners", async () => {
+    const errorMessage = "Failed to declare winners";
+    global.fetch.mockResolvedValueOnce({
+      ok: false,
+      json: () => Promise.resolve({ message: errorMessage })
+    });
+
+    render(<TournamentWinner {...defaultProps} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Declare Winners"));
+    });
+
+    const firstSelect = screen.getAllByRole('combobox')[0];
+    await act(async () => {
+      fireEvent.change(firstSelect, { target: { value: "user1" } });
+    });
+
+    const submitButton = screen.getAllByText("Declare Winners")[1];
+    await act(async () => {
+      fireEvent.click(submitButton);
+    });
+
+    expect(screen.getByText(errorMessage)).toBeInTheDocument();
+  });
+
+  it("disables buttons while submitting", async () => {
+    global.fetch.mockImplementation(() => new Promise(resolve => setTimeout(resolve, 100)));
+
+    render(<TournamentWinner {...defaultProps} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Declare Winners"));
+    });
+
+    const firstSelect = screen.getAllByRole('combobox')[0];
+    await act(async () => {
+      fireEvent.change(firstSelect, { target: { value: "user1" } });
+    });
+
+    const submitButton = screen.getAllByText("Declare Winners")[1];
+    await act(async () => {
+      fireEvent.click(submitButton);
+    });
+
+    expect(screen.getByText("Declaring...")).toBeInTheDocument();
+    expect(screen.getByText("Cancel")).toBeDisabled();
   });
 });

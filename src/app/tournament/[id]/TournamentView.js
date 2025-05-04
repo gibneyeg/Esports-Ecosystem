@@ -5,10 +5,11 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Layout from "../../../components/Layout.jsx";
 import TournamentManagement from "../../../components/TournamentManagment.jsx";
-import DeclareWinnerButton from "../../../components/TournamentWinner.jsx";
+import TournamentWinner from "../../../components/TournamentWinner.jsx";
 import TwitchStream from "../../../components/TournamentStream.jsx";
 import TournamentBracketsHandler from "@/components/TournamentBracketHandler.jsx";
 import TeamTournamentRegistration from "@/components/TeamTournamentRegistration.jsx";
+import TournamentRoles from "@/components/TournamentRoles.jsx";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -21,6 +22,13 @@ export default function TournamentView({ tournamentId }) {
 
   // Initialize activeTab from URL 
   const [activeTab, setActiveTab] = useState('info');
+
+  // Combined state for user access
+  const [userAccess, setUserAccess] = useState({
+    canManage: false,
+    canEdit: false,
+    role: null,
+  });
 
   // Load active tab from URL
   useEffect(() => {
@@ -89,37 +97,49 @@ export default function TournamentView({ tournamentId }) {
   useEffect(() => {
     let mounted = true;
 
-    async function fetchTournament() {
+    async function fetchAllData() {
       if (!tournamentId) return;
 
       try {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(
-          `/api/tournaments/${tournamentId}/details`,
-          {
+        // Fetch tournament data and access data in parallel
+        const [tournamentResponse, accessResponse] = await Promise.all([
+          fetch(`/api/tournaments/${tournamentId}/details`, {
             credentials: "include",
-          }
-        );
-        const data = await response.json();
+          }),
+          session?.user?.id
+            ? fetch(`/api/tournaments/${tournamentId}/check-access`)
+            : Promise.resolve(null),
+        ]);
 
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to fetch tournament");
+        // Process tournament data
+        const tournamentData = await tournamentResponse.json();
+
+        if (!tournamentResponse.ok) {
+          throw new Error(tournamentData.message || "Failed to fetch tournament");
+        }
+
+        // Process access data if available
+        let accessData = {};
+        if (accessResponse && accessResponse.ok) {
+          accessData = await accessResponse.json();
         }
 
         if (mounted) {
           // Make sure teamParticipants is initialized if not present
-          if (!data.teamParticipants) {
-            data.teamParticipants = [];
+          if (!tournamentData.teamParticipants) {
+            tournamentData.teamParticipants = [];
           }
 
           // Update tournament status if needed
-          const updatedTournament = await updateTournamentStatus(data);
+          const updatedTournament = await updateTournamentStatus(tournamentData);
           setTournament(updatedTournament);
+          setUserAccess(accessData);
         }
       } catch (err) {
-        console.error("Error fetching tournament:", err);
+        console.error("Error fetching data:", err);
         if (mounted) {
           setError(err.message);
         }
@@ -130,12 +150,12 @@ export default function TournamentView({ tournamentId }) {
       }
     }
 
-    fetchTournament();
+    fetchAllData();
 
     return () => {
       mounted = false;
     };
-  }, [tournamentId]);
+  }, [tournamentId, session?.user?.id]);
 
   const handleJoinTournament = async () => {
     if (!session) {
@@ -277,7 +297,11 @@ export default function TournamentView({ tournamentId }) {
     );
   }
 
-  const isCreator = session?.user?.id === tournament.userId;
+  // Check user access
+  const hasAccess = userAccess.role === 'OWNER' || userAccess.role === 'ADMIN';
+  const isOwner = userAccess.role === 'OWNER';
+  const isAdmin = userAccess.role === 'ADMIN';
+
   const isIndividualParticipant = tournament.participants?.some(
     (p) => p.user.id === session?.user?.id
   );
@@ -331,6 +355,11 @@ export default function TournamentView({ tournamentId }) {
                   "Unknown"
                 )}
               </p>
+              {(isAdmin || isOwner) && (
+                <p className="text-sm text-blue-600 mt-1">
+                  Your role: {isOwner ? 'Tournament Owner' : 'Tournament Admin'}
+                </p>
+              )}
             </div>
             {session?.user && canJoinIndividual && (
               <button
@@ -653,18 +682,34 @@ export default function TournamentView({ tournamentId }) {
                 </div>
               </div>
 
-              {isCreator && (
+
+              {hasAccess && (
                 <div className="mt-8">
                   <h2 className="text-xl font-semibold mb-4">Tournament Management</h2>
                   <div className="flex gap-3">
-                    <DeclareWinnerButton
+                    <TournamentWinner
                       tournament={tournament}
                       onWinnerDeclared={(updatedTournament) => {
                         setTournament(updatedTournament);
                       }}
+                      hasAccess={userAccess.canManage}
+                      canEdit={userAccess.canEdit}
+                      isOwner={isOwner}
                     />
-                    <TournamentManagement tournamentId={tournament.id} />
+                    <TournamentManagement
+                      tournamentId={tournament.id}
+                      hasAccess={userAccess.canManage}
+                      canEdit={userAccess.canEdit}
+                      isOwner={isOwner}
+                    />
                   </div>
+                  {/* Only owners can manage roles */}
+                  {isOwner && (
+                    <TournamentRoles
+                      tournamentId={tournament.id}
+                      isOwner={isOwner}
+                    />
+                  )}
                 </div>
               )}
             </>
@@ -675,7 +720,6 @@ export default function TournamentView({ tournamentId }) {
               <TournamentBracketsHandler
                 tournament={tournament}
                 currentUser={session?.user}
-                isOwner={isCreator} // Pass the already calculated value
               />
             </div>
           )}
@@ -685,7 +729,7 @@ export default function TournamentView({ tournamentId }) {
               <h2 className="text-2xl font-bold text-gray-800 mb-6">Tournament Streams</h2>
               <TwitchStream
                 tournament={tournament}
-                isCreator={isCreator}
+                isCreator={isOwner}
                 onStreamUpdate={(streams) => {
                   setTournament({
                     ...tournament,
