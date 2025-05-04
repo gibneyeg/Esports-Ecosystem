@@ -16,6 +16,7 @@
   "dependencies": {
     "@auth/core": "^0.37.4",
     "@auth/prisma-adapter": "^2.7.3",
+    "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.5.1",
     "next": "^14.2.23",
