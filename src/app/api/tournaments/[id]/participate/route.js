@@ -7,8 +7,8 @@ export async function POST(request, context) {
   try {
     const resolvedParams = await Promise.resolve(context.params);
     const tournamentId = resolvedParams.id;
-
     const session = await getServerSession(authOptions);
+
     if (!session?.user?.email) {
       return NextResponse.json(
         { message: "Authentication required" },
@@ -61,7 +61,7 @@ export async function POST(request, context) {
       },
     });
 
-    // Return updated tournament data
+    // Return updated tournament data - INCLUDING the image field for users
     const updatedTournament = await prisma.tournament.findUnique({
       where: { id: tournamentId },
       include: {
@@ -71,6 +71,7 @@ export async function POST(request, context) {
             name: true,
             email: true,
             username: true,
+            image: true, // Add image field here
           },
         },
         participants: {
@@ -81,6 +82,7 @@ export async function POST(request, context) {
                 name: true,
                 email: true,
                 username: true,
+                image: true, // Add image field here
               },
             },
           },
