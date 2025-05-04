@@ -1,16 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Layout from "../../../components/Layout.jsx";
 import GameSelector from "../../../components/GameSelector.jsx";
 import TournamentFormatSelector from "../../../components/TournamentFormatSelector";
 import FormatSettings from "../../../components/FormatSettings";
 
-export default function CreateTournament() {
+const LoadingSpinner = () => (
+  <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent" />
+);
+
+function CreateTournamentForm() {
   const router = useRouter();
   const { data: status } = useSession();
+  const searchParams = useSearchParams();
+
+  // Loading states
+  const [isLoadingGame, setIsLoadingGame] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Get the game parameter from URL
+  const gameFromUrl = searchParams.get('game');
+
+  // Initialize form data with the game parameter if available
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -19,7 +33,7 @@ export default function CreateTournament() {
     registrationCloseDate: "",
     prizePool: "",
     maxPlayers: "",
-    game: "",
+    game: gameFromUrl || "", // Set game from URL parameter
     format: "",
     seedingType: "RANDOM",
     rules: "",
@@ -37,7 +51,7 @@ export default function CreateTournament() {
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGameSelectorReady, setIsGameSelectorReady] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -45,6 +59,22 @@ export default function CreateTournament() {
       router.push("/login");
     }
   }, [status, router]);
+
+  // Effect to handle game pre-fill from URL and ensure proper initial state
+  useEffect(() => {
+    if (gameFromUrl) {
+      setIsLoadingGame(true);
+      // Simulate loading time for the game data and let components render
+      const timeout = setTimeout(() => {
+        setIsLoadingGame(false);
+        setIsGameSelectorReady(true);
+      }, 500);
+
+      return () => clearTimeout(timeout);
+    } else {
+      setIsGameSelectorReady(true);
+    }
+  }, [gameFromUrl]);
 
   if (status === "loading" || status === "unauthenticated") {
     return null;
@@ -154,6 +184,22 @@ export default function CreateTournament() {
 
   // Show team settings if registration type is TEAM
   const isTeamTournament = formData.registrationType === "TEAM";
+
+  // Show loading state while game is being loaded
+  if (isLoadingGame || !isGameSelectorReady) {
+    return (
+      <Layout>
+        <div className="max-w-2xl mx-auto p-6">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <LoadingSpinner />
+              <p className="mt-4 text-gray-500">Loading tournament form...</p>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -354,6 +400,7 @@ export default function CreateTournament() {
               value={formData.game}
               onChange={(value) => setFormData(prev => ({ ...prev, game: value }))}
               disabled={isSubmitting}
+              key={formData.game || 'empty'} // Force re-render when game changes
             />
           </div>
 
@@ -613,5 +660,24 @@ export default function CreateTournament() {
         </form>
       </div>
     </Layout>
+  );
+}
+
+export default function CreateTournament() {
+  return (
+    <Suspense fallback={
+      <Layout>
+        <div className="max-w-2xl mx-auto p-6">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <LoadingSpinner />
+              <p className="mt-4 text-gray-500">Loading...</p>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    }>
+      <CreateTournamentForm />
+    </Suspense>
   );
 }
