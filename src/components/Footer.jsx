@@ -12,22 +12,16 @@ export default function Footer() {
             Home
           </Link>
           <Link
-            href="/About"
-            className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
-          >
-            About
-          </Link>
-          <Link
             href="/tournament"
             className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
           >
-            Tournaments
+            LeaderBoard
           </Link>
           <Link
             href="/leaderBoard"
             className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
           >
-            LeaderBoard
+            Tournaments
           </Link>
           <Link
             href="/Contact"
