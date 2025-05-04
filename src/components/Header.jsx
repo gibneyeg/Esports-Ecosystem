@@ -8,14 +8,9 @@ import logo from "../Img/logo-removebg-preview.png";
 import styles from "./styles/Header.module.css";
 
 export default function Header() {
-  const { data: session, status, update } = useSession();
+  const { data: session, status } = useSession();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showTeamsMenu, setShowTeamsMenu] = useState(false);
-  const [showProfileUploader, setShowProfileUploader] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!showProfileMenu) return;
@@ -53,76 +48,6 @@ export default function Header() {
     await signOut({ redirect: true, callbackUrl: "/" });
   };
 
-  const handleFileSelect = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        setError("File size must be less than 2MB");
-        return;
-      }
-      if (!file.type.startsWith("image/")) {
-        setError("Please select an image file");
-        return;
-      }
-      setSelectedFile(file);
-      // Create safe object URL
-      const safePreviewUrl = URL.createObjectURL(file);
-      setPreviewUrl(safePreviewUrl);
-      setError("");
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!selectedFile) return;
-
-    try {
-      setIsUploading(true);
-      setError("");
-
-      const formData = new FormData();
-      formData.append("image", selectedFile);
-
-      const response = await fetch("/api/upload-profile-picture", {
-        method: "POST",
-        body: formData,
-      });
-
-      let data;
-      try {
-        data = await response.json();
-      } catch (parseError) {
-        throw new Error("Failed to parse server response");
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          typeof data.error === "string" ? data.error : "Failed to upload image"
-        );
-      }
-
-      if (!data.imageUrl) {
-        throw new Error("Invalid response format: missing imageUrl");
-      }
-
-      await update({
-        ...session,
-        user: {
-          ...session?.user,
-          image: data.imageUrl,
-        },
-      });
-
-      setSelectedFile(null);
-      setPreviewUrl(null);
-      setShowProfileUploader(false);
-    } catch (err) {
-      console.error("Upload error:", err);
-      setError(err.message || "Failed to upload image. Please try again.");
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
   // Validate image URL to prevent XSS
   const validateImageUrl = (url) => {
     if (!url) return false;
@@ -130,8 +55,7 @@ export default function Header() {
     // Only allow http/https URLs or blob URLs (for previews)
     return (
       (url.startsWith('http://') ||
-        url.startsWith('https://') ||
-        url.startsWith('blob:')) &&
+        url.startsWith('https://')) &&
       !url.includes('javascript:')
     );
   };
@@ -196,7 +120,7 @@ export default function Header() {
               </Link>
             </li>
 
-            {/* New Teams Dropdown */}
+            {/* Teams Dropdown */}
             {session && (
               <li className="relative teams-menu-container">
                 <button
@@ -223,12 +147,6 @@ export default function Header() {
                         onClick={() => setShowTeamsMenu(false)}
                       >
                         Team Invitations
-                      </Link>
-                      <Link href="/teams/create"
-                        className="block px-4 py-2 text-gray-300 hover:bg-gray-700"
-                        onClick={() => setShowTeamsMenu(false)}
-                      >
-                        Create Team
                       </Link>
                     </div>
                   </div>
@@ -341,19 +259,6 @@ export default function Header() {
                           Profile
                         </Link>
 
-                        <button
-                          onClick={() => {
-                            setShowProfileUploader(true);
-                            setShowProfileMenu(false);
-                          }}
-                          className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" />
-                          </svg>
-                          Change Profile Picture
-                        </button>
-
                         <Link
                           href="/settings"
                           className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -375,73 +280,6 @@ export default function Header() {
                           </svg>
                           Logout
                         </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {showProfileUploader && (
-                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg p-4 z-50">
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-gray-200">
-                          {previewUrl && validateImageUrl(previewUrl) ? (
-                            <div className="relative w-full h-full">
-                              {/* Special handling for blob URLs from file preview */}
-                              <div className="w-full h-full bg-cover bg-center"
-                                style={{ backgroundImage: `url('${previewUrl}')` }}>
-                              </div>
-                            </div>
-                          ) : session.user.image && validateImageUrl(session.user.image) ? (
-                            <Image
-                              src={session.user.image}
-                              alt="Current profile"
-                              width={128}
-                              height={128}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-700 text-white text-2xl">
-                              {session.user.username?.charAt(0).toUpperCase() ||
-                                session.user.email?.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                        </div>
-
-                        <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg transition-colors">
-                          Select Image
-                          <input
-                            type="file"
-                            className="hidden"
-                            accept="image/*"
-                            onChange={handleFileSelect}
-                          />
-                        </label>
-
-                        {error && (
-                          <p className="text-red-500 text-sm">{error}</p>
-                        )}
-
-                        <div className="flex gap-2">
-                          {selectedFile && (
-                            <button
-                              onClick={handleUpload}
-                              disabled={isUploading}
-                              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                              {isUploading ? "Uploading..." : "Upload"}
-                            </button>
-                          )}
-                          <button
-                            onClick={() => {
-                              setShowProfileUploader(false);
-                              setSelectedFile(null);
-                              setPreviewUrl(null);
-                              setError("");
-                            }}
-                            className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
                       </div>
                     </div>
                   )}
