@@ -2,7 +2,12 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
-const TournamentManagement = ({ tournamentId }) => {
+const TournamentManagement = ({
+  tournamentId,
+  hasAccess,
+  canEdit,
+  isOwner
+}) => {
   const router = useRouter();
   const { data: session } = useSession();
   const [isDeleting, setIsDeleting] = useState(false);
@@ -36,6 +41,7 @@ const TournamentManagement = ({ tournamentId }) => {
   };
 
   if (!session) return null;
+  if (!hasAccess) return null;
 
   return (
     <>
@@ -44,22 +50,25 @@ const TournamentManagement = ({ tournamentId }) => {
           {error}
         </div>
       )}
-
       {!showConfirmation ? (
         <>
-          <button
-            onClick={() => router.push(`/tournament/${tournamentId}/edit`)}
-            className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
-          >
-            Edit Tournament
-          </button>
-          <button
-            onClick={() => setShowConfirmation(true)}
-            className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-            disabled={isDeleting}
-          >
-            Cancel Tournament
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => router.push(`/tournament/${tournamentId}/edit`)}
+              className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+            >
+              Edit Tournament
+            </button>
+          )}
+          {isOwner && (
+            <button
+              onClick={() => setShowConfirmation(true)}
+              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              disabled={isDeleting}
+            >
+              Cancel Tournament
+            </button>
+          )}
         </>
       ) : (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">

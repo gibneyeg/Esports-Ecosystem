@@ -127,6 +127,18 @@ export async function GET(request, context) {
           }
         },
         featuredStreams: true,
+        roles: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                username: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -355,6 +367,7 @@ export async function POST(request, context) {
   }
 }
 
+
 export async function DELETE(request, context) {
   try {
     const resolvedParams = await Promise.resolve(context.params);
@@ -367,15 +380,23 @@ export async function DELETE(request, context) {
       );
     }
 
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { message: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
     const tournament = await prisma.tournament.findUnique({
       where: { id: tournamentId },
       include: {
-        createdBy: {
-          select: {
-            id: true,
-            email: true,
-          },
-        },
+        createdBy: true,
+        roles: {
+          where: {
+            user: { email: session.user.email }
+          }
+        }
       },
     });
 
@@ -386,12 +407,19 @@ export async function DELETE(request, context) {
       );
     }
 
-    // Delete the tournament image if it exists
+    // Only allow owners to delete tournaments
+    if (tournament.createdBy.email !== session.user.email) {
+      return NextResponse.json(
+        { message: "Only tournament owners can delete tournaments" },
+        { status: 403 }
+      );
+    }
+
     if (tournament.imageUrl) {
       await deleteTournamentImage(tournament.imageUrl);
     }
 
-    // Delete the tournament and all related data
+    // Delete the tournament 
     await prisma.tournament.delete({
       where: { id: tournamentId },
     });
