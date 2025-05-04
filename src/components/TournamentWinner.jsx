@@ -1,6 +1,16 @@
-import React, { useState } from 'react';
+"use client";
 
-const TournamentWinner = ({ tournament, onWinnerDeclared }) => {
+import React, { useState } from 'react';
+import { useSession } from "next-auth/react";
+
+const TournamentWinner = ({
+  tournament,
+  onWinnerDeclared,
+  hasAccess,
+  canEdit,
+  isOwner
+}) => {
+  const { data: session } = useSession();
   const [showModal, setShowModal] = useState(false);
   const [winners, setWinners] = useState({
     first: '',
@@ -23,7 +33,6 @@ const TournamentWinner = ({ tournament, onWinnerDeclared }) => {
       return;
     }
 
-    // Validate no duplicate winners
     const selectedWinners = Object.values(winners).filter(Boolean);
     if (new Set(selectedWinners).size !== selectedWinners.length) {
       setError('Each player can only win one position');
@@ -70,6 +79,11 @@ const TournamentWinner = ({ tournament, onWinnerDeclared }) => {
       setIsSubmitting(false);
     }
   };
+
+  // Use the passed hasAccess prop instead of checking access locally
+  if (!session?.user || !hasAccess || tournament.winners?.length > 0) {
+    return null;
+  }
 
   // If tournament already has winners, show the results
   if (tournament.winners?.length > 0) {

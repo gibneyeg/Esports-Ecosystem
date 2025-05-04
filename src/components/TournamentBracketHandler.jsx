@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { initializeParticipants, loadParticipantsFromBracket } from '@/utils/participantUtils';
 import { initializeBracket } from '@/utils/bracketUtils';
 import { fetchExistingBracket, prepareBracketDataForSave } from '@/utils/bracketApi';
@@ -9,7 +10,8 @@ import DoubleEliminationBracket from './DoubleEliminationBracket';
 import SingleEliminationBracket from './SingleEliminationBracket';
 import SwissBracket from './SwissBracket';
 
-const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
+const TournamentBracketsHandler = ({ tournament, currentUser }) => {
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [participants, setParticipants] = useState([]);
@@ -20,12 +22,43 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
   const [thirdPlace, setThirdPlace] = useState(null);
   const [saving, setSaving] = useState(false);
   const [savedMessage, setSavedMessage] = useState("");
-  const [isTeamTournament, setIsTeamTournament] = useState(
-    tournament?.formatSettings?.registrationType === "TEAM"
-  );
+  const [access, setAccess] = useState({
+    canEdit: false,
+    canManage: false,
+    role: null,
+    hasAccess: false
+  });
+  const [accessLoading, setAccessLoading] = useState(true);
+
+  // Check user's tournament access level
+  useEffect(() => {
+    const checkAccess = async () => {
+      if (!session?.user?.id || !tournament?.id) {
+        setAccessLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/tournaments/${tournament.id}/check-access`);
+        if (response.ok) {
+          const data = await response.json();
+          setAccess(data);
+        }
+      } catch (error) {
+        console.error("Error checking access:", error);
+      } finally {
+        setAccessLoading(false);
+      }
+    };
+
+    checkAccess();
+  }, [session, tournament?.id]);
+
   // Initialize the participants and bracket
   useEffect(() => {
     const loadBracket = async () => {
+      if (accessLoading) return;
+
       try {
         setLoading(true);
         setError(null);
@@ -72,7 +105,7 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
         }
 
         const participantCount = tournament.participants.length;
-        // Only initialize for non-Swiss formats (Swiss handles its own initialization)
+        // Only initialize for non-Swiss formats 
         if (tournament.format !== 'SWISS') {
           const initialBracket = initializeBracket(participantCount, tournament.format);
           setBracket(initialBracket);
@@ -89,7 +122,7 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
     if (tournament?.participants) {
       loadBracket();
     }
-  }, [tournament]);
+  }, [tournament, accessLoading]);
 
   // Save the bracket data
   const saveBracket = async (bracketData) => {
@@ -97,29 +130,10 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
       setSaving(true);
       setSavedMessage("");
 
-      if (!isOwner) {
-        throw new Error("Only tournament owner can save bracket");
+      if (!access.canManage) {
+        throw new Error("You don't have permission to save bracket");
       }
 
-      // For Swiss format
-      if (tournament.format === 'SWISS') {
-        if (bracketData.rounds) {
-          bracketData.participants = isTeamTournament
-            ? tournament.teamParticipants.map(tp => ({
-              id: tp.teamId,
-              name: tp.team.name,
-              tag: tp.team.tag,
-              logoUrl: tp.team.logoUrl,
-              isTeam: true
-            }))
-            : participants.map(p => ({
-              ...p,
-              isTeam: false
-            }));
-        }
-      }
-
-      // Include tournamentWinnerId if available
       if (tournamentWinner) {
         bracketData.tournamentWinnerId = tournamentWinner.id;
       }
@@ -138,7 +152,6 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
         throw new Error(data.message || "Failed to save bracket");
       }
 
-      // Handle winners separately
       if (tournamentWinner || runnerUp || thirdPlace) {
         await saveWinners();
       }
@@ -153,7 +166,7 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
     }
   };
 
-  // Function to save tournament winners to the database
+  // Function to save tournament winners 
   const saveWinners = async () => {
     try {
       const winners = [];
@@ -211,8 +224,8 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
       );
     }
 
-    if ((tournament.format === 'ROUND_ROBIN' && tournament.seedingType !== 'MANUAL') ||
-      tournament.format === 'SWISS') {
+    // Skip rendering participants list for Swiss and auto-seeded Round Robin
+    if (tournament.format === 'ROUND_ROBIN' && tournament.seedingType !== 'MANUAL') {
       return (
         <div className="bg-white p-4 border rounded-md shadow-sm">
           <h3 className="text-lg font-medium mb-3">Participants</h3>
@@ -261,7 +274,7 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
     );
   };
 
-  if (loading) {
+  if (loading || accessLoading) {
     return (
       <div className="flex justify-center items-center p-8">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -307,10 +320,16 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
     </div>
   ) : null;
 
-  // Render bracket based on tournament format
   return (
     <div className="space-y-6">
-      {isOwner && tournament.format !== 'SWISS' && <div className="mb-6">{renderParticipantsList()}</div>}
+      {/* Show user's role if they have  differnt permissions */}
+      {access.hasAccess && access.role && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+          Your role: {access.role === 'OWNER' ? 'Tournament Owner' : access.role}
+        </div>
+      )}
+
+      {access.canManage && tournament.format !== 'SWISS' && <div className="mb-6">{renderParticipantsList()}</div>}
 
       {tournament.format !== 'SWISS' && (
         <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4">
@@ -352,7 +371,7 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
           runnerUp={runnerUp}
           setThirdPlace={setThirdPlace}
           thirdPlace={thirdPlace}
-          viewOnly={!isOwner}
+          viewOnly={!access.canManage}
           saveBracket={saveBracket}
         />
       )}
@@ -368,7 +387,7 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
           setTournamentWinner={setTournamentWinner}
           setRunnerUp={setRunnerUp}
           setThirdPlace={setThirdPlace}
-          viewOnly={!isOwner}
+          viewOnly={!access.canManage}
           saveBracket={saveBracket}
         />
       )}
@@ -383,7 +402,8 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
           setSelectedParticipant={setSelectedParticipant}
           setTournamentWinner={setTournamentWinner}
           setRunnerUp={setRunnerUp}
-          viewOnly={!isOwner}
+          setThirdPlace={setThirdPlace}
+          viewOnly={!access.canManage}
           saveBracket={saveBracket}
         />
       )}
@@ -397,14 +417,14 @@ const TournamentBracketsHandler = ({ tournament, currentUser, isOwner }) => {
           setTournamentWinner={setTournamentWinner}
           setRunnerUp={setRunnerUp}
           setThirdPlace={setThirdPlace}
-          viewOnly={!isOwner}
+          viewOnly={!access.canManage}
           saveBracket={saveBracket}
           isTeamTournament={false}
         />
       )}
 
-      {/* Save Button for tournament organizer  */}
-      {isOwner && (
+      {/* Save Button  */}
+      {access.canManage && (
         <div className="flex justify-end mt-6">
           <button
             onClick={() => {
