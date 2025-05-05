@@ -262,7 +262,7 @@ export default function GamesPage() {
                             <div className="text-center py-8">
                               <p className="text-gray-500 mb-4">No tournaments available for this game.</p>
                               <Link
-                                href="/tournament/create"
+                                href={`/tournament/create?game=${encodeURIComponent(game.name)}`}
                                 className="inline-block bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
                               >
                                 Create Tournament
