@@ -42,5 +42,6 @@ next-env.d.ts
 
 
 
-#test results
+#test results for k6
 /test-results
+/k6-load-tests/reports
