@@ -133,6 +133,7 @@ const RandomDoubleEliminationBracket = ({
   };
 
   // Initialize bracket when component mounts
+  // Initialize bracket when component mounts
   useEffect(() => {
     if (isInitialized) return;
 
@@ -339,21 +340,8 @@ const RandomDoubleEliminationBracket = ({
               }
             }
           }
-        } else if (tournament.seedingType === 'RANDOM' && !bracketGenerated) {
-          const { winnersBracket: randomizedBracket, participants: updatedParticipants } =
-            randomizeFirstRoundSeeding(participants, initialWinners);
-
-          setWinnersBracket(randomizedBracket);
-          setParticipants(updatedParticipants);
-          setBracketGenerated(true);
-        } else if (tournament.seedingType === 'SKILL_BASED' && !bracketGenerated) {
-          const { winnersBracket: rankedBracket, participants: updatedParticipants } =
-            rankedFirstRoundSeeding(participants, initialWinners);
-
-          setWinnersBracket(rankedBracket);
-          setParticipants(updatedParticipants);
-          setBracketGenerated(true);
         }
+        // The automatic seeding sections have been removed from here
       } catch (error) {
         console.error("Error initializing bracket:", error);
       }

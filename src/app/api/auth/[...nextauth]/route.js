@@ -14,7 +14,6 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Enhanced Microsoft Provider with proper scopes for profile photo access
 const MicrosoftProvider = {
   id: "microsoft",
   name: "Microsoft",
@@ -158,7 +157,6 @@ export const authOptions = {
               }
             } catch (photoError) {
               console.error("Error handling Microsoft profile photo:", photoError);
-              // Continue without photo if there's an error
             }
           }
         }
@@ -197,7 +195,7 @@ export const authOptions = {
           } else if (account.provider === "discord" && profile.avatar) {
             profileImage = `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`;
           } else if (account.provider === "microsoft" && user.image) {
-            profileImage = user.image; // Use the Cloudinary URL we uploaded
+            profileImage = user.image;
           }
 
           // Create a username - use name if available, or email prefix
