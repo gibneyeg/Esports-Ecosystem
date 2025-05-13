@@ -35,7 +35,7 @@ const SwissBracket = ({
             tournament?.formatSettings?.registrationType === "TEAM");
     }, [tournament, isTeamTournamentProp]);
 
-    // Initialize bracket and fetch existing data if available
+    // Initialize the participants and bracket
     useEffect(() => {
         if (isInitialized) return;
 
@@ -82,89 +82,167 @@ const SwissBracket = ({
                 const existingBracket = await response.json();
 
                 if (existingBracket && existingBracket.rounds && existingBracket.rounds.length > 0) {
-                    // Restore player objects in the matches using the participant map
-                    const processedRounds = existingBracket.rounds.map(round => {
-                        return {
-                            ...round,
-                            matches: round.matches.map(match => {
-                                return {
-                                    ...match,
-                                    player1: match.player1Id ? participantMap[match.player1Id] || null : null,
-                                    player2: match.player2Id ? participantMap[match.player2Id] || null : null
-                                };
-                            })
-                        };
-                    });
+                    // Load existing rounds
+                    const loadedRounds = existingBracket.rounds.map(round => ({
+                        id: round.id,
+                        roundNumber: round.roundNumber,
+                        matches: round.matches.map(match => {
+                            let matchData = {
+                                id: match.id,
+                                result: match.result,
+                                round: round.roundNumber,
+                                position: match.position
+                            };
 
-                    setRounds(processedRounds);
+                            // Handle team matches
+                            if (match.isTeamMatch || match.player1?.isTeam) {
+                                // Ensure we have the full team data
+                                matchData.player1Id = match.player1?.id || match.player1Id;
+                                matchData.player2Id = match.player2?.id || match.player2Id;
+
+                                // If player1/player2 has team data, use it; otherwise get from participantMap
+                                if (match.player1 && match.player1.name) {
+                                    matchData.player1 = match.player1;
+                                } else if (matchData.player1Id) {
+                                    matchData.player1 = participantMap[matchData.player1Id] || {
+                                        id: matchData.player1Id,
+                                        name: 'Unknown Team',
+                                        isTeam: true
+                                    };
+                                }
+
+                                if (match.player2 && match.player2.name) {
+                                    matchData.player2 = match.player2;
+                                } else if (matchData.player2Id) {
+                                    matchData.player2 = participantMap[matchData.player2Id] || {
+                                        id: matchData.player2Id,
+                                        name: 'Unknown Team',
+                                        isTeam: true
+                                    };
+                                }
+                            } else {
+                                // Handle individual matches
+                                matchData.player1Id = match.player1Id;
+                                matchData.player2Id = match.player2Id;
+                                matchData.player1 = participantMap[match.player1Id] || match.player1;
+                                matchData.player2 = participantMap[match.player2Id] || match.player2;
+                            }
+
+                            return matchData;
+                        })
+                    }));
+
+                    setRounds(loadedRounds);
                     setCurrentRound(existingBracket.currentRound || 0);
 
-                    // Initialize scores based on match results
+                    // Initialize scores for all participants first
                     const scores = {};
-                    participants.forEach(participant => {
-                        scores[participant.id] = {
-                            id: participant.id,
-                            name: participant.name,
-                            user: participant.user,
-                            isTeam: false,
-                            wins: 0,
-                            losses: 0,
-                            draws: 0,
-                            points: 0,
-                            matchesByRound: {},
-                            opponents: []
-                        };
-                    });
 
-                    // Calculate scores from match results
-                    processedRounds.forEach((round, roundIndex) => {
+                    // For team tournaments, initialize from teamParticipants
+                    if (isTeamTournament && tournament.teamParticipants) {
+                        tournament.teamParticipants.forEach(tp => {
+                            scores[tp.teamId] = {
+                                id: tp.teamId,
+                                name: tp.team.name,
+                                tag: tp.team.tag,
+                                logoUrl: tp.team.logoUrl,
+                                isTeam: true,
+                                wins: 0,
+                                losses: 0,
+                                draws: 0,
+                                points: 0,
+                                matchesByRound: {},
+                                opponents: []
+                            };
+                        });
+                    } else {
+                        // Initialize scores for all participants
+                        Object.keys(participantMap).forEach(id => {
+                            scores[id] = {
+                                ...participantMap[id],
+                                wins: 0,
+                                losses: 0,
+                                draws: 0,
+                                points: 0,
+                                matchesByRound: {},
+                                opponents: []
+                            };
+                        });
+                    }
+
+                    // Calculate scores from matches
+                    loadedRounds.forEach((round, roundIndex) => {
                         round.matches.forEach(match => {
-                            if (match.result && match.player1Id) {
-                                // Track opponents
-                                if (match.player1Id && match.player2Id) {
-                                    if (!scores[match.player1Id].opponents.includes(match.player2Id)) {
-                                        scores[match.player1Id].opponents.push(match.player2Id);
-                                    }
+                            if (match.result) {
+                                const player1Id = match.player1Id;
+                                const player2Id = match.player2Id;
 
-                                    if (!scores[match.player2Id].opponents.includes(match.player1Id)) {
-                                        scores[match.player2Id].opponents.push(match.player1Id);
+                                // Initialize score objects if they don't exist
+                                if (player1Id && !scores[player1Id]) {
+                                    const participant = match.player1 || participantMap[player1Id] || { id: player1Id, name: 'Unknown' };
+                                    scores[player1Id] = {
+                                        ...participant,
+                                        wins: 0,
+                                        losses: 0,
+                                        draws: 0,
+                                        points: 0,
+                                        matchesByRound: {},
+                                        opponents: []
+                                    };
+                                }
+
+                                if (player2Id && !scores[player2Id]) {
+                                    const participant = match.player2 || participantMap[player2Id] || { id: player2Id, name: 'Unknown' };
+                                    scores[player2Id] = {
+                                        ...participant,
+                                        wins: 0,
+                                        losses: 0,
+                                        draws: 0,
+                                        points: 0,
+                                        matchesByRound: {},
+                                        opponents: []
+                                    };
+                                }
+
+                                // Update scores based on match result
+                                if (match.result === 'player1' && player1Id) {
+                                    scores[player1Id].wins += 1;
+                                    scores[player1Id].points += 3;
+                                    scores[player1Id].matchesByRound[roundIndex] = 'win';
+
+                                    if (player2Id && scores[player2Id]) {
+                                        scores[player2Id].losses += 1;
+                                        scores[player2Id].matchesByRound[roundIndex] = 'loss';
+                                    }
+                                } else if (match.result === 'player2' && player2Id) {
+                                    scores[player2Id].wins += 1;
+                                    scores[player2Id].points += 3;
+                                    scores[player2Id].matchesByRound[roundIndex] = 'win';
+
+                                    if (player1Id && scores[player1Id]) {
+                                        scores[player1Id].losses += 1;
+                                        scores[player1Id].matchesByRound[roundIndex] = 'loss';
+                                    }
+                                } else if (match.result === 'draw') {
+                                    if (player1Id && scores[player1Id]) {
+                                        scores[player1Id].draws += 1;
+                                        scores[player1Id].points += 1;
+                                        scores[player1Id].matchesByRound[roundIndex] = 'draw';
+                                    }
+                                    if (player2Id && scores[player2Id]) {
+                                        scores[player2Id].draws += 1;
+                                        scores[player2Id].points += 1;
+                                        scores[player2Id].matchesByRound[roundIndex] = 'draw';
                                     }
                                 }
 
-                                // Calculate points based on results
-                                if (match.result === 'player1') {
-                                    if (scores[match.player1Id]) {
-                                        scores[match.player1Id].wins += 1;
-                                        scores[match.player1Id].points += 3;
-                                        scores[match.player1Id].matchesByRound[roundIndex] = 'win';
+                                // Track opponents
+                                if (player1Id && player2Id) {
+                                    if (scores[player1Id] && !scores[player1Id].opponents.includes(player2Id)) {
+                                        scores[player1Id].opponents.push(player2Id);
                                     }
-
-                                    if (match.player2Id && scores[match.player2Id]) {
-                                        scores[match.player2Id].losses += 1;
-                                        scores[match.player2Id].matchesByRound[roundIndex] = 'loss';
-                                    }
-                                } else if (match.result === 'player2') {
-                                    if (scores[match.player1Id]) {
-                                        scores[match.player1Id].losses += 1;
-                                        scores[match.player1Id].matchesByRound[roundIndex] = 'loss';
-                                    }
-
-                                    if (match.player2Id && scores[match.player2Id]) {
-                                        scores[match.player2Id].wins += 1;
-                                        scores[match.player2Id].points += 3;
-                                        scores[match.player2Id].matchesByRound[roundIndex] = 'win';
-                                    }
-                                } else if (match.result === 'draw') {
-                                    if (scores[match.player1Id]) {
-                                        scores[match.player1Id].draws += 1;
-                                        scores[match.player1Id].points += 1;
-                                        scores[match.player1Id].matchesByRound[roundIndex] = 'draw';
-                                    }
-
-                                    if (match.player2Id && scores[match.player2Id]) {
-                                        scores[match.player2Id].draws += 1;
-                                        scores[match.player2Id].points += 1;
-                                        scores[match.player2Id].matchesByRound[roundIndex] = 'draw';
+                                    if (scores[player2Id] && !scores[player2Id].opponents.includes(player1Id)) {
+                                        scores[player2Id].opponents.push(player1Id);
                                     }
                                 }
                             }
@@ -173,10 +251,51 @@ const SwissBracket = ({
 
                     setParticipantScores(scores);
                     updateStandingsTable(scores);
-
-
                 } else {
+                    // Initialize empty tournament bracket
+                    setRounds([]);
+                    setCurrentRound(0);
 
+                    // Initialize participant scores
+                    const initialScores = {};
+
+                    if (!isTeamTournament && participants) {
+                        participants.forEach(participant => {
+                            initialScores[participant.id] = {
+                                id: participant.id,
+                                name: participant.name,
+                                user: participant.user,
+                                isTeam: false,
+                                wins: 0,
+                                losses: 0,
+                                draws: 0,
+                                points: 0,
+                                matchesByRound: {},
+                                opponents: []
+                            };
+                        });
+                    }
+                    else if (isTeamTournament && tournament.teamParticipants) {
+                        tournament.teamParticipants.forEach(teamParticipant => {
+                            const teamId = teamParticipant.teamId;
+                            initialScores[teamId] = {
+                                id: teamId,
+                                name: teamParticipant.team.name,
+                                tag: teamParticipant.team.tag,
+                                logoUrl: teamParticipant.team.logoUrl,
+                                isTeam: true,
+                                wins: 0,
+                                losses: 0,
+                                draws: 0,
+                                points: 0,
+                                matchesByRound: {},
+                                opponents: []
+                            };
+                        });
+                    }
+
+                    setParticipantScores(initialScores);
+                    updateStandingsTable(initialScores);
                 }
             } catch (error) {
                 console.error("Error loading Swiss bracket:", error);
@@ -193,38 +312,74 @@ const SwissBracket = ({
     // Listen for save event
     useEffect(() => {
         const handleSave = () => {
+            // Format rounds data for saving, ensuring team IDs are preserved
+            const formattedRounds = rounds.map(round => {
+                return {
+                    ...round,
+                    matches: round.matches.map(match => {
+                        // For team tournaments, ensure we capture team IDs
+                        if (isTeamTournament) {
+                            return {
+                                id: match.id,
+                                player1Id: match.player1?.id || match.player1Id,
+                                player2Id: match.player2?.id || match.player2Id,
+                                player1: match.player1,
+                                player2: match.player2,
+                                result: match.result,
+                                round: match.round,
+                                position: match.position
+                            };
+                        }
+
+                        // For individual tournaments, use the normal structure
+                        return {
+                            id: match.id,
+                            player1Id: match.player1Id,
+                            player2Id: match.player2Id,
+                            result: match.result,
+                            round: match.round
+                        };
+                    })
+                };
+            });
+
             const bracketData = {
                 tournamentId: tournament.id,
-                rounds: rounds,
+                rounds: formattedRounds,
                 currentRound: currentRound,
-                format: 'SWISS'
+                format: 'SWISS',
+                isTeamTournament: isTeamTournament
             };
 
             // Add winners if tournament is complete
             if (standingsTableData.length > 0) {
                 const winners = [];
 
-                // Top 3 participants/teams get prizes
                 for (let i = 0; i < Math.min(3, standingsTableData.length); i++) {
                     const standing = standingsTableData[i];
+                    const position = i + 1;
+                    const prizeMoney = calculatePrizeMoney(position);
 
+                    //correct winner based on tournament type
                     if (isTeamTournament) {
                         winners.push({
-                            teamId: standing.id,  // For team tournaments
-                            position: i + 1,
-                            prizeMoney: calculatePrizeMoney(i + 1)
+                            teamId: standing.id,
+                            position: position,
+                            prizeMoney: prizeMoney
                         });
                     } else {
                         winners.push({
-                            userId: standing.id,  // For individual tournaments
-                            position: i + 1,
-                            prizeMoney: calculatePrizeMoney(i + 1)
+                            userId: standing.id,
+                            position: position,
+                            prizeMoney: prizeMoney
                         });
                     }
                 }
 
                 bracketData.winners = winners;
             }
+
+            console.log("Saving bracket data:", bracketData);
 
             // Call the parent's save function
             saveBracket(bracketData);
@@ -293,7 +448,6 @@ const SwissBracket = ({
 
             // Handle first round seeding according to tournament's seedingType
             if (rounds.length === 0) {
-
                 let allParticipants = [];
 
                 if (isTeamTournament && tournament.teamParticipants) {
@@ -364,12 +518,14 @@ const SwissBracket = ({
             const newMatches = [];
             const participantsInRound = new Set();
 
+
             // For each participant from top to bottom
             for (let i = 0; i < sortedParticipants.length; i++) {
                 const participant = sortedParticipants[i];
 
-                // Skip if already matched in this round
-                if (participantsInRound.has(participant.id)) continue;
+                if (participantsInRound.has(participant.id)) {
+                    continue;
+                }
 
                 // Find the highest-ranked opponent this participant hasn't played yet
                 let opponentIndex = -1;
@@ -378,7 +534,9 @@ const SwissBracket = ({
                     const potentialOpponent = sortedParticipants[j];
 
                     // Skip if already matched in this round
-                    if (participantsInRound.has(potentialOpponent.id)) continue;
+                    if (participantsInRound.has(potentialOpponent.id)) {
+                        continue;
+                    }
 
                     // Skip if these players have already played each other
                     const alreadyPlayed = currentScores[participant.id]?.opponents.includes(potentialOpponent.id);
@@ -413,7 +571,7 @@ const SwissBracket = ({
                         player2Id: null,
                         player1: participant,
                         player2: null,
-                        result: 'player1', // Auto-win for player with bye
+                        result: 'player1',
                         round: rounds.length
                     });
 
@@ -434,16 +592,25 @@ const SwissBracket = ({
             };
 
             try {
-                setRounds([...rounds, newRound]);
-                setCurrentRound(rounds.length);
+                // Use functional updates to ensure we're using the latest state
+                setRounds(prevRounds => {
+                    const updatedRounds = [...prevRounds, newRound];
+                    return updatedRounds;
+                });
+
+                setCurrentRound(prevRound => {
+                    const newRoundIndex = rounds.length;
+                    return newRoundIndex;
+                });
+
                 updateStandingsTable(currentScores);
             } catch (error) {
-                console.error("Error creating Swiss round:", error);
+                console.error("Error setting state after creating round:", error);
             } finally {
                 setIsCreatingNewRound(false);
             }
         } catch (error) {
-            console.error("Error creating Swiss round:", error);
+            console.error("Error in createNewRound:", error);
             setIsCreatingNewRound(false);
         }
     };
@@ -545,7 +712,7 @@ const SwissBracket = ({
         return rounds[roundIndex].matches.every(match => match.result !== null);
     };
 
-    // Function to determine if we can start a new round
+    // Function to check if we can start a new round
     const canStartNewRound = () => {
         // Check if there are any rounds
         if (rounds.length === 0) return true;
@@ -684,6 +851,7 @@ const SwissBracket = ({
             </div>
         );
     };
+
 
     // Render a match
     const renderMatch = (match, roundIndex, matchIndex) => {
@@ -919,6 +1087,7 @@ const SwissBracket = ({
         );
     }
 
+
     return (
         <div className="space-y-6">
             <div>
@@ -929,28 +1098,28 @@ const SwissBracket = ({
             <div>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold">Swiss Tournament Rounds</h2>
-
-                    {!viewOnly && canStartNewRound() && (
-                        <button
-                            onClick={() => createNewRound(participantScores)}
-                            disabled={isCreatingNewRound}
-                            className={`px-4 py-2 rounded-md ${isCreatingNewRound
-                                ? 'bg-gray-400 cursor-not-allowed'
-                                : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                }`}
-                        >
-                            {isCreatingNewRound ? 'Creating...' : 'Create Next Round'}
-                        </button>
-                    )}
-
-                    {!viewOnly && rounds.length > 0 && isRoundComplete(rounds.length - 1) && (
-                        <button
-                            onClick={finalizeTournament}
-                            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                        >
-                            Finalize Results
-                        </button>
-                    )}
+                    <div className="flex gap-2">
+                        {!viewOnly && canStartNewRound() && (
+                            <button
+                                onClick={() => createNewRound(participantScores)}
+                                disabled={isCreatingNewRound}
+                                className={`px-4 py-2 rounded-md ${isCreatingNewRound
+                                    ? 'bg-gray-400 cursor-not-allowed'
+                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    }`}
+                            >
+                                {isCreatingNewRound ? 'Creating...' : 'Create Next Round'}
+                            </button>
+                        )}
+                        {!viewOnly && rounds.length > 0 && isRoundComplete(rounds.length - 1) && (
+                            <button
+                                onClick={finalizeTournament}
+                                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                            >
+                                Finalize Results
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {rounds.length === 0 ? (

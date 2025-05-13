@@ -2,6 +2,9 @@
 import React, { useEffect, useState } from "react";
 import Layout from "../components/Layout.jsx";
 import logo from "../Img/gamers.jpeg";
+import cs2 from "../Img/Cs2.webp";
+import val from "../Img/Vall.webp"
+import league from "../Img/league-of-legends.webp"
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -321,7 +324,14 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Tournament 1 */}
             <div className="bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl">
-              <div className="h-48 bg-gradient-to-r from-red-500 to-purple-600 relative">
+              <div className="h-48 relative overflow-hidden">
+                <Image
+                  src={val}
+                  alt="val tournament"
+                  fill
+                  className="object-cover"
+                  priority
+                />
                 <div className="absolute bottom-4 left-4 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-white">VALORANT</div>
                 <div className="absolute top-4 right-4 bg-green-500 px-3 py-1 rounded-full text-xs font-medium text-white">REGISTERING</div>
               </div>
@@ -347,7 +357,10 @@ export default function HomePage() {
                     <div className="font-bold">Single Elim</div>
                   </div>
                 </div>
-                <button className="w-full py-2 text-center bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <button
+                  onClick={() => router.push('/tournament/f560bbb5-4cc3-4a3f-a355-32d9781dd3a4')}
+                  className="w-full py-2 text-center bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
                   View Details
                 </button>
               </div>
@@ -355,7 +368,14 @@ export default function HomePage() {
 
             {/* Tournament 2 */}
             <div className="bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl">
-              <div className="h-48 bg-gradient-to-r from-blue-500 to-teal-500 relative">
+              <div className="h-48 relative overflow-hidden">
+                <Image
+                  src={league}
+                  alt="league tournament"
+                  fill
+                  className="object-cover"
+                  priority
+                />
                 <div className="absolute bottom-4 left-4 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-white">LEAGUE OF LEGENDS</div>
                 <div className="absolute top-4 right-4 bg-orange-500 px-3 py-1 rounded-full text-xs font-medium text-white">CLOSING SOON</div>
               </div>
@@ -374,14 +394,17 @@ export default function HomePage() {
                   </div>
                   <div className="text-sm">
                     <div className="text-gray-500">Participants</div>
-                    <div className="font-bold">12/16</div>
+                    <div className="font-bold">9/10</div>
                   </div>
                   <div className="text-sm">
                     <div className="text-gray-500">Format</div>
                     <div className="font-bold">Double Elim</div>
                   </div>
                 </div>
-                <button className="w-full py-2 text-center bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <button
+                  onClick={() => router.push('/tournament/4bc38de4-9d7c-49fe-9404-7c3e7faf5c37')}
+                  className="w-full py-2 text-center bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
                   View Details
                 </button>
               </div>
@@ -389,7 +412,15 @@ export default function HomePage() {
 
             {/* Tournament 3 */}
             <div className="bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl">
-              <div className="h-48 bg-gradient-to-r from-purple-500 to-pink-500 relative">
+              <div className="h-48 relative overflow-hidden">
+                <Image
+                  src={cs2}
+                  alt="Counter-Strike 2 Tournament"
+                  fill
+                  className="object-cover"
+                  priority
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                 <div className="absolute bottom-4 left-4 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-white">CS2</div>
                 <div className="absolute top-4 right-4 bg-blue-500 px-3 py-1 rounded-full text-xs font-medium text-white">UPCOMING</div>
               </div>
@@ -415,7 +446,10 @@ export default function HomePage() {
                     <div className="font-bold">Single Elim</div>
                   </div>
                 </div>
-                <button className="w-full py-2 text-center bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <button
+                  onClick={() => router.push('/tournament/688e2e0f-3a34-4bc8-a751-54158be41f82')}
+                  className="w-full py-2 text-center bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
                   View Details
                 </button>
               </div>
@@ -488,4 +522,4 @@ export default function HomePage() {
 
     </Layout >
   );
-}
+} 

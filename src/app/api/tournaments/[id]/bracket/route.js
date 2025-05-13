@@ -258,7 +258,7 @@ async function handleRoundRobinBracket(tournamentId, bracketData) {
 // Handler for Swiss format brackets
 async function handleSwissBracket(tournamentId, bracketData) {
   try {
-    const { rounds, currentRound, winners } = bracketData;
+    const { rounds, currentRound, winners, isTeamTournament } = bracketData;
 
     // Transaction to update bracket data and winners
     await prisma.$transaction(async (tx) => {
@@ -324,15 +324,52 @@ async function handleSwissBracket(tournamentId, bracketData) {
             for (let j = 0; j < round.matches.length; j++) {
               const match = round.matches[j];
 
-              await tx.tournamentSwissMatch.create({
-                data: {
-                  roundId: createdRound.id,
-                  player1Id: match.player1Id,
-                  player2Id: match.player2Id,
-                  result: match.result,
-                  position: j  // Use the array index as the position
-                }
-              });
+              // For team matches, store all team data in metadata
+              if (isTeamTournament) {
+                const team1Id = match.player1Id || (match.player1 && match.player1.id);
+                const team2Id = match.player2Id || (match.player2 && match.player2.id);
+
+                // Get full team data from the match object
+                const team1Data = match.player1 || {};
+                const team2Data = match.player2 || {};
+
+                await tx.tournamentSwissMatch.create({
+                  data: {
+                    roundId: createdRound.id,
+                    player1Id: null, // Set to null for team matches
+                    player2Id: null, // Set to null for team matches
+                    result: match.result,
+                    position: j,
+                    metadata: JSON.stringify({
+                      isTeamMatch: true,
+                      team1: team1Id ? {
+                        id: team1Id,
+                        name: team1Data.name || '',
+                        tag: team1Data.tag || '',
+                        logoUrl: team1Data.logoUrl || '',
+                        isTeam: true
+                      } : null,
+                      team2: team2Id ? {
+                        id: team2Id,
+                        name: team2Data.name || '',
+                        tag: team2Data.tag || '',
+                        logoUrl: team2Data.logoUrl || '',
+                        isTeam: true
+                      } : null
+                    })
+                  }
+                });
+              } else {
+                await tx.tournamentSwissMatch.create({
+                  data: {
+                    roundId: createdRound.id,
+                    player1Id: match.player1Id,
+                    player2Id: match.player2Id,
+                    result: match.result,
+                    position: j
+                  }
+                });
+              }
             }
           }
         }
@@ -340,38 +377,64 @@ async function handleSwissBracket(tournamentId, bracketData) {
 
       // Update winners if provided
       if (winners && winners.length > 0) {
-        // Delete existing winners
-        await tx.tournamentWinner.deleteMany({
-          where: { tournamentId }
-        });
-
-        // Get the tournament prize pool information
+        // Get the tournament info and prize pool
         const tournamentInfo = await tx.tournament.findUnique({
           where: { id: tournamentId },
-          select: { prizePool: true }
+          select: {
+            prizePool: true,
+            formatSettings: true
+          }
         });
 
-        // Create new winners
-        for (const winner of winners) {
-          // Handle team tournaments vs individual tournaments
-          if (winner.teamId) {
-            await tx.tournamentWinner.create({
-              data: {
-                tournamentId,
-                teamId: winner.teamId,
-                position: winner.position,
-                prizeMoney: calculatePrizeMoney(tournamentInfo.prizePool, winner.position)
-              }
-            });
-          } else if (winner.userId) {
-            await tx.tournamentWinner.create({
-              data: {
-                tournamentId,
-                userId: winner.userId,
-                position: winner.position,
-                prizeMoney: calculatePrizeMoney(tournamentInfo.prizePool, winner.position)
-              }
-            });
+        // Determine if this is a team tournament from formatSettings
+        const formatSettings = tournamentInfo.formatSettings || {};
+        const isTeamBased = isTeamTournament || formatSettings.registrationType === "TEAM";
+
+        if (isTeamBased) {
+          // Delete existing team winners
+          await tx.tournamentTeamWinner.deleteMany({
+            where: { tournamentId }
+          });
+
+          // Create new team winners
+          for (const winner of winners) {
+            if (winner.teamId) {
+              await tx.tournamentTeamWinner.create({
+                data: {
+                  tournament: {
+                    connect: { id: tournamentId }
+                  },
+                  team: {
+                    connect: { id: winner.teamId }
+                  },
+                  position: winner.position,
+                  prizeMoney: calculatePrizeMoney(tournamentInfo.prizePool, winner.position)
+                }
+              });
+            }
+          }
+        } else {
+          // Delete existing individual winners
+          await tx.tournamentWinner.deleteMany({
+            where: { tournamentId }
+          });
+
+          // Create new individual winners
+          for (const winner of winners) {
+            if (winner.userId) {
+              await tx.tournamentWinner.create({
+                data: {
+                  tournament: {
+                    connect: { id: tournamentId }
+                  },
+                  user: {
+                    connect: { id: winner.userId }
+                  },
+                  position: winner.position,
+                  prizeMoney: calculatePrizeMoney(tournamentInfo.prizePool, winner.position)
+                }
+              });
+            }
           }
         }
 
@@ -477,7 +540,7 @@ async function handleEliminationBracket(tournamentId, bracketData) {
 
 // Helper function to get updated tournament data
 async function getUpdatedTournament(tournamentId) {
-  return await prisma.tournament.findUnique({
+  const tournament = await prisma.tournament.findUnique({
     where: { id: tournamentId },
     select: {
       id: true,
@@ -538,17 +601,45 @@ async function getUpdatedTournament(tournamentId) {
         include: {
           rounds: {
             include: {
-              matches: true
+              matches: {
+                include: {
+                  player1: true,
+                  player2: true
+                }
+              }
             },
             orderBy: {
               roundNumber: 'asc'
             }
           }
         }
+      },
+      winners: {
+        include: {
+          user: true
+        }
+      },
+      teamWinners: {
+        include: {
+          team: true
+        }
+      },
+      teamParticipants: {
+        include: {
+          team: true
+        }
+      },
+      participants: {
+        include: {
+          user: true
+        }
       }
     },
   });
+
+  return tournament;
 }
+
 
 // Helper function to format tournament response
 function formatTournamentResponse(tournament) {
@@ -640,10 +731,45 @@ function formatSwissTournamentResponse(tournament) {
     return NextResponse.json({
       tournamentId: tournament.id,
       format: "SWISS",
+      formatSettings: tournament.formatSettings,
       rounds: [],
       currentRound: 0,
       winner: tournament.winner,
+      winners: tournament.winners,
+      teamWinners: tournament.teamWinners,
       status: tournament.status
+    });
+  }
+
+  // Determine if this is a team tournament
+  const formatSettings = tournament.formatSettings || {};
+  const isTeamTournament = formatSettings.registrationType === "TEAM";
+
+  // Create a map of team data for quick lookup
+  const teamMap = {};
+  if (isTeamTournament && tournament.teamParticipants) {
+    tournament.teamParticipants.forEach(tp => {
+      teamMap[tp.teamId] = {
+        id: tp.teamId,
+        name: tp.team.name,
+        tag: tp.team.tag,
+        logoUrl: tp.team.logoUrl,
+        isTeam: true
+      };
+    });
+  }
+
+  // Create a map of participant data for individual tournaments
+  const participantMap = {};
+  if (!isTeamTournament && tournament.participants) {
+    tournament.participants.forEach(p => {
+      participantMap[p.userId] = {
+        id: p.userId,
+        name: p.user.name,
+        username: p.user.username,
+        email: p.user.email,
+        isTeam: false
+      };
     });
   }
 
@@ -652,36 +778,61 @@ function formatSwissTournamentResponse(tournament) {
     return {
       id: round.id,
       roundNumber: round.roundNumber,
-      matches: round.matches.map(match => ({
-        id: match.id,
-        player1Id: match.player1Id,
-        player2Id: match.player2Id,
-        result: match.result,
-        round: round.roundNumber,
-        position: match.position
-      }))
+      matches: round.matches.map(match => {
+        let matchData = {
+          id: match.id,
+          result: match.result, // Use the result from the database
+          round: round.roundNumber,
+          position: match.position
+        };
+
+        // Parse metadata for team information
+        if (match.metadata) {
+          try {
+            const metadata = JSON.parse(match.metadata);
+
+            if (metadata.isTeamMatch && metadata.team1) {
+              // For team matches, reconstruct full team objects
+              matchData.player1Id = metadata.team1.id;
+              matchData.player2Id = metadata.team2 ? metadata.team2.id : null;
+
+              // Use stored team data from metadata or fall back to teamMap
+              matchData.player1 = metadata.team1;
+              matchData.player2 = metadata.team2;
+
+              matchData.isTeamMatch = true;
+            }
+          } catch (e) {
+            console.warn("Failed to parse match metadata:", e);
+          }
+        }
+
+        // For regular matches, use the player IDs and data
+        if (!matchData.isTeamMatch) {
+          matchData.player1Id = match.player1Id;
+          matchData.player2Id = match.player2Id;
+          matchData.player1 = match.player1 || participantMap[match.player1Id];
+          matchData.player2 = match.player2 || participantMap[match.player2Id];
+        }
+
+        return matchData;
+      })
     };
   });
-
-  let formatSettings = null;
-  try {
-    if (tournament.formatSettings) {
-      formatSettings = typeof tournament.formatSettings === 'string'
-        ? JSON.parse(tournament.formatSettings)
-        : tournament.formatSettings;
-    }
-  } catch (e) {
-    console.warn("Failed to parse tournament formatSettings:", e);
-  }
 
   return NextResponse.json({
     tournamentId: tournament.id,
     format: "SWISS",
-    formatSettings: formatSettings,
+    formatSettings: tournament.formatSettings,
     rounds: rounds,
     currentRound: tournament.swissBracket.currentRound,
     winner: tournament.winner,
-    status: tournament.status
+    winners: tournament.winners,
+    teamWinners: tournament.teamWinners,
+    status: tournament.status,
+    isTeamTournament: isTeamTournament,
+    teamParticipants: tournament.teamParticipants,
+    participants: tournament.participants
   });
 }
 

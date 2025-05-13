@@ -36,9 +36,9 @@ const GameSelector = ({ value, onChange, disabled }) => {
 
       const response = await fetch(`/api/games?${params}`);
       if (!response.ok) throw new Error('Failed to fetch games');
-      
+
       const data = await response.json();
-      
+
       setGames(prev => append ? [...prev, ...data.games] : data.games);
       setTotal(data.total);
       setHasMore(data.hasMore);
@@ -56,14 +56,14 @@ const GameSelector = ({ value, onChange, disabled }) => {
       setOffset(0);
       fetchGames(query, 0, false);
     }, 300),
-    []
+    [fetchGames]
   );
 
   useEffect(() => {
     if (isOpen && games.length === 0) {
       fetchGames('', 0, false);
     }
-  }, [isOpen]);
+  }, [isOpen, fetchGames]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -99,7 +99,7 @@ const GameSelector = ({ value, onChange, disabled }) => {
         observerRef.current.disconnect();
       }
     };
-  }, [isOpen, hasMore, loading, offset, searchQuery]);
+  }, [isOpen, hasMore, loading, offset, searchQuery, fetchGames]);
 
   const handleSearchChange = (e) => {
     const query = e.target.value;
@@ -108,32 +108,38 @@ const GameSelector = ({ value, onChange, disabled }) => {
   };
 
   const handleSelect = (game) => {
+    // Call onChange with just the game name to match parent's expectation
     onChange(game.name);
     setIsOpen(false);
     setSearchQuery('');
   };
 
+  // Find the selected game by name
   const selectedGame = games.find(game => game.name === value);
+
+  // Display logic: Show the selected game if found, or display the value as text if provided
+  const displayValue = selectedGame || (value ? { name: value, image: null } : null);
 
   return (
     <div className="relative" ref={dropdownRef}>
       <div
-        className={`w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 cursor-pointer flex items-center justify-between ${
-          disabled ? 'bg-gray-100 cursor-not-allowed' : ''
-        }`}
+        className={`w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 cursor-pointer flex items-center justify-between ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''
+          }`}
         onClick={() => !disabled && setIsOpen(!isOpen)}
       >
         <div className="flex items-center flex-1">
-          {selectedGame ? (
+          {displayValue ? (
             <>
-              <div className="w-8 h-8 mr-2 rounded overflow-hidden">
-                <img
-                  src={selectedGame.image}
-                  alt={selectedGame.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <span>{selectedGame.name}</span>
+              {displayValue.image && (
+                <div className="w-8 h-8 mr-2 rounded overflow-hidden">
+                  <img
+                    src={displayValue.image}
+                    alt={displayValue.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <span>{displayValue.name}</span>
             </>
           ) : (
             <span className="text-gray-500">Select a game</span>
@@ -199,20 +205,20 @@ const GameSelector = ({ value, onChange, disabled }) => {
                 )}
               </div>
             ))}
-            
+
             {loading && (
               <div className="flex justify-center items-center p-4">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
               </div>
             )}
-            
+
             {!loading && games.length === 0 && (
               <div className="p-4 text-center text-gray-500">
                 No games found
               </div>
             )}
           </div>
-          
+
           {total > 0 && (
             <div className="p-2 border-t text-xs text-gray-500 text-center">
               Showing {games.length} of {total} games

@@ -3,18 +3,16 @@ import { NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
 
-// Add cache revalidation time
-export const revalidate = 60; // Cache for 1 minute
+export const revalidate = 60;
 
 // Cache the database result
 let cachedStats = null;
 let cacheTimestamp = 0;
-const CACHE_DURATION = 60000; // 1 minute in milliseconds
+const CACHE_DURATION = 60000;
 
 async function getStats() {
   const now = Date.now();
-  
-  // Return cached data if valid
+
   if (cachedStats && (now - cacheTimestamp < CACHE_DURATION)) {
     return cachedStats;
   }
@@ -70,11 +68,10 @@ export async function GET() {
   } catch (error) {
     console.error("Error in stats route:", error);
     return NextResponse.json(
-      { error: "Failed to fetch stats" }, 
+      { error: "Failed to fetch stats" },
       { status: 500 }
     );
   } finally {
-    // Optional: Disconnect from Prisma (if not using connection pooling)
-    // await prisma.$disconnect();
+
   }
 }

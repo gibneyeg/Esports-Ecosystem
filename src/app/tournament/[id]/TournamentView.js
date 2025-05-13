@@ -489,11 +489,11 @@ export default function TournamentView({ tournamentId }) {
                         {currentStatus}
                       </span>
                     </p>
-                    <p>
-                      <span className="font-medium">
-                        {isTeamTournament() ? "Teams" : "Players"}:
-                      </span>{" "}
-                      {isTeamTournament()
+                    <p className="text-lg">
+                      {isTeamTournament(tournament) ? "Teams" : "Players"}
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {isTeamTournament(tournament)
                         ? `${tournament.teamParticipants?.length || 0}/${tournament.maxPlayers}`
                         : `${tournament.participants?.length || 0}/${tournament.maxPlayers}`
                       }

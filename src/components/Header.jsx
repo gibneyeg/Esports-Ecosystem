@@ -48,11 +48,8 @@ export default function Header() {
     await signOut({ redirect: true, callbackUrl: "/" });
   };
 
-  // Validate image URL to prevent XSS
   const validateImageUrl = (url) => {
     if (!url) return false;
-
-    // Only allow http/https URLs or blob URLs (for previews)
     return (
       (url.startsWith('http://') ||
         url.startsWith('https://')) &&
@@ -60,7 +57,6 @@ export default function Header() {
     );
   };
 
-  // Helper to get rank color classes
   const getRankColorClass = (rank) => {
     const rankLower = (rank || "Bronze").toLowerCase();
     switch (rankLower) {
@@ -81,19 +77,18 @@ export default function Header() {
   return (
     <header className="bg-black">
       <nav className="flex justify-between items-center px-4 lg:px-6 py-2.5 h-16">
-        <Link href="/" className={`flex items-center pl-4 lg:pl-6 ${styles.logo}`}>
-          <Image
-            src={logo}
-            alt="Logo"
-            width={150}
-            height={50}
-            quality={100}
-            priority
-            className="h-auto w-auto"
-          />
+        <Link href="/" className={`flex items-center mr-4 ${styles.logo}`}>          <Image
+          src={logo}
+          alt="Logo"
+          width={150}
+          height={50}
+          quality={100}
+          priority
+          className="h-auto w-auto"
+        />
         </Link>
         <div className="flex-grow flex justify-center -ml-20">
-          <ul className="flex space-x-8">
+          <ul className="flex space-x-8 mr-10">
             <li>
               <Link
                 href="/"
@@ -120,8 +115,8 @@ export default function Header() {
               </Link>
             </li>
 
-            {/* Teams Dropdown */}
-            {session && (
+            {/* Teams Dropdown - only show when session is loaded */}
+            {status !== "loading" && session && (
               <li className="relative teams-menu-container">
                 <button
                   onClick={() => setShowTeamsMenu(!showTeamsMenu)}
@@ -156,7 +151,7 @@ export default function Header() {
           </ul>
         </div>
         <div className="flex items-center gap-4 min-w-[200px] justify-end">
-          {status === "loading" && session?.user ? (
+          {status === "loading" ? (
             <div className="flex gap-4">
               <div className="w-20 h-10 bg-gray-700 rounded-lg animate-pulse"></div>
               <div className="w-24 h-10 bg-gray-700 rounded-lg animate-pulse"></div>

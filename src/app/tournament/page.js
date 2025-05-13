@@ -11,6 +11,9 @@ export default function Tournaments() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
+  const isTeamTournament = (tournament) => {
+    return tournament?.formatSettings?.registrationType === "TEAM";
+  };
   useEffect(() => {
     const fetchTournaments = async () => {
       try {
@@ -142,11 +145,15 @@ export default function Tournaments() {
                 ${tournament.prizePool}
               </span>
             </div>
-
             <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-600">Players</span>
+              <span className="text-gray-600">
+                {isTeamTournament(tournament) ? "Teams" : "Players"}
+              </span>
               <span className="font-semibold">
-                {tournament.participants?.length || 0}/{tournament.maxPlayers}
+                {isTeamTournament(tournament)
+                  ? `${tournament.teamParticipants?.length || 0}/${tournament.maxPlayers}`
+                  : `${tournament.participants?.length || 0}/${tournament.maxPlayers}`
+                }
               </span>
             </div>
             {!isCompleted ? (

@@ -133,7 +133,6 @@ const RandomDoubleEliminationBracket = ({
   };
 
   // Initialize bracket when component mounts
-  // Initialize bracket when component mounts
   useEffect(() => {
     if (isInitialized) return;
 
@@ -1165,8 +1164,7 @@ const RandomDoubleEliminationBracket = ({
       // If this tournament has a winner, all matches with both participants should be considered advanced
       if (!hasAdvanced && tournamentWinner && match.slots[0].participant && match.slots[1].participant) {
         hasAdvanced = true;
-        // Try to determine the winner based on subsequent rounds
-        // This is a simplification - the real winner might need more careful tracking
+
       }
     }
 

@@ -15,11 +15,11 @@ const transporter = nodemailer.createTransport({
 export async function POST(request) {
   try {
     const { email } = await request.json();
-    
+
     // Generate verification token
     const token = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    
+
     // Store verification token
     await prisma.verificationToken.create({
       data: {
@@ -28,9 +28,9 @@ export async function POST(request) {
         expires,
       },
     });
-    
+
     const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}`;
-    
+
     await transporter.sendMail({
       from: process.env.EMAIL_SERVER_USER,
       to: email,
@@ -42,7 +42,7 @@ export async function POST(request) {
         <p>This link will expire in 24 hours.</p>
       `,
     });
-    
+
     return NextResponse.json({ message: "Verification email sent" });
   } catch (error) {
     console.error("Email sending error:", error);
@@ -57,7 +57,7 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');
-   
+
     if (!token) {
       return NextResponse.json(
         { error: "Token is required" },
@@ -65,7 +65,7 @@ export async function GET(request) {
       );
     }
 
-    // First check if the user is already verified
+    //  check if the user is already verified
     const existingToken = await prisma.verificationToken.findUnique({
       where: { token }
     });
@@ -77,7 +77,7 @@ export async function GET(request) {
         alreadyVerified: true
       });
     }
-   
+
     // Find token and user in a transaction
     const result = await prisma.$transaction(async (tx) => {
       // Find user
@@ -91,7 +91,6 @@ export async function GET(request) {
 
       // Check if already verified
       if (user.emailVerified) {
-        // Clean up token and return success
         await tx.verificationToken.delete({
           where: { token }
         });
@@ -99,7 +98,6 @@ export async function GET(request) {
       }
 
       if (existingToken.expires < new Date()) {
-        // Delete expired token
         await tx.verificationToken.delete({
           where: { token }
         });
@@ -122,20 +120,20 @@ export async function GET(request) {
 
     // Remove sensitive data
     const { password: _, ...userWithoutPassword } = result;
-    
+
     return NextResponse.json({
       message: "Email verified successfully",
       user: userWithoutPassword
     });
-    
+
   } catch (error) {
     console.error("Email verification error:", error);
-   
+
     const errorMessage = error.message || "Error verifying email";
     const status =
       errorMessage === "Invalid token" ||
-      errorMessage === "Token expired" ||
-      errorMessage === "Email already verified" ? 400 : 500;
+        errorMessage === "Token expired" ||
+        errorMessage === "Email already verified" ? 400 : 500;
 
     return NextResponse.json(
       { error: errorMessage },

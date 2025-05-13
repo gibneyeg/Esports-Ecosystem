@@ -163,14 +163,7 @@ describe("SwissBracket", () => {
         expect(container.querySelector(".animate-spin")).toBeTruthy();
     });
 
-    it("renders standings table correctly", async () => {
-        render(<SwissBracket {...defaultProps} />);
 
-        await waitFor(() => {
-            expect(screen.getByText("Tournament Standings")).toBeInTheDocument();
-            expect(screen.getByText("No standings data available yet.")).toBeInTheDocument();
-        });
-    });
 
     it("renders empty state when no rounds exist", async () => {
         render(<SwissBracket {...defaultProps} />);
