@@ -22,17 +22,29 @@ export default function TeamsPage() {
         }
 
         const fetchTeams = async () => {
-            if (status !== "authenticated" || !session?.user?.id) return;
+            if (status !== "authenticated" || !session?.user?.id) {
+                console.log("Not fetching - status:", status, "session:", session);
+                return;
+            }
 
             try {
                 setLoading(true);
+                console.log("Session user:", session.user);
+                console.log("Fetching teams for user ID:", session.user.id);
+
                 const response = await fetch(`/api/teams?userId=${session.user.id}`);
 
                 if (!response.ok) {
+                    console.error("Response not OK:", response.status, response.statusText);
                     throw new Error("Failed to fetch teams");
                 }
 
                 const data = await response.json();
+                console.log("Full API response:", data);
+                console.log("Teams count:", data.teams?.length);
+                console.log("Invitations count:", data.pendingInvitations?.length);
+                console.log("Pending invitations:", data.pendingInvitations);
+
                 setTeams(data.teams || []);
                 setInvitationCount(data.pendingInvitations?.length || 0);
             } catch (err) {
@@ -228,12 +240,13 @@ export default function TeamsPage() {
                 )}
 
                 {/* Team Invitations section for when there are no invitations */}
+
                 {invitationCount === 0 && (
                     <div className="mt-8">
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                             <h2 className="text-xl font-semibold text-blue-800 mb-2">Team Invitations</h2>
                             <p className="text-blue-600 mb-4">
-                                You have no pending team invitations.
+                                You have no pending team invitations{invitationCount}.
                             </p>
                             <Link
                                 href="/teams/invitations"

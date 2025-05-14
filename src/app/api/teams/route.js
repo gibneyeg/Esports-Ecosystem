@@ -235,7 +235,7 @@ export async function GET(req) {
             // Get pending invitations for this user
             const pendingInvitations = await prisma.teamInvitation.findMany({
                 where: {
-                    userId,
+                    userId: session.user.id,
                     status: "PENDING"
                 },
                 include: {
