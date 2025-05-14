@@ -110,7 +110,7 @@ export async function POST(request, context) {
         }
 
         const requestData = await request.json();
-        const { rounds, currentRound, winners } = requestData;
+        const { rounds, currentRound, winners, isTeamTournament } = requestData;
 
         if (!rounds) {
             return NextResponse.json({ message: "Rounds data is required" }, { status: 400 });
@@ -176,45 +176,93 @@ export async function POST(request, context) {
                     for (let j = 0; j < round.matches.length; j++) {
                         const match = round.matches[j];
 
-                        await tx.tournamentSwissMatch.create({
-                            data: {
-                                roundId: createdRound.id,
-                                player1Id: match.player1Id,
-                                player2Id: match.player2Id,
-                                result: match.result,
-                                position: j
-                            }
-                        });
+                        if (isTeamTournament) {
+                            // Create match with nulls for player IDs and store team info in metadata
+                            await tx.tournamentSwissMatch.create({
+                                data: {
+                                    roundId: createdRound.id,
+                                    player1Id: null, // Set to null for team matches
+                                    player2Id: null, // Set to null for team matches
+                                    result: match.result,
+                                    position: j,
+                                    // Store metadata as JSON string
+                                    metadata: JSON.stringify({
+                                        isTeamMatch: true,
+                                        team1Id: match.team1Id,
+                                        team2Id: match.team2Id,
+                                        team1Name: match.team1Name,
+                                        team2Name: match.team2Name
+                                    })
+                                }
+                            });
+                        } else {
+                            // For individual tournaments, use regular player IDs
+                            await tx.tournamentSwissMatch.create({
+                                data: {
+                                    roundId: createdRound.id,
+                                    player1Id: match.player1Id,
+                                    player2Id: match.player2Id,
+                                    result: match.result,
+                                    position: j
+                                }
+                            });
+                        }
                     }
                 }
             }
 
             // Update winners if provided
             if (winners && winners.length > 0) {
-                // Delete existing winners
-                await tx.tournamentWinner.deleteMany({
-                    where: { tournamentId: id }
-                });
+                // For team tournaments, only update the tournament metadata
+                if (isTeamTournament) {
+                    console.log("Saving team winners to tournament metadata");
 
-                // Create new winners
-                for (const winner of winners) {
-                    if (winner.userId) {
-                        await tx.tournamentWinner.create({
-                            data: {
-                                tournamentId: id,
-                                userId: winner.userId,
-                                position: winner.position,
-                                prizeMoney: winner.prizeMoney || 0
-                            }
-                        });
-                    }
+                    // Get current format settings
+                    const formatSettings = tournament.formatSettings || {};
+
+                    // Update tournament with winner metadata and status
+                    await tx.tournament.update({
+                        where: { id },
+                        data: {
+                            formatSettings: {
+                                ...formatSettings,
+                                teamWinners: winners.map(w => ({
+                                    teamId: w.teamId,
+                                    position: w.position,
+                                    prizeMoney: w.prizeMoney || 0
+                                }))
+                            },
+                            status: "COMPLETED"
+                        }
+                    });
                 }
+                // For individual tournaments, process winners normally
+                else {
+                    // Delete existing winners
+                    await tx.tournamentWinner.deleteMany({
+                        where: { tournamentId: id }
+                    });
 
-                // Update tournament status to completed
-                await tx.tournament.update({
-                    where: { id },
-                    data: { status: "COMPLETED" }
-                });
+                    // Create new winners
+                    for (const winner of winners) {
+                        if (winner.userId) {
+                            await tx.tournamentWinner.create({
+                                data: {
+                                    tournament: { connect: { id: id } },
+                                    user: { connect: { id: winner.userId } },
+                                    position: winner.position,
+                                    prizeMoney: winner.prizeMoney || 0
+                                }
+                            });
+                        }
+                    }
+
+                    // Update tournament status
+                    await tx.tournament.update({
+                        where: { id },
+                        data: { status: "COMPLETED" }
+                    });
+                }
             }
         });
 

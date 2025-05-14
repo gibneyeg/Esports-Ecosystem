@@ -292,7 +292,12 @@ const TournamentBracketsHandler = ({ tournament, currentUser }) => {
   }
 
   // If there are no participants yet, show a message
-  if (!tournament.participants || tournament.participants.length === 0) {
+  const isTeamTournament = tournament?.formatSettings?.registrationType === "TEAM";
+  const hasParticipants = isTeamTournament
+    ? tournament.teamParticipants && tournament.teamParticipants.length > 0
+    : tournament.participants && tournament.participants.length > 0;
+
+  if (!hasParticipants) {
     return (
       <div className="p-6 border rounded-md bg-gray-50 text-center">
         <p className="text-lg text-gray-600">
@@ -303,12 +308,16 @@ const TournamentBracketsHandler = ({ tournament, currentUser }) => {
   }
 
   // If there are fewer participants than required, show a warning
-  if (tournament.participants.length < 3) {
+  const participantCount = isTeamTournament
+    ? tournament.teamParticipants?.length || 0
+    : tournament.participants?.length || 0;
+
+  if (participantCount < 3) {
     return (
       <div className="p-6 border rounded-md bg-yellow-50 text-center">
         <p className="text-lg text-yellow-700">
           This tournament needs at least 3 participants to generate a bracket.
-          Current count: {tournament.participants.length}
+          Current count: {participantCount}
         </p>
       </div>
     );
@@ -409,7 +418,7 @@ const TournamentBracketsHandler = ({ tournament, currentUser }) => {
       )}
 
       {/* Swiss Tournament Bracket */}
-      {tournament.format === 'SWISS' && (
+      {tournament.format === 'SWISS' && hasParticipants && participantCount >= 3 && (
         <SwissBracket
           tournament={tournament}
           participants={participants}
@@ -419,7 +428,7 @@ const TournamentBracketsHandler = ({ tournament, currentUser }) => {
           setThirdPlace={setThirdPlace}
           viewOnly={!access.canManage}
           saveBracket={saveBracket}
-          isTeamTournament={false}
+          isTeamTournament={isTeamTournament}
         />
       )}
 

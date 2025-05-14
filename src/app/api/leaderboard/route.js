@@ -113,7 +113,8 @@ export async function GET() {
         totalWinnings,
         recentResult,
         recentTournamentId,
-        tournamentWins: user.tournamentWins.length || 0
+        tournamentWins: user.tournamentWins,
+        tournamentsCount: user.tournaments.length
       };
     });
 
