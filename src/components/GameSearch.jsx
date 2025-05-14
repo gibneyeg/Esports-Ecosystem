@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 
 const GameSkeleton = () => {
@@ -79,6 +79,9 @@ export default function SearchBar({ searchQuery, setSearchQuery, filterTournamen
   const [initialLoad, setInitialLoad] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
 
+  // Create a ref to store the timeout
+  const searchTimeoutRef = useRef(null);
+
   const fetchRandomGames = async () => {
     try {
       setLoading(true);
@@ -103,6 +106,15 @@ export default function SearchBar({ searchQuery, setSearchQuery, filterTournamen
     });
   }, []);
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleGameSelect = (gameName) => {
     if (selectedGame === gameName) {
       setSelectedGame('');
@@ -117,12 +129,19 @@ export default function SearchBar({ searchQuery, setSearchQuery, filterTournamen
     const value = e.target.value;
     setSearchQuery(value);
 
-    // Show brief loading state when typing
+    // Clear existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // Set loading state
     setSearchLoading(true);
-    setTimeout(() => {
+
+    // Set new timeout for debounced search
+    searchTimeoutRef.current = setTimeout(() => {
       updateSearch(selectedGame, value);
       setSearchLoading(false);
-    }, 300);
+    }, 800); // Increased to 800ms to wait for user to finish typing
   };
 
   const updateSearch = (game = '', query = searchQuery) => {
@@ -135,6 +154,11 @@ export default function SearchBar({ searchQuery, setSearchQuery, filterTournamen
   };
 
   const clearAllFilters = () => {
+    // Clear any pending search
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
     setSelectedGame('');
     setSearchQuery('');
     filterTournaments('');
@@ -173,26 +197,29 @@ export default function SearchBar({ searchQuery, setSearchQuery, filterTournamen
       <div className="space-y-6">
         <div className="flex">
           <div className="relative w-full">
-            {searchLoading ? (
-              <SearchSkeleton />
-            ) : (
-              <>
-                <input
-                  type="text"
-                  placeholder="SEARCH TOURNAMENTS"
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                  className="w-full px-6 py-3 text-base rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  autoComplete="off"
-                  autoFocus
-                />
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-              </>
-            )}
+            <input
+              type="text"
+              placeholder="SEARCH TOURNAMENTS"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              className="w-full px-6 py-3 text-base rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              autoComplete="off"
+              autoFocus
+            />
+            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400">
+              {searchLoading ? (
+                // Show loading spinner when typing
+                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                // Show search icon when not loading
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              )}
+            </div>
           </div>
         </div>
 
