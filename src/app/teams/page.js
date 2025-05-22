@@ -165,7 +165,7 @@ export default function TeamsPage() {
 
                         {invitationCount > 0 ? (
                             <p className="text-blue-600 mb-4">
-                                You have {invitationCount} pending team invitation{invitationCount !== 1 ? 's' : ''}.
+                                You have pending team invitation.
                             </p>
                         ) : (
                             <p className="text-blue-600 mb-4">

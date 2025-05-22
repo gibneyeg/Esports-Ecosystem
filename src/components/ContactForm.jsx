@@ -9,7 +9,6 @@ const ContactForm = () => {
     message: "",
   });
   const [status, setStatus] = useState("");
-  const [focusedField, setFocusedField] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -49,31 +48,30 @@ const ContactForm = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-12">
-      <div className="text-center mb-12">
-        <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+    <div className="w-full max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+      {/* Header Section */}
+      <div className="text-center mb-8 sm:mb-12">
+        <h2 className="text-3xl sm:text-4xl font-bold mb-3 sm:mb-4 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
           Get in Touch
         </h2>
-        <p className="text-gray-600 text-lg max-w-xl mx-auto">
+        <p className="text-gray-600 text-base sm:text-lg max-w-xl mx-auto px-4">
           We&apos;d love to hear from you. Let us know how we can help.
         </p>
       </div>
 
+      {/* Contact Form */}
       <form
         onSubmit={handleSubmit}
-        className="space-y-8 bg-white p-8 rounded-2xl shadow-lg border border-gray-100"
+        className="space-y-6 sm:space-y-8 bg-white p-4 sm:p-6 lg:p-8 rounded-2xl shadow-lg border border-gray-100"
       >
-        <div className="space-y-6">
-          <div className="relative">
+        <div className="space-y-4 sm:space-y-6">
+          {/* Name Field */}
+          <div className="space-y-1">
             <label
               htmlFor="name"
-              className={`absolute left-4 transition-all duration-200 ${
-                focusedField === "name" || formData.name
-                  ? "-top-3 text-xs bg-white px-2 text-gray-700"
-                  : "top-3 text-gray-400"
-              }`}
+              className="block text-sm font-medium text-gray-700 mb-2"
             >
-              Name
+              Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -81,23 +79,21 @@ const ContactForm = () => {
               name="name"
               value={formData.name}
               onChange={handleChange}
-              onFocus={() => setFocusedField("name")}
-              onBlur={() => setFocusedField(null)}
               required
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-0 transition-colors duration-200"
+              className="w-full px-4 py-3 sm:py-4 text-base border-2 border-gray-200 rounded-xl 
+                         focus:border-gray-900 focus:ring-0 transition-colors duration-200
+                         placeholder:text-gray-400 touch-manipulation"
+              placeholder="Enter your full name"
             />
           </div>
 
-          <div className="relative">
+          {/* Email Field */}
+          <div className="space-y-1">
             <label
               htmlFor="email"
-              className={`absolute left-4 transition-all duration-200 ${
-                focusedField === "email" || formData.email
-                  ? "-top-3 text-xs bg-white px-2 text-gray-700"
-                  : "top-3 text-gray-400"
-              }`}
+              className="block text-sm font-medium text-gray-700 mb-2"
             >
-              Email
+              Email <span className="text-red-500">*</span>
             </label>
             <input
               type="email"
@@ -105,23 +101,21 @@ const ContactForm = () => {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              onFocus={() => setFocusedField("email")}
-              onBlur={() => setFocusedField(null)}
               required
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-0 transition-colors duration-200"
+              className="w-full px-4 py-3 sm:py-4 text-base border-2 border-gray-200 rounded-xl 
+                         focus:border-gray-900 focus:ring-0 transition-colors duration-200
+                         placeholder:text-gray-400 touch-manipulation"
+              placeholder="Enter your email address"
             />
           </div>
 
-          <div className="relative">
+          {/* Subject Field */}
+          <div className="space-y-1">
             <label
               htmlFor="subject"
-              className={`absolute left-4 transition-all duration-200 ${
-                focusedField === "subject" || formData.subject
-                  ? "-top-3 text-xs bg-white px-2 text-gray-700"
-                  : "top-3 text-gray-400"
-              }`}
+              className="block text-sm font-medium text-gray-700 mb-2"
             >
-              Subject
+              Subject <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -129,42 +123,50 @@ const ContactForm = () => {
               name="subject"
               value={formData.subject}
               onChange={handleChange}
-              onFocus={() => setFocusedField("subject")}
-              onBlur={() => setFocusedField(null)}
               required
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-0 transition-colors duration-200"
+              className="w-full px-4 py-3 sm:py-4 text-base border-2 border-gray-200 rounded-xl 
+                         focus:border-gray-900 focus:ring-0 transition-colors duration-200
+                         placeholder:text-gray-400 touch-manipulation"
+              placeholder="What is this about?"
             />
           </div>
 
-          <div className="relative">
+          {/* Message Field */}
+          <div className="space-y-1">
             <label
               htmlFor="message"
-              className={`absolute left-4 transition-all duration-200 ${
-                focusedField === "message" || formData.message
-                  ? "-top-3 text-xs bg-white px-2 text-gray-700"
-                  : "top-3 text-gray-400"
-              }`}
+              className="block text-sm font-medium text-gray-700 mb-2"
             >
-              Message
+              Message <span className="text-red-500">*</span>
             </label>
             <textarea
               id="message"
               name="message"
               value={formData.message}
               onChange={handleChange}
-              onFocus={() => setFocusedField("message")}
-              onBlur={() => setFocusedField(null)}
               required
               rows="5"
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-0 transition-colors duration-200 resize-none"
+              className="w-full px-4 py-3 sm:py-4 text-base border-2 border-gray-200 rounded-xl 
+                         focus:border-gray-900 focus:ring-0 transition-colors duration-200 
+                         resize-none placeholder:text-gray-400 touch-manipulation min-h-[120px]"
+              placeholder="Tell us more about your inquiry..."
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Please provide as much detail as possible to help us assist you better.
+            </p>
           </div>
         </div>
 
+        {/* Submit Button */}
         <button
           type="submit"
           disabled={status === "sending"}
-          className="w-full bg-black text-white py-4 px-6 rounded-xl font-medium hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[0.99]"
+          className="w-full bg-black text-white py-4 sm:py-5 px-6 rounded-xl font-medium 
+                     text-base sm:text-lg hover:bg-gray-900 focus:outline-none focus:ring-2 
+                     focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 
+                     disabled:cursor-not-allowed transition-all duration-200 
+                     transform hover:scale-[0.99] active:scale-[0.97] touch-manipulation
+                     min-h-[48px] flex items-center justify-center"
         >
           {status === "sending" ? (
             <span className="flex items-center justify-center">
@@ -188,37 +190,83 @@ const ContactForm = () => {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              Sending...
+              Sending Message...
             </span>
           ) : (
             "Send Message"
           )}
         </button>
 
+        {/* Success Message */}
         {status === "success" && (
-          <div className="bg-gray-50 border-l-4 border-gray-900 p-4 rounded-lg">
-            <div className="flex">
+          <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-lg animate-fadeIn">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg
+                  className="h-5 w-5 text-green-400"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
               <div className="ml-3">
-                <p className="text-sm text-gray-700">
-                  Thank you! Your message has been sent successfully.
+                <h3 className="text-sm font-medium text-green-800 mb-1">
+                  Message sent successfully!
+                </h3>
+                <p className="text-sm text-green-700">
+                  Thank you for reaching out. We&apos;ll get back to you as soon as possible.
                 </p>
               </div>
             </div>
           </div>
         )}
 
+        {/* Error Message */}
         {status === "error" && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-            <div className="flex">
+          <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg animate-fadeIn">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg
+                  className="h-5 w-5 text-red-400"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
               <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800 mb-1">
+                  Message failed to send
+                </h3>
                 <p className="text-sm text-red-700">
-                  Sorry, there was an error sending your message. Please try
-                  again.
+                  Sorry, there was an error sending your message. Please try again or contact us directly.
                 </p>
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStatus("")}
+                    className="text-sm text-red-800 hover:text-red-900 underline"
+                  >
+                    Try again
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         )}
+
+
       </form>
     </div>
   );

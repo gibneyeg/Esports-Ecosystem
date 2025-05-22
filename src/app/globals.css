@@ -12,3 +12,277 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Mobile-only utilities and improvements */
+@layer utilities {
+  
+  /* Extra small breakpoint utilities (mobile-only) */
+  @media (max-width: 475px) {
+    .xs\:grid-cols-1 {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+    
+    .xs\:grid-cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    
+    .xs\:text-xs {
+      font-size: 0.75rem;
+      line-height: 1rem;
+    }
+    
+    .xs\:text-sm {
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+    }
+    
+    .xs\:px-2 {
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+    }
+    
+    .xs\:py-1 {
+      padding-top: 0.25rem;
+      padding-bottom: 0.25rem;
+    }
+    
+    .xs\:space-y-2 > * + * {
+      margin-top: 0.5rem;
+    }
+  }
+
+  /* Touch-friendly interactions (mobile-only) */
+  @media (max-width: 768px) {
+    .touch-manipulation {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+    
+    /* Prevent zoom on iOS when input is focused (mobile-only) */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="search"],
+    input[type="tel"],
+    input[type="url"],
+    input[type="number"],
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+    
+    /* Mobile-optimized minimum touch targets */
+    .btn-touch {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    
+    /* Mobile-friendly form inputs */
+    .input-touch {
+      min-height: 44px;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+    }
+  }
+
+  /* Text truncation utilities */
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+@layer components {
+  
+  /* Mobile-specific animations */
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .animate-slideDown {
+    animation: slideDown 0.2s ease-out;
+  }
+
+  .animate-slideUp {
+    animation: slideUp 0.2s ease-out;
+  }
+
+  /* Mobile-optimized card hover effects */
+  @media (max-width: 768px) {
+    .card-mobile:active {
+      transform: scale(0.98);
+      transition: transform 0.1s ease-out;
+    }
+  }
+  
+  /* Mobile-only: Remove hover effects on touch devices */
+  @media (hover: none) and (pointer: coarse) {
+    .hover\:scale-105:hover {
+      transform: none;
+    }
+    
+    .hover\:shadow-lg:hover {
+      box-shadow: none;
+    }
+    
+    /* Replace with touch-friendly active states */
+    .mobile-touch-scale:active {
+      transform: scale(0.98);
+    }
+  }
+
+  /* Mobile navigation improvements */
+  @media (max-width: 768px) {
+    .mobile-nav-item {
+      @apply block py-3 px-4 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg mb-1 touch-manipulation transition-all duration-200;
+    }
+    
+    .mobile-nav-item:active {
+      @apply bg-gray-600 scale-98;
+    }
+  }
+
+  /* Mobile-optimized modals */
+  @media (max-width: 640px) {
+    .modal-mobile {
+      @apply fixed inset-0 z-50 p-0;
+    }
+    
+    .modal-content-mobile {
+      @apply h-full w-full rounded-none max-h-none;
+    }
+  }
+
+  /* Tournament bracket mobile optimizations */
+  @media (max-width: 768px) {
+    .bracket-mobile {
+      @apply overflow-x-auto pb-4;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+    }
+    
+    .bracket-column-mobile {
+      @apply min-w-[200px] px-2;
+    }
+    
+    .match-card-mobile {
+      @apply text-sm p-3;
+    }
+    
+    .match-button-mobile {
+      @apply text-xs py-1 px-2 min-h-[36px];
+    }
+  }
+
+  /* Mobile-friendly table styles */
+  @media (max-width: 640px) {
+    .table-mobile {
+      @apply text-sm;
+    }
+    
+    .table-mobile th,
+    .table-mobile td {
+      @apply py-2 px-1;
+    }
+  }
+
+  /* Safe area insets for devices with notches (mobile-only) */
+  @supports (padding-top: env(safe-area-inset-top)) {
+    .safe-area-top {
+      padding-top: env(safe-area-inset-top);
+    }
+    
+    .safe-area-bottom {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    
+    .safe-area-left {
+      padding-left: env(safe-area-inset-left);
+    }
+    
+    .safe-area-right {
+      padding-right: env(safe-area-inset-right);
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mobile-only: Custom scrollbar for tournament brackets */
+@media (max-width: 768px) {
+  .custom-scrollbar-mobile {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e0 #f7fafc;
+  }
+
+  .custom-scrollbar-mobile::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar-mobile::-webkit-scrollbar-track {
+    background: #f7fafc;
+    border-radius: 3px;
+  }
+
+  .custom-scrollbar-mobile::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 3px;
+  }
+
+  .custom-scrollbar-mobile::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+  }
+}
