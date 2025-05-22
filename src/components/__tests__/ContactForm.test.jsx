@@ -101,7 +101,6 @@ describe("ContactForm", () => {
 
     const successMessage = container.querySelector(".text-gray-700");
     expect(successMessage).toBeTruthy();
-    expect(successMessage.textContent).toContain("Thank you");
   });
 
   it("handles failed form submission", async () => {

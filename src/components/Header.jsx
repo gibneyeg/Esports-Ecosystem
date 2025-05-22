@@ -11,7 +11,21 @@ export default function Header() {
   const { data: session, status } = useSession();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showTeamsMenu, setShowTeamsMenu] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Close mobile menu when screen size changes
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Close menus when clicking outside
   useEffect(() => {
     if (!showProfileMenu) return;
 
@@ -74,20 +88,54 @@ export default function Header() {
     }
   };
 
+  const getRankEmoji = (rank) => {
+    const rankLower = (rank || "Bronze").toLowerCase();
+    switch (rankLower) {
+      case "diamond": return "💠";
+      case "platinum": return "💎";
+      case "gold": return "🥇";
+      case "silver": return "🥈";
+      case "bronze": return "🥉";
+      case "master": return "🎖️";
+      case "grandmaster": return "🏆";
+      default: return "🥉";
+    }
+  };
+
   return (
     <header className="bg-black">
       <nav className="flex justify-between items-center px-4 lg:px-6 py-2.5 h-16">
-        <Link href="/" className={`flex items-center mr-4 ${styles.logo}`}>          <Image
-          src={logo}
-          alt="Logo"
-          width={150}
-          height={50}
-          quality={100}
-          priority
-          className="h-auto w-auto"
-        />
+        {/* Mobile hamburger button */}
+        <button
+          className="md:hidden p-2 text-white hover:bg-gray-800 rounded-lg transition-colors touch-manipulation"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d={isMobileMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}
+            />
+          </svg>
+        </button>
+
+        {/* Logo - keeping original desktop styling */}
+        <Link href="/" className={`flex items-center mr-4 ${styles.logo}`}>
+          <Image
+            src={logo}
+            alt="Logo"
+            width={150}
+            height={50}
+            quality={100}
+            priority
+            className="h-auto w-auto"
+          />
         </Link>
-        <div className="flex-grow flex justify-center -ml-20">
+
+        {/* Desktop navigation - centered like original */}
+        <div className="hidden md:flex flex-grow justify-center -ml-20">
           <ul className="flex space-x-8 mr-10">
             <li>
               <Link
@@ -123,7 +171,7 @@ export default function Header() {
                   className="block py-2 text-gray-400 hover:text-white text-base flex items-center"
                 >
                   Teams
-                  <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -150,6 +198,8 @@ export default function Header() {
             )}
           </ul>
         </div>
+
+        {/* User section - keeping original desktop layout */}
         <div className="flex items-center gap-4 min-w-[200px] justify-end">
           {status === "loading" ? (
             <div className="flex gap-4">
@@ -162,7 +212,7 @@ export default function Header() {
                 <div className="relative profile-menu-container">
                   <button
                     onClick={() => setShowProfileMenu(!showProfileMenu)}
-                    className="flex items-center gap-2 text-white hover:bg-gray-800 px-3 py-2 rounded-lg transition-colors h-10"
+                    className="flex items-center gap-2 text-white hover:bg-gray-800 px-3 py-2 rounded-lg transition-colors h-10 touch-manipulation"
                   >
                     <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-gray-700 to-gray-800 border border-gray-600 shadow-inner">
                       {session.user.image && validateImageUrl(session.user.image) ? (
@@ -185,14 +235,8 @@ export default function Header() {
                         {session.user.username || session.user.email}
                       </span>
                       <span className={`text-xs font-medium ${getRankColorClass(session.user.rank)}`}>
-                        {session.user.rank === "Bronze" && "🥉"}
-                        {session.user.rank === "Silver" && "🥈"}
-                        {session.user.rank === "Gold" && "🥇"}
-                        {session.user.rank === "Platinum" && "💎"}
-                        {session.user.rank === "Diamond" && "💠"}
-                        {session.user.rank === "Master" && "🎖️"}
-                        {session.user.rank === "Grandmaster" && "🏆"}
-                        {!session.user.rank && "🥉"}
+                        {getRankEmoji(session.user.rank)}
+                        {session.user.rank || "Bronze"}
                       </span>
                     </div>
                   </button>
@@ -283,13 +327,13 @@ export default function Header() {
                 <>
                   <Link
                     href="/login"
-                    className="text-white hover:text-gray-900 hover:bg-white focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 h-10 flex items-center transition-colors duration-200"
+                    className="text-white hover:text-gray-900 hover:bg-white focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 h-10 flex items-center transition-colors duration-200 touch-manipulation"
                   >
                     Log in
                   </Link>
                   <Link
                     href="/signup"
-                    className="text-white hover:text-gray-900 hover:bg-white focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 h-10 flex items-center transition-colors duration-200"
+                    className="text-white hover:text-gray-900 hover:bg-white focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 h-10 flex items-center transition-colors duration-200 touch-manipulation"
                   >
                     Get started
                   </Link>
@@ -299,6 +343,117 @@ export default function Header() {
           )}
         </div>
       </nav>
+
+      {/* Mobile menu overlay */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden absolute top-16 left-0 right-0 bg-black border-t border-gray-700 z-50 shadow-lg">
+          <div className="max-h-screen overflow-y-auto">
+            <div className="py-4">
+              <ul className="flex flex-col space-y-1 px-4">
+                <li>
+                  <Link
+                    href="/"
+                    className="block py-3 px-4 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg text-base transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Home
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/leaderBoard"
+                    className="block py-3 px-4 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg text-base transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    LeaderBoard
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/tournament"
+                    className="block py-3 px-4 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg text-base transition-colors"
+                    data-testid="nav-tournaments"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Tournaments
+                  </Link>
+                </li>
+
+                {/* Teams Section - Mobile */}
+                {status !== "loading" && session && (
+                  <li>
+                    <div className="py-1">
+                      <div className="px-4 py-2 text-gray-400 text-sm font-medium">Teams</div>
+                      <Link
+                        href="/teams"
+                        className="block py-2 px-6 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        My Teams
+                      </Link>
+                      <Link
+                        href="/teams/invitations"
+                        className="block py-2 px-6 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        Team Invitations
+                      </Link>
+                    </div>
+                  </li>
+                )}
+              </ul>
+            </div>
+
+            {/* Mobile Profile Actions */}
+            {session?.user && (
+              <div className="border-t border-gray-700 py-4 px-4">
+                <div className="space-y-2">
+                  <Link
+                    href={`/user/${session.user.id}`}
+                    className="flex items-center gap-3 py-3 px-4 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-base">View Profile</span>
+                  </Link>
+                  <Link
+                    href="/settings"
+                    className="flex items-center gap-3 py-3 px-4 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-base">Settings</span>
+                  </Link>
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="flex items-center gap-3 py-3 px-4 text-red-400 hover:text-red-300 hover:bg-gray-700 rounded-lg transition-colors w-full text-left"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V7.414l-5-5H3zm11 4a1 1 0 10-2 0v7.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L14 14.586V7z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-base">Logout</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile menu backdrop */}
+      {isMobileMenuOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
     </header>
   );
 }
